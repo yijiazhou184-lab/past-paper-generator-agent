@@ -1,0 +1,12 @@
+# Replace YOUR_MODEL_NAME with a model available through your provider.
+# Set OPENAI_API_KEY in your terminal before starting the proxy.
+model_list:
+  - model_name: default
+    litellm_params:
+      model: openai/YOUR_MODEL_NAME
+      api_key: os.environ/OPENAI_API_KEY
+      # For an OpenAI-compatible provider, uncomment and set its API base:
+      # api_base: https://your-provider.example/v1
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
