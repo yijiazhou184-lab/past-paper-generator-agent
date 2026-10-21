@@ -18,8 +18,20 @@ from .errors import DomainError
 from .schemas import SessionSchema, CoursesSchema, TasksSchema, TaskSchema
 
 
-def task_view(task):
+def task_view(task, include_calls=False):
     elapsed = ((task.finished_at or timezone.now()) - task.created_at).total_seconds()
+    calls = []
+    if include_calls:
+        for call in task.model_calls.order_by("created_at"):
+            result = call.result
+            source = call.metadata.get("source")
+            calls.append({"id": str(call.id), "key": call.call_key, "state": call.state,
+                "status": result.get("status", "outcome_not_recorded"),
+                "mode": result.get("mode", call.metadata.get("mode", "unknown")),
+                "model": result.get("model") or call.metadata.get("model"),
+                "elapsed_seconds": result.get("elapsed_seconds"), "usage": result.get("usage", {}),
+                "error_code": result.get("error_code"), "payload": result.get("payload"),
+                "source_url": f'/courses/{task.course_id}/materials?source={source["evidence_id"]}' if source else None})
     return {"id": str(task.id), "course_id": str(task.course_id), "kind": task.kind,
             "state": task.state, "stage": task.stage, "elapsed_seconds": round(elapsed, 1),
             "target_exceeded": task.kind in ("analysis", "planning", "generation") and elapsed > 120, "created_at": task.created_at,
@@ -27,7 +39,8 @@ def task_view(task):
             "heartbeat_at": task.heartbeat_at, "epoch": task.execution_epoch,
             "result": task.result, "error": task.error, "checkpoint": task.checkpoint,
             "parent_id": str(task.parent_id) if task.parent_id else None,
-            "events": list(task.events.order_by("created_at").values("stage", "created_at", "detail"))}
+            "events": list(task.events.order_by("created_at").values("stage", "created_at", "detail")),
+            "model_calls": calls}
 
 
 class SessionView(APIView):
@@ -71,7 +84,7 @@ class TasksView(APIView):
 class TaskView(APIView):
     @extend_schema(responses=TaskSchema)
     def get(self, request, task_id):
-        return Response(task_view(get_object_or_404(Task, pk=task_id, course__owner=request.user)))
+        return Response(task_view(get_object_or_404(Task, pk=task_id, course__owner=request.user), include_calls=True))
 
 
 class CancelView(APIView):
@@ -86,6 +99,9 @@ class RetryView(APIView):
         original = get_object_or_404(Task.objects.select_related("course"), pk=task_id, course__owner=request.user)
         if original.state not in ("failed", "cancelled"):
             raise DomainError("TASK_NOT_RETRYABLE")
+        if original.kind == "ai_validation":
+            raise DomainError("LIVE_VALIDATION_COMMAND_REQUIRED",
+                              "Review the saved model calls before starting another paid validation run.")
         task = submit_task(original.course, original.kind, original.snapshot,
                            request.headers.get("Idempotency-Key"), parent=original)
         if task.kind == "parse":

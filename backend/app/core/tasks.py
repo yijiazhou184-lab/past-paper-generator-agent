@@ -8,7 +8,8 @@ from .idempotency import intent
 from .types import ExecutionToken
 from .errors import DomainError
 
-LIMITS = {"parse": 900, "analysis": 900, "planning": 180, "generation": 600, "export": 120}
+LIMITS = {"parse": 900, "analysis": 900, "planning": 180, "generation": 600, "export": 120,
+          "ai_validation": 900}
 
 
 @transaction.atomic
@@ -17,8 +18,8 @@ def submit_task(course, kind, snapshot, key, parent=None):
     record = intent(course.owner, f"task:{course.id}:{kind}", key, snapshot)
     if record.response:
         return Task.objects.get(pk=record.response["task_id"])
-    if kind in ("analysis", "planning", "generation"):
-        busy = Task.objects.filter(course=course, kind__in=["analysis", "planning", "generation"],
+    if kind in ("analysis", "planning", "generation", "ai_validation"):
+        busy = Task.objects.filter(course=course, kind__in=["analysis", "planning", "generation", "ai_validation"],
                                    state__in=["queued", "processing"]).first()
         if busy:
             raise DomainError("COURSE_BUSY", "This course already has a running task.", task_id=busy.id)

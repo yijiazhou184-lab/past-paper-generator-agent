@@ -1,4 +1,4 @@
-"""Batch 1 boundary: no network adapter is installed or selected here."""
+"""Normal application calls stay disabled; explicit live validation uses responses.py."""
 from typing import Callable
 from .contracts import ModelCallSpec, ModelCallResult
 

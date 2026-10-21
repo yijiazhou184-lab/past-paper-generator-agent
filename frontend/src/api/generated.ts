@@ -270,6 +270,25 @@ export interface components {
             roles: string[];
             limits: components["schemas"]["MaterialLimitsSchema"];
         };
+        ModelCallSchema: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            state: string;
+            status: string;
+            mode: string;
+            model: string | null;
+            /** Format: double */
+            elapsed_seconds: number | null;
+            usage: {
+                [key: string]: unknown;
+            };
+            error_code: string | null;
+            payload: {
+                [key: string]: unknown;
+            } | null;
+            source_url: string | null;
+        };
         PageRefSchema: {
             /** Format: uuid */
             id: string;
@@ -386,6 +405,7 @@ export interface components {
             /** Format: uuid */
             parent_id: string | null;
             events: components["schemas"]["TaskEventSchema"][];
+            model_calls: components["schemas"]["ModelCallSchema"][];
         };
         TasksSchema: {
             tasks: components["schemas"]["TaskSchema"][];

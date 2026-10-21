@@ -494,6 +494,52 @@ components:
       - limits
       - materials
       - roles
+    ModelCallSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        state:
+          type: string
+        status:
+          type: string
+        mode:
+          type: string
+        model:
+          type: string
+          nullable: true
+        elapsed_seconds:
+          type: number
+          format: double
+          nullable: true
+        usage:
+          type: object
+          additionalProperties: {}
+        error_code:
+          type: string
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: {}
+          nullable: true
+        source_url:
+          type: string
+          nullable: true
+      required:
+      - elapsed_seconds
+      - error_code
+      - id
+      - key
+      - mode
+      - model
+      - payload
+      - source_url
+      - state
+      - status
+      - usage
     PageRefSchema:
       type: object
       properties:
@@ -733,6 +779,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TaskEventSchema'
+        model_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModelCallSchema'
       required:
       - checkpoint
       - course_id
@@ -745,6 +795,7 @@ components:
       - heartbeat_at
       - id
       - kind
+      - model_calls
       - parent_id
       - result
       - stage

@@ -34,7 +34,7 @@ class Task(UUIDModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["course"],
-                condition=Q(kind__in=["analysis", "planning", "generation"], state__in=["queued", "processing"]),
+                condition=Q(kind__in=["analysis", "planning", "generation", "ai_validation"], state__in=["queued", "processing"]),
                 name="one_active_course_ai_task",
             ),
         ]
@@ -77,3 +77,17 @@ class ErrorRecord(UUIDModel):
     safe_message = models.TextField()
     stage = models.CharField(max_length=100, blank=True)
     retryable = models.BooleanField(default=False)
+
+
+class ModelInvocation(UUIDModel):
+    task = models.ForeignKey(Task, related_name="model_calls", on_delete=models.PROTECT)
+    call_key = models.CharField(max_length=100)
+    epoch = models.PositiveIntegerField()
+    request_hash = models.CharField(max_length=64)
+    metadata = models.JSONField(default=dict)
+    state = models.CharField(max_length=30, default="started")
+    result = models.JSONField(default=dict)
+    finished_at = models.DateTimeField(null=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["task", "call_key"], name="unique_task_model_call")]

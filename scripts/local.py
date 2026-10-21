@@ -117,7 +117,7 @@ def start():
     if any(not process_is_ours(item["pid"], item["started"]) for item in saved.values()):
         raise SystemExit("A service exited during startup. Inspect var/logs.")
     print("Workspace: http://127.0.0.1:5173")
-    print("Logs: var/logs; live model calls remain disabled until explicitly configured.")
+    print("Logs: var/logs; course analysis remains disabled. Scoped API checks require an explicit ai_validate command.")
 
 
 def restart_api():

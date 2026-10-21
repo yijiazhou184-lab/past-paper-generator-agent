@@ -36,6 +36,20 @@ class TaskErrorSchema(s.Serializer):
     diagnostic_id = s.UUIDField(required=False)
 
 
+class ModelCallSchema(s.Serializer):
+    id = s.UUIDField()
+    key = s.CharField()
+    state = s.CharField()
+    status = s.CharField()
+    mode = s.CharField()
+    model = s.CharField(allow_null=True)
+    elapsed_seconds = s.FloatField(allow_null=True)
+    usage = s.DictField()
+    error_code = s.CharField(allow_null=True)
+    payload = s.DictField(allow_null=True)
+    source_url = s.CharField(allow_null=True)
+
+
 class TaskSchema(s.Serializer):
     id = s.UUIDField()
     course_id = s.UUIDField()
@@ -54,6 +68,7 @@ class TaskSchema(s.Serializer):
     checkpoint = s.DictField()
     parent_id = s.UUIDField(allow_null=True)
     events = TaskEventSchema(many=True)
+    model_calls = ModelCallSchema(many=True)
 
 
 class TasksSchema(s.Serializer):

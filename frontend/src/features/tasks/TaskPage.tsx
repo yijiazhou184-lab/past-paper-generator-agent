@@ -37,6 +37,7 @@ export function TaskPage() {
       </section>
     );
   const task = query.data;
+  const liveValidation = task.kind === "ai_validation";
   return (
     <>
       <Link className="back-link" to={`/courses/${task.course_id}/materials`}>
@@ -45,10 +46,11 @@ export function TaskPage() {
       </Link>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">Material processing</p>
+          <p className="breadcrumb">{liveValidation ? "Live model validation" : "Material processing"}</p>
           <h1>{task.state === "failed" ? "Processing failed" : task.stage}</h1>
           <p>
-            {task.state === "succeeded" ? "Processing is complete. Your sources are saved in the materials workspace."
+            {liveValidation ? "A bounded integration check. The saved call records show exactly what ran; page observations remain separate from original evidence."
+              : task.state === "succeeded" ? "Processing is complete. Your sources are saved in the materials workspace."
               : task.state === "cancelled" ? "Processing was cancelled. Your original file is still available."
               : task.state === "failed" ? "Processing stopped. Review the diagnostic below or retry."
               : "Your file is queued or processing locally. You can leave this page and return."}
@@ -89,6 +91,7 @@ export function TaskPage() {
           <div className="error-box" role="alert">
             <h3>Processing could not finish</h3>
             <p>{task.error.message}</p>
+            <small>Error code: {task.error.code}</small>
             <small>Diagnostic ID: {task.error.diagnostic_id}</small>
           </div>
         )}
@@ -98,7 +101,7 @@ export function TaskPage() {
               {cancel.isPending ? "Cancellation requested…" : "Cancel task"}
             </button>
           )}
-          {["failed", "cancelled"].includes(task.state) && (
+          {!liveValidation && ["failed", "cancelled"].includes(task.state) && (
             <button
               className="primary"
               onClick={() => retry.mutate()}
@@ -116,6 +119,28 @@ export function TaskPage() {
             </Link>
           )}
         </div>
+        {liveValidation && ["failed", "cancelled"].includes(task.state) && (
+          <p className="review-note">Review the saved calls before a new paid validation run. This page does not automatically retry model requests.</p>
+        )}
+        {task.model_calls?.length > 0 && (
+          <section aria-label="Model call records">
+            <h2>Model call records</h2>
+            <p>These are live integration checks. Page interpretations are model candidates, not verified course facts.</p>
+            {task.model_calls.map((call) => (
+              <article className="model-call" key={call.id}>
+                <h3>{call.key} · {call.status.replaceAll("_", " ")}</h3>
+                <p>{call.model} · {call.mode} · {call.elapsed_seconds == null ? "Time unknown" : `${call.elapsed_seconds}s`}</p>
+                {call.error_code && <p role="alert">{call.error_code}</p>}
+                <p>Tokens: {call.usage.total_tokens == null ? "Unknown" : String(call.usage.total_tokens)}</p>
+                {call.source_url && <Link to={call.source_url}>View exact source page</Link>}
+                {call.payload && <details>
+                  <summary>Inspect structured model output</summary>
+                  <pre className="model-output">{JSON.stringify(call.payload, null, 2)}</pre>
+                </details>}
+              </article>
+            ))}
+          </section>
+        )}
         {(cancel.isError || retry.isError) && (
           <p role="alert">{cancel.error?.message ?? retry.error?.message}</p>
         )}

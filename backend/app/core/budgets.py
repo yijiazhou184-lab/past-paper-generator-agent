@@ -2,7 +2,7 @@ from django.db import transaction
 from .tasks import locked_task
 from .errors import DomainError
 
-CALL_LIMITS = {"analysis": 8, "planning": 2, "generation": 16, "parse": 0, "export": 0}
+CALL_LIMITS = {"analysis": 8, "planning": 2, "generation": 16, "parse": 0, "export": 0, "ai_validation": 6}
 
 
 @transaction.atomic

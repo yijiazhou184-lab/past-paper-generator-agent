@@ -1,8 +1,8 @@
 # AI Past Paper Generator
 
-当前实现：第一轮 **批次 1（Task 1–2）本地材料工作区**。可上传数字 PDF、复用重复内容、编辑材料类型和答案关联、查看固定版本的原始页、跟踪/取消/重试解析任务。课程分析、组卷、答案生成和两个输出 PDF 尚未实现。没有进行真实 OpenAI API 调用。
+当前实现：第一轮 **批次 1（Task 1–2）本地材料工作区及有界 API 接入验证**。可上传数字 PDF、复用重复内容、编辑材料类型和答案关联、查看固定版本的原始页、跟踪/取消/重试解析任务。2026-10-22 已成功完成官方 `gpt-6.1-sol` 的 1 次合成检查及 5 页真实材料识别，结构化输出、来源绑定和选定数学断言通过。此前两次额度错误及充值后的成功尝试均保留。课程分析、组卷、答案生成和两个输出 PDF 尚未实现。
 
-本轮方案已获确认；用户随后要求先完成第一批本地功能，API key 后续提供。需求入口见 [AGENTS.md](AGENTS.md)，实际验证与限制见 [docs/round-1-validation.md](docs/round-1-validation.md)。历史原型和原材料保持原位。
+本轮方案已获确认；用户已提供本地 API key，并授权五个指定页的官方 API 验证。需求入口见 [AGENTS.md](AGENTS.md)，实际验证与限制见 [docs/round-1-validation.md](docs/round-1-validation.md) 和 [本次接入记录](docs/batch-1-live-validation.md)。历史原型和原材料保持原位。
 
 ## 当前电脑启动（已实际运行）
 
@@ -73,7 +73,29 @@ pnpm --dir frontend install --frozen-lockfile
 
 本机没有 Docker/WSL，采用项目内 PostgreSQL 二进制与 Python/Node 进程实现已确认架构；没有安装系统数据库服务，没有声称 Linux 容器方案已验证。本批未创建未验证的 Compose 启动入口。
 
-`.env.local` 是可选覆盖项，可从 `.env.example` 复制。留空 `APP_DATABASE_URL` 会使用本地私有配置。原有 LiteLLM `.env` 和虚拟环境不参与本应用。即使之后填入 API key，本批也没有可发起真实调用的适配器；真实调用需后续实现及明确数据处理条件。
+`.env.local` 是可选覆盖项，可从 `.env.example` 复制。留空 `APP_DATABASE_URL` 会使用本地私有配置。原有 LiteLLM `.env` 和虚拟环境不参与本应用。`OPENAI_API_KEY` 只保存在本地，不应发送到聊天或提交 Git。网页课程分析仍未启用；填入 key 不会自动触发调用。
+
+## 第一批 API 接入验证
+
+Materials 顶部的 **View saved call records** 可找回真实调用任务。任务页显示模型、阶段、耗时、用量或未知状态、错误、结构化输出（仅成功时）及精确来源链接。最新成功任务为 `32726231-997a-4c00-825d-60fbafc282d0`，总耗时 102.16 秒、18,215 tokens；成功的是小范围接入及页图检查，不能替代六次真实出卷验收。
+
+2026-10-22 用户明确授权五个指定页面及官方目的地，并在额度不足后充值；随后验证成功。范围见接入记录；不重复请求同范围许可。以下提交命令会产生真实 API 请求，只有需要新的验收时才执行。日常查看已有结果和启动网页无需再次调用模型：
+
+```powershell
+# 只发送合成的 x^2 求导题，最多一次请求，不含课程材料
+& .\.venv\Scripts\python.exe backend/manage.py ai_validate --submit --smoke-only --key <new-run-key>
+# 一次合成检查成功后，逐页检查已授权的五页；该任务最多六次请求
+& .\.venv\Scripts\python.exe backend/manage.py ai_validate --submit --allow-course-data-upload --key <new-run-key>
+# 本地导出指定任务的记录；不调用 API
+& .\.venv\Scripts\python.exe backend/manage.py ai_validate --report <task-id>
+# 对已有成功结果执行固定样本数学断言及页面检查；两者均不调用模型
+& .\.venv\Scripts\python.exe scripts/check_batch1_live_result.py 32726231-997a-4c00-825d-60fbafc282d0
+& .\.venv\Scripts\python.exe scripts/test_ai_validation_view.py 32726231-997a-4c00-825d-60fbafc282d0
+```
+
+相同 key 和输入返回同一任务，不重复调用。需要人工审阅后的新尝试可传 `--parent <failed-task-id>` 保留尝试链。没有自动付费重试；远端结果不明的调用不能在恢复时自动重发。取消不能承诺撤销服务端已收到的请求或费用，但旧执行不能发布结果。
+
+命令行授权仅覆盖本次固定清单，`APP_MODEL_MODE=disabled` / `ALLOW_COURSE_DATA_UPLOAD=false` 可继续保留；它们不是这条显式验收命令的开启条件。普通应用调用边界仍返回 `not_executed`，不把命令行授权扩大为网页全部课程数据的长期外发权限。请求固定使用官方 Responses API、`store:false`、SDK 重试次数 0；`store:false` 不代表零保留。
 
 ## 检查命令
 

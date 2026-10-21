@@ -1105,3 +1105,6 @@ pre {
   border-radius: 4px;
   font-size: 12px;
 }
+/* Saved integration evidence stays readable without adding a second data fetch. */
+.model-call { border-top: 1px solid var(--border, #e4e4ec); margin-top: 20px; padding-top: 16px; }
+.model-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; font-size: 0.82rem; line-height: 1.6; }

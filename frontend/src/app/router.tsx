@@ -72,7 +72,7 @@ function Workspace() {
           Open local workspace <ArrowRight size={18} />
         </button>
         <small>
-          Private workspace on this computer. Model calls are disabled.
+          Private workspace on this computer. Course analysis is not enabled yet.
         </small>
         {enter.isError && <p role="alert">{enter.error.message}</p>}
       </div>
@@ -143,7 +143,7 @@ function Workspace() {
         </nav>
         <div className="sidebar-footer">
           <span className="online-dot" /> Local workspace
-          <small>AI calls are off</small>
+          <small>Course analysis pending</small>
         </div>
       </aside>
       <div className="workspace-body">

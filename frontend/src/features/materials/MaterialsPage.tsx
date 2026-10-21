@@ -12,7 +12,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { api, requestKey } from "../../api/client";
-import type { Material, MaterialList } from "../../api/types";
+import type { Material, MaterialList, Task } from "../../api/types";
 import { useCourse } from "../../app/router";
 import { SourcePanel } from "./SourcePanel";
 import { Dialog } from "../../components/Dialog";
@@ -43,6 +43,11 @@ export function MaterialsPage() {
       )
         ? 3000
         : false,
+  });
+  const tasks = useQuery({
+    queryKey: ["tasks", course.id],
+    queryFn: () => api<{ tasks: Task[] }>(`/courses/${course.id}/tasks`),
+    refetchInterval: (q) => q.state.data?.tasks.some((t) => ["queued", "processing"].includes(t.state)) ? 3000 : false,
   });
   const mutation = useMutation({
     mutationFn: () =>
@@ -151,6 +156,11 @@ export function MaterialsPage() {
           Upload PDFs
         </button>
       </div>
+      {tasks.data?.tasks.filter((t) => t.kind === "ai_validation").map((t) => (
+        <p className="review-note" key={t.id}>
+          Live model validation: {t.state} · <Link to={`/tasks/${t.id}`}>View saved call records</Link>
+        </p>
+      ))}
       <input
         ref={input}
         type="file"
@@ -353,7 +363,7 @@ export function MaterialsPage() {
           <h3>Next: understand your course</h3>
           <p>
             Course analysis and confirmation will follow this materials
-            workspace. Model calls are currently off.
+            workspace. Saved integration checks are available above when present.
           </p>
         </div>
         <button disabled>Analyse course</button>

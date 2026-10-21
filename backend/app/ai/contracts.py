@@ -7,6 +7,8 @@ class Usage(BaseModel):
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     total_tokens: int | None = Field(default=None, ge=0)
+    cached_input_tokens: int | None = Field(default=None, ge=0)
+    reasoning_tokens: int | None = Field(default=None, ge=0)
 
 
 class ModelCallSpec(BaseModel):
@@ -23,7 +25,16 @@ class ModelCallSpec(BaseModel):
 class ModelCallResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     mode: Literal["disabled", "fixture", "live"]
-    status: Literal["parsed", "refusal", "truncated", "provider_error", "not_executed"]
+    status: Literal["parsed", "refusal", "truncated", "provider_error", "invalid_output", "not_executed"]
     payload: dict[str, Any] | None = None
     usage: Usage = Field(default_factory=Usage)
     error_code: str | None = None
+    response_id: str | None = None
+    request_id: str | None = None
+    model: str | None = None
+    service_tier: str | None = None
+    elapsed_seconds: float | None = None
+    http_status: int | None = None
+    provider_error_code: str | None = None
+    provider_error_type: str | None = None
+    retry_after_seconds: float | None = None
