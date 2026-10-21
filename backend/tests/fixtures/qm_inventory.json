@@ -1,0 +1,392 @@
+[
+  {
+    "id": "M01",
+    "path": "39183fc0-eb33-4b7a-af78-1c61ce6be2ac_Quantitative_methods_for_business.pdf",
+    "sha256": "26f5e98c43f73adaef11ea23d01daa734344231902c6478259693938bffe705d",
+    "pages": 69
+  },
+  {
+    "id": "M02",
+    "path": "exam resources/additional question 3.pdf",
+    "sha256": "61caa454c0a8756c140abfc3573c8494e938c5151a28773a37808685981bfc53",
+    "pages": 4
+  },
+  {
+    "id": "M03",
+    "path": "exam resources/Additional questions Topic 4 29_01_2026.pdf",
+    "sha256": "4b5db1037fad4b0dc0349558667aeea4dbfde94236fdaada00eb8d614db05c11",
+    "pages": 6
+  },
+  {
+    "id": "M04",
+    "path": "exam resources/Mock exam - answers 04_02_2025.pdf",
+    "sha256": "a516b4a24571d3673d6a96d980561e768f2f543c5b9755caa7e226a99d4f668c",
+    "pages": 8
+  },
+  {
+    "id": "M05",
+    "path": "exam resources/Mock exam - questions 04_02_2025.pdf",
+    "sha256": "909871e303e65a1ec508c77cd610a2adb4acad4b36879dcbd1e7be17786f0ec5",
+    "pages": 7
+  },
+  {
+    "id": "M06",
+    "path": "exam resources/MSIN0180 - Topic 2 - additional questions and answers 11_01_2026.pdf",
+    "sha256": "831eacd2089bb5e1b0e1bebc0f12cd7a9c808a697f5df25c01ca9c790b2128e6",
+    "pages": 8
+  },
+  {
+    "id": "M07",
+    "path": "exam resources/MSIN0180 - Topic 5 - Additional questions 05_02_2026.pdf",
+    "sha256": "164b969fff24d68af0a23c70de54fdb1c66d6013f1d8b3d697fc82f9b69483b3",
+    "pages": 11
+  },
+  {
+    "id": "M08",
+    "path": "exam resources/MSIN0180 Topic 1, additional questions and answers 04_01_2026.pdf",
+    "sha256": "7c02e671675824377377633bad93ad13d95c00c28344bc9a4e033f5039a79c22",
+    "pages": 26
+  },
+  {
+    "id": "M03",
+    "path": "lecture slides/Additional questions Topic 4 29_01_2026 (1).pdf",
+    "sha256": "4b5db1037fad4b0dc0349558667aeea4dbfde94236fdaada00eb8d614db05c11",
+    "pages": 6
+  },
+  {
+    "id": "M09",
+    "path": "lecture slides/lecture3 bg.pdf",
+    "sha256": "f11f2aa621bb3ec477b1e9a932abcdf5c83721b3c3d943615b0235c6bd16a581",
+    "pages": 15
+  },
+  {
+    "id": "M10",
+    "path": "lecture slides/lecture3.pdf",
+    "sha256": "992ecc89a69a32d1cad62c472b8749027189d03c2bb8f5b2a61be7a166b64e7a",
+    "pages": 9
+  },
+  {
+    "id": "M11",
+    "path": "lecture slides/lecture4 bg.pdf",
+    "sha256": "a540ca5552410577135241247041f53bf849d5878bbb1b4f2400f1854a972c30",
+    "pages": 10
+  },
+  {
+    "id": "M12",
+    "path": "lecture slides/lecture4.pdf",
+    "sha256": "6c3405e39d2e11598f85bd2a5f320d65819cfd2b962002fd850813cbe04e1528",
+    "pages": 8
+  },
+  {
+    "id": "M13",
+    "path": "lecture slides/MSIN0180 - Additional questions for Topic 3 29_01_2026 (1).pdf",
+    "sha256": "9821b49b2426df970fd5d7fc109ae0c13cb510b16e62998303b64c4925829414",
+    "pages": 7
+  },
+  {
+    "id": "M14",
+    "path": "lecture slides/MSIN0180 - Calculus - Revision 19_03_2026.pdf",
+    "sha256": "63e09f3f2e61e463ec0852fc93722b17f8535d7fe6d8c739e2bf05c312175471",
+    "pages": 15
+  },
+  {
+    "id": "M15",
+    "path": "lecture slides/MSIN0180 - Calculus - Revision questions 19_03_2026.pdf",
+    "sha256": "56f970c1d414fbe31585c7f4c384880312184832b03588cf18d32c6cef46b55b",
+    "pages": 9
+  },
+  {
+    "id": "M16",
+    "path": "lecture slides/MSIN0180 - Lecture 10 -  slides 18_03_2026 (1).pdf",
+    "sha256": "a9ad959c2f4ae7869dae14cf7269f83decb440b9fa1e633bd989354bcd72bcee",
+    "pages": 23
+  },
+  {
+    "id": "M17",
+    "path": "lecture slides/MSIN0180 - Math Background for Topic 5 05_02_2026.pdf",
+    "sha256": "68f7a7dc79b6f093741b0823f15963f9010024564fa37c1cbadd7b5b3dbaf375",
+    "pages": 17
+  },
+  {
+    "id": "M18",
+    "path": "lecture slides/MSIN0180 - Mathematica for topic 1 15_02_2026 (1).pdf",
+    "sha256": "0ee3ef8d68eb59d78fe68a399b0a8f642401b46ba921a9f0242cd0d1b9256471",
+    "pages": 15
+  },
+  {
+    "id": "M19",
+    "path": "lecture slides/MSIN0180 - Mathematica Topics 2, 3 and 4 26_02_2026 (1).pdf",
+    "sha256": "fde121838f1d49cd2cfe51aaab0408da43e5b9476a6510fccdd2db8808cdb4e6",
+    "pages": 15
+  },
+  {
+    "id": "M06",
+    "path": "lecture slides/MSIN0180 - Topic 2 - additional questions and answers 11_01_2026 (1).pdf",
+    "sha256": "831eacd2089bb5e1b0e1bebc0f12cd7a9c808a697f5df25c01ca9c790b2128e6",
+    "pages": 8
+  },
+  {
+    "id": "M20",
+    "path": "lecture slides/MSIN0180 - Topic 3 - Lecture slides 25_01_2026 (1).pdf",
+    "sha256": "69d86005b78b995226b4c7054a3346c529ebaf1e89ae8002a684f6c46cdc5afd",
+    "pages": 44
+  },
+  {
+    "id": "M21",
+    "path": "lecture slides/MSIN0180 - Topic 4 - Lecture 29_01_2026 (1).pdf",
+    "sha256": "2ecdb27600cd14b3d46a61ef458327b80db68ac8e6d05b8b408e1c9a5084ca10",
+    "pages": 43
+  },
+  {
+    "id": "M07",
+    "path": "lecture slides/MSIN0180 - Topic 5 - Additional questions 05_02_2026.pdf",
+    "sha256": "164b969fff24d68af0a23c70de54fdb1c66d6013f1d8b3d697fc82f9b69483b3",
+    "pages": 11
+  },
+  {
+    "id": "M22",
+    "path": "lecture slides/MSIN0180 - Topic 5 - lecture slides 05_02_2026 (1).pdf",
+    "sha256": "df0c2e3f9195bb803f9efcc4e12b15ea16a71a59178d7578518d56b569e273a1",
+    "pages": 51
+  },
+  {
+    "id": "M23",
+    "path": "lecture slides/MSIN0180 - Topic 6 - Additional questions 15_02_2026.pdf",
+    "sha256": "02fddefa818d349efbd82d8931a2513d46ee5d5da70fd8fefda6da673b67dbd1",
+    "pages": 8
+  },
+  {
+    "id": "M24",
+    "path": "lecture slides/MSIN0180 - Topic 6 - lecture 12_02_2026 (1).pdf",
+    "sha256": "46f3e2dad6fb7819f1ac6798ada33776a7dcf6f1caee4f5d1aadea15f96c85a8",
+    "pages": 58
+  },
+  {
+    "id": "M25",
+    "path": "lecture slides/MSIN0180 - Topic 7 - Lecture 26_02_2026 (1).pdf",
+    "sha256": "6943dba42e3ec27c6bf42e5734e9f100a0c8ea1123d6a7add6617d0c25c2c9fa",
+    "pages": 32
+  },
+  {
+    "id": "M26",
+    "path": "lecture slides/MSIN0180 - Topic 8 - Lecture 05_03_2026 (1).pdf",
+    "sha256": "af4635dc7cd1ae33b3cc44c2d063cf9d2d895e0021c6378baed137d862d16531",
+    "pages": 49
+  },
+  {
+    "id": "M27",
+    "path": "lecture slides/MSIN0180 - Topic 8 -Additional questions 05_03_2026.pdf",
+    "sha256": "6c6a2b00f8fe19773d137183000813e02f08be3c80165edb61f8b79825e6987c",
+    "pages": 10
+  },
+  {
+    "id": "M28",
+    "path": "lecture slides/MSIN0180 - Topic 9 - Additional questions 12_03_2026.pdf",
+    "sha256": "b8a23c2dcb082c1f6add798700b0bf77fefb9fa39d0648dc09f5b7dd45bdfac9",
+    "pages": 8
+  },
+  {
+    "id": "M29",
+    "path": "lecture slides/MSIN0180 - Topic 9 - Lecture - Determinants 12_03_2026.pdf",
+    "sha256": "be1f9433fd823105b1f2da5f225c7ae6fbbb875d10134276fcdd706a29c4f59d",
+    "pages": 44
+  },
+  {
+    "id": "M30",
+    "path": "lecture slides/MSIN0180 - Topics 5, 6, 7 - Mathematica 26_02_2026 (1).pdf",
+    "sha256": "65b9c0187dc28a44427647f2abba777a6f442c9dcf94ef67a1a66d4077ba7215",
+    "pages": 14
+  },
+  {
+    "id": "M31",
+    "path": "lecture slides/MSIN0180 -Linear algebra revision 25_03_2026 (1).pdf",
+    "sha256": "7c7d326cddcea6b5648b6d2e5aa536cdec2b52b31a673b3a11b572f7887c7ec8",
+    "pages": 21
+  },
+  {
+    "id": "M32",
+    "path": "lecture slides/MSIN0180 Lecture 1, lecture slides, 11_01_2026 (1).pdf",
+    "sha256": "f8b1c05d476118f825544a651348038c041fbae6322ec3ed6911c74fbb5d93b4",
+    "pages": 58
+  },
+  {
+    "id": "M32",
+    "path": "lecture slides/MSIN0180 Lecture 1, lecture slides, 11_01_2026.pdf",
+    "sha256": "f8b1c05d476118f825544a651348038c041fbae6322ec3ed6911c74fbb5d93b4",
+    "pages": 58
+  },
+  {
+    "id": "M33",
+    "path": "lecture slides/MSIN0180 Math Background for topic 2 11_01_2026.pdf",
+    "sha256": "c360cae7e3d00adb1373d2c01c708e69e0c27ccdb2f88e5dee3e5e138cefc08c",
+    "pages": 26
+  },
+  {
+    "id": "M08",
+    "path": "lecture slides/MSIN0180 Topic 1, additional questions and answers 04_01_2026 (1).pdf",
+    "sha256": "7c02e671675824377377633bad93ad13d95c00c28344bc9a4e033f5039a79c22",
+    "pages": 26
+  },
+  {
+    "id": "M34",
+    "path": "lecture slides/MSIN0180 Topic 2 - Lecture 2 11_01_2026, lecture slides (1).pdf",
+    "sha256": "74296ca24bba7732303ff66b741b5616f08ee679305e5c2ce2c809c593cddc60",
+    "pages": 57
+  },
+  {
+    "id": "M34",
+    "path": "lecture slides/MSIN0180 Topic 2 - Lecture 2 11_01_2026, lecture slides (2).pdf",
+    "sha256": "74296ca24bba7732303ff66b741b5616f08ee679305e5c2ce2c809c593cddc60",
+    "pages": 57
+  },
+  {
+    "id": "M35",
+    "path": "lecture slides/MSIN0180 Topic 2 - Lecture summary 11_01_2026.pdf",
+    "sha256": "d470abd9f0234f46b21f057f4fd0d47440c713ce2a9dd82f69975786666a7c9a",
+    "pages": 19
+  },
+  {
+    "id": "M36",
+    "path": "lecture slides/MSIN0180- Topics 8 and 9 -Mathematica  19_03_2026.pdf",
+    "sha256": "038f3bd419d4c6b50407f84c95ee5413671f2e230e2db86fc14375b7ad3335fb",
+    "pages": 23
+  },
+  {
+    "id": "M14",
+    "path": "MSIN0180 - Calculus - Revision 19_03_2026.pdf",
+    "sha256": "63e09f3f2e61e463ec0852fc93722b17f8535d7fe6d8c739e2bf05c312175471",
+    "pages": 15
+  },
+  {
+    "id": "M23",
+    "path": "MSIN0180 - Topic 6 - Additional questions 15_02_2026.pdf",
+    "sha256": "02fddefa818d349efbd82d8931a2513d46ee5d5da70fd8fefda6da673b67dbd1",
+    "pages": 8
+  },
+  {
+    "id": "M24",
+    "path": "MSIN0180 - Topic 6 - lecture 12_02_2026 (1).pdf",
+    "sha256": "46f3e2dad6fb7819f1ac6798ada33776a7dcf6f1caee4f5d1aadea15f96c85a8",
+    "pages": 58
+  },
+  {
+    "id": "M37",
+    "path": "MSIN0180 - Topic 6 - Seminar  15_02_2026 (1).pdf",
+    "sha256": "c1f0dd207d911156e768c297869824c6618f9e928bfb9780c1fd7ada30f3965a",
+    "pages": 24
+  },
+  {
+    "id": "M38",
+    "path": "MSIN0180 - Topic 6 - summary 12_02_2026 (1).pdf",
+    "sha256": "6d93c48ea47119e47163d2d0d6965e373a53510d0a5bf6369d0cf4bfd433e79b",
+    "pages": 11
+  },
+  {
+    "id": "M25",
+    "path": "MSIN0180 - Topic 7 - Lecture 26_02_2026 (1).pdf",
+    "sha256": "6943dba42e3ec27c6bf42e5734e9f100a0c8ea1123d6a7add6617d0c25c2c9fa",
+    "pages": 32
+  },
+  {
+    "id": "M39",
+    "path": "MSIN0180 - Topic 7 - Lecture summary 26_02_2026.pdf",
+    "sha256": "b4c9f992e09dede1dfa798536a092b7a2cb6ba2f5048899bbfc37978d507c29f",
+    "pages": 12
+  },
+  {
+    "id": "M40",
+    "path": "MSIN0180 - Topic 7 - seminar 26_02_2026 (1) (1).pdf",
+    "sha256": "c96b3bb3e7e4525643086c3a84672c19885884ffaa12047d92db02418c2ddad3",
+    "pages": 15
+  },
+  {
+    "id": "M26",
+    "path": "MSIN0180 - Topic 8 - Lecture 05_03_2026 (1).pdf",
+    "sha256": "af4635dc7cd1ae33b3cc44c2d063cf9d2d895e0021c6378baed137d862d16531",
+    "pages": 49
+  },
+  {
+    "id": "M41",
+    "path": "MSIN0180 - Topic 8 - Lecture summary 05_03_2026 (1).pdf",
+    "sha256": "8dc349177bc8e42ec8856fa2a8d77503018648466f44ccc63a27038a37bc88a6",
+    "pages": 21
+  },
+  {
+    "id": "M27",
+    "path": "MSIN0180 - Topic 8 -Additional questions 05_03_2026.pdf",
+    "sha256": "6c6a2b00f8fe19773d137183000813e02f08be3c80165edb61f8b79825e6987c",
+    "pages": 10
+  },
+  {
+    "id": "M42",
+    "path": "MSIN0180 - Topic 8 -Seminar 10_03_2026.pdf",
+    "sha256": "fbda323750781268bc473d10ea185ff23290fc20ca407a853a9d93d08dcbf2d8",
+    "pages": 23
+  },
+  {
+    "id": "M28",
+    "path": "MSIN0180 - Topic 9 - Additional questions 12_03_2026.pdf",
+    "sha256": "b8a23c2dcb082c1f6add798700b0bf77fefb9fa39d0648dc09f5b7dd45bdfac9",
+    "pages": 8
+  },
+  {
+    "id": "M43",
+    "path": "MSIN0180 - Topic 9 - Determinants -Seminar 17_03_2026.pdf",
+    "sha256": "5869481928e73bc1eb4064ae9f59a0f9fccbee89e9a4317185e377fcdd003f32",
+    "pages": 25
+  },
+  {
+    "id": "M29",
+    "path": "MSIN0180 - Topic 9 - Lecture - Determinants 12_03_2026.pdf",
+    "sha256": "be1f9433fd823105b1f2da5f225c7ae6fbbb875d10134276fcdd706a29c4f59d",
+    "pages": 44
+  },
+  {
+    "id": "M44",
+    "path": "MSIN0180 - Topic 9 - Lecture summary 12_03_2026 (1).pdf",
+    "sha256": "63bcddd4c55dd92ef578787ec63d0240db9b47032f96def2a62312d4530d2498",
+    "pages": 16
+  },
+  {
+    "id": "M45",
+    "path": "MSIN0180 Coursework 2 Brief 10_12_2025.pdf",
+    "sha256": "cef9cced2bfea17294031a22abc8d24510f41a0235a999d3de3402ad4f21d438",
+    "pages": 7
+  },
+  {
+    "id": "M46",
+    "path": "MSIN0180Coursework 1 Brief 10_12_2025.pdf",
+    "sha256": "7f8bd04c80f53078064a3e93ccc50695b1ee65f0882d7098e40a77d185c5707f",
+    "pages": 7
+  },
+  {
+    "id": "M47",
+    "path": "seminar slides/MSIN0180 - Seminar 4 29_01_2026.pdf",
+    "sha256": "7f34d39bf98857d63cb6569ce695c9025d8afd20bfc99a218925088d560415fb",
+    "pages": 21
+  },
+  {
+    "id": "M48",
+    "path": "seminar slides/MSIN0180 - Topic 2 - seminar 11_01_2026.pdf",
+    "sha256": "21275c7f9001cf44a07076ceaf17169545f13171e9fba550823e175911438ca8",
+    "pages": 23
+  },
+  {
+    "id": "M49",
+    "path": "seminar slides/MSIN0180 - Topic 5 - Seminar 05_02_2026 (1).pdf",
+    "sha256": "e3dba7f5544340cdd4ddd8a3cd4574318af8020aa062f947cae552a5dfbfcb08",
+    "pages": 20
+  },
+  {
+    "id": "M50",
+    "path": "seminar slides/MSIN0180 Topic 1, seminar 11_01_2026.pdf",
+    "sha256": "7536e5d1d8a7428b22c673c3a9d094be5161ae379ad233184e54088667e9de02",
+    "pages": 24
+  },
+  {
+    "id": "M51",
+    "path": "seminar slides/seminar3.pdf",
+    "sha256": "4014924fe71a03e12ce1ec9a0186e1b865b29b3e983f2302077bec0e90d24427",
+    "pages": 11
+  }
+]

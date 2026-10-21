@@ -1,0 +1,793 @@
+openapi: 3.0.3
+info:
+  title: Past Paper Generator
+  version: 0.1.0
+paths:
+  /api/v1/courses:
+    get:
+      operationId: v1_courses_retrieve
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoursesSchema'
+          description: ''
+  /api/v1/courses/{course_id}/materials:
+    get:
+      operationId: v1_courses_materials_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialsSchema'
+          description: ''
+    post:
+      operationId: v1_courses_materials_create
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UploadInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResultSchema'
+          description: ''
+  /api/v1/courses/{course_id}/tasks:
+    get:
+      operationId: v1_courses_tasks_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TasksSchema'
+          description: ''
+  /api/v1/material-versions/{version_id}/classification:
+    patch:
+      operationId: v1_material_versions_classification_partial_update
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedClassificationInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedClassificationInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedClassificationInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialSchema'
+          description: ''
+  /api/v1/material-versions/{version_id}/original:
+    get:
+      operationId: v1_material_versions_original_retrieve
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/material-versions/{version_id}/pages/{page_number}:
+    get:
+      operationId: v1_material_versions_pages_retrieve
+      parameters:
+      - in: path
+        name: page_number
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/material-versions/{version_id}/relations:
+    post:
+      operationId: v1_material_versions_relations_create
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RelationInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RelationInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationResultSchema'
+          description: ''
+  /api/v1/relations/{relation_id}/remove:
+    post:
+      operationId: v1_relations_remove_create
+      parameters:
+      - in: path
+        name: relation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveResultSchema'
+          description: ''
+  /api/v1/session:
+    get:
+      operationId: v1_session_retrieve
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSchema'
+          description: ''
+    post:
+      operationId: v1_session_create
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSchema'
+          description: ''
+  /api/v1/sources/{evidence_id}:
+    get:
+      operationId: v1_sources_retrieve
+      parameters:
+      - in: path
+        name: evidence_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceSchema'
+          description: ''
+  /api/v1/tasks/{task_id}:
+    get:
+      operationId: v1_tasks_retrieve
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSchema'
+          description: ''
+  /api/v1/tasks/{task_id}/cancel:
+    post:
+      operationId: v1_tasks_cancel_create
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSchema'
+          description: ''
+  /api/v1/tasks/{task_id}/retries:
+    post:
+      operationId: v1_tasks_retries_create
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSchema'
+          description: ''
+components:
+  schemas:
+    CourseSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        code:
+          type: string
+        scope_statement:
+          type: string
+        scope_provenance:
+          type: string
+      required:
+      - code
+      - id
+      - scope_provenance
+      - scope_statement
+      - title
+    CoursesSchema:
+      type: object
+      properties:
+        courses:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseSchema'
+      required:
+      - courses
+    IssueSchema:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        pages:
+          type: array
+          items:
+            type: integer
+      required:
+      - code
+      - message
+    MaterialLimitsSchema:
+      type: object
+      properties:
+        file_mib:
+          type: integer
+        unique_files:
+          type: integer
+        paths:
+          type: integer
+        unique_pages:
+          type: integer
+      required:
+      - file_mib
+      - paths
+      - unique_files
+      - unique_pages
+    MaterialSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        material_id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        filename:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        sha256:
+          type: string
+        bytes:
+          type: integer
+        pages:
+          type: integer
+        roles:
+          type: array
+          items:
+            type: string
+        classification_basis:
+          type: string
+        classification_revision:
+          type: integer
+        task_id:
+          type: string
+          format: uuid
+          nullable: true
+        state:
+          type: string
+        parse_version_id:
+          type: string
+          format: uuid
+          nullable: true
+        parser:
+          type: string
+          nullable: true
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/IssueSchema'
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageRefSchema'
+        answer_links:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelationSchema'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - aliases
+      - answer_links
+      - bytes
+      - classification_basis
+      - classification_revision
+      - evidence
+      - filename
+      - id
+      - issues
+      - material_id
+      - metadata
+      - number
+      - pages
+      - parse_version_id
+      - parser
+      - roles
+      - sha256
+      - state
+      - task_id
+    MaterialsSchema:
+      type: object
+      properties:
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialSchema'
+        roles:
+          type: array
+          items:
+            type: string
+        limits:
+          $ref: '#/components/schemas/MaterialLimitsSchema'
+      required:
+      - limits
+      - materials
+      - roles
+    PageRefSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        physical_page:
+          type: integer
+        fidelity_status:
+          type: string
+      required:
+      - fidelity_status
+      - id
+      - physical_page
+    PatchedClassificationInput:
+      type: object
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RolesEnum'
+          maxItems: 10
+          minItems: 1
+    RelationInput:
+      type: object
+      properties:
+        target_version_id:
+          type: string
+          format: uuid
+        coverage:
+          type: string
+          maxLength: 500
+      required:
+      - coverage
+      - target_version_id
+    RelationResultSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required:
+      - id
+    RelationSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        target_id:
+          type: string
+          format: uuid
+        coverage:
+          type: string
+        revision:
+          type: integer
+      required:
+      - coverage
+      - id
+      - revision
+      - target_id
+    RemoveResultSchema:
+      type: object
+      properties:
+        removed:
+          type: boolean
+      required:
+      - removed
+    RolesEnum:
+      enum:
+      - lecture
+      - summary
+      - seminar
+      - additional_questions
+      - past_paper
+      - answer
+      - assessment_brief
+      - personal_notes
+      - software_reference
+      - other
+      type: string
+      description: |-
+        * `lecture` - lecture
+        * `summary` - summary
+        * `seminar` - seminar
+        * `additional_questions` - additional_questions
+        * `past_paper` - past_paper
+        * `answer` - answer
+        * `assessment_brief` - assessment_brief
+        * `personal_notes` - personal_notes
+        * `software_reference` - software_reference
+        * `other` - other
+    SessionSchema:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        csrf_token:
+          type: string
+        local_access:
+          type: boolean
+        database:
+          type: string
+        batch:
+          type: integer
+        model_mode:
+          type: string
+        course_data_upload:
+          type: boolean
+      required:
+      - authenticated
+      - csrf_token
+    SourceSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        material_version_id:
+          type: string
+          format: uuid
+        parse_version_id:
+          type: string
+          format: uuid
+        physical_page:
+          type: integer
+        printed_label:
+          type: string
+          nullable: true
+        text:
+          type: string
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        fidelity_status:
+          type: string
+        filename:
+          type: string
+        sha256:
+          type: string
+        image_url:
+          type: string
+      required:
+      - blocks
+      - fidelity_status
+      - filename
+      - id
+      - image_url
+      - material_version_id
+      - parse_version_id
+      - physical_page
+      - printed_label
+      - sha256
+      - text
+    TaskErrorSchema:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean
+        diagnostic_id:
+          type: string
+          format: uuid
+    TaskEventSchema:
+      type: object
+      properties:
+        stage:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        detail:
+          type: object
+          additionalProperties: {}
+      required:
+      - created_at
+      - detail
+      - stage
+    TaskSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        state:
+          type: string
+        stage:
+          type: string
+        elapsed_seconds:
+          type: number
+          format: double
+        target_exceeded:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        heartbeat_at:
+          type: string
+          format: date-time
+          nullable: true
+        epoch:
+          type: integer
+        result:
+          type: object
+          additionalProperties: {}
+        error:
+          $ref: '#/components/schemas/TaskErrorSchema'
+        checkpoint:
+          type: object
+          additionalProperties: {}
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskEventSchema'
+      required:
+      - checkpoint
+      - course_id
+      - created_at
+      - elapsed_seconds
+      - epoch
+      - error
+      - events
+      - finished_at
+      - heartbeat_at
+      - id
+      - kind
+      - parent_id
+      - result
+      - stage
+      - started_at
+      - state
+      - target_exceeded
+    TasksSchema:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskSchema'
+      required:
+      - tasks
+    UploadInput:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        replace_material_id:
+          type: string
+          format: uuid
+      required:
+      - file
+    UploadResultSchema:
+      type: object
+      properties:
+        version_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        duplicate:
+          type: boolean
+      required:
+      - duplicate
+      - task_id
+      - version_id
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

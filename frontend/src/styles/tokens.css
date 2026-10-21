@@ -1,0 +1,10 @@
+:root {
+  --canvas: #f6f7fb;
+  --surface: #fff;
+  --ink: #282e3e;
+  --muted: #586380;
+  --border: #d9dde8;
+  --accent: #4255ff;
+  --accent-soft: #edefff;
+  --font-ui: "DM Sans", system-ui, sans-serif;
+}
