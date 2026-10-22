@@ -1,0 +1,56 @@
+[
+  {
+    "id": "M05",
+    "path": "exam resources/Mock exam - questions 04_02_2025.pdf",
+    "sha256": "909871e303e65a1ec508c77cd610a2adb4acad4b36879dcbd1e7be17786f0ec5",
+    "pages": 7
+  },
+  {
+    "id": "M06",
+    "path": "exam resources/MSIN0180 - Topic 2 - additional questions and answers 11_01_2026.pdf",
+    "sha256": "831eacd2089bb5e1b0e1bebc0f12cd7a9c808a697f5df25c01ca9c790b2128e6",
+    "pages": 8
+  },
+  {
+    "id": "M14",
+    "path": "lecture slides/MSIN0180 - Calculus - Revision 19_03_2026.pdf",
+    "sha256": "63e09f3f2e61e463ec0852fc93722b17f8535d7fe6d8c739e2bf05c312175471",
+    "pages": 15
+  },
+  {
+    "id": "M32",
+    "path": "lecture slides/MSIN0180 Lecture 1, lecture slides, 11_01_2026 (1).pdf",
+    "sha256": "f8b1c05d476118f825544a651348038c041fbae6322ec3ed6911c74fbb5d93b4",
+    "pages": 58
+  },
+  {
+    "id": "M33",
+    "path": "lecture slides/MSIN0180 Math Background for topic 2 11_01_2026.pdf",
+    "sha256": "c360cae7e3d00adb1373d2c01c708e69e0c27ccdb2f88e5dee3e5e138cefc08c",
+    "pages": 26
+  },
+  {
+    "id": "M34",
+    "path": "lecture slides/MSIN0180 Topic 2 - Lecture 2 11_01_2026, lecture slides (1).pdf",
+    "sha256": "74296ca24bba7732303ff66b741b5616f08ee679305e5c2ce2c809c593cddc60",
+    "pages": 57
+  },
+  {
+    "id": "M35",
+    "path": "lecture slides/MSIN0180 Topic 2 - Lecture summary 11_01_2026.pdf",
+    "sha256": "d470abd9f0234f46b21f057f4fd0d47440c713ce2a9dd82f69975786666a7c9a",
+    "pages": 19
+  },
+  {
+    "id": "M46",
+    "path": "MSIN0180Coursework 1 Brief 10_12_2025.pdf",
+    "sha256": "7f8bd04c80f53078064a3e93ccc50695b1ee65f0882d7098e40a77d185c5707f",
+    "pages": 7
+  },
+  {
+    "id": "M48",
+    "path": "seminar slides/MSIN0180 - Topic 2 - seminar 11_01_2026.pdf",
+    "sha256": "21275c7f9001cf44a07076ceaf17169545f13171e9fba550823e175911438ca8",
+    "pages": 23
+  }
+]

@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 VAR = ROOT / "var"
@@ -19,6 +20,15 @@ FLAGS = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 def run(args, **kwargs):
     return subprocess.run([str(x) for x in args], check=True, creationflags=FLAGS, **kwargs)
+
+
+def pg_data():
+    file = VAR / "local.json"
+    config = json.loads(file.read_text()) if file.exists() else {}
+    path = Path(config.get("postgres_data_directory", str(VAR / "postgres"))).resolve()
+    if not path.is_relative_to(VAR.resolve()) or not path.name.startswith("postgres"):
+        raise SystemExit("The project PostgreSQL data directory must remain inside var/postgres*.")
+    return path
 
 
 def setup():
@@ -35,9 +45,10 @@ def setup():
             "local_access": True,
         }, indent=2))
     config = json.loads(file.read_text())
+    port = str(urlparse(config["database_url"]).port or 54329)
     if not (PG / "initdb.exe").exists():
         raise SystemExit("PostgreSQL archive missing. Run scripts/fetch_postgres.py first.")
-    data = VAR / "postgres"
+    data = pg_data()
     if not (data / "PG_VERSION").exists():
         password_file = VAR / "postgres-password.tmp"
         password_file.write_text(config["database_password"])
@@ -47,23 +58,26 @@ def setup():
         finally:
             password_file.unlink(missing_ok=True)
         with (data / "postgresql.conf").open("a") as stream:
-            stream.write("\nlisten_addresses='127.0.0.1'\nport=54329\nmax_connections=30\n")
+            stream.write(f"\nlisten_addresses='127.0.0.1'\nport={port}\nmax_connections=30\n")
     pg_start()
     env = dict(os.environ, PGPASSWORD=config["database_password"])
-    exists = subprocess.run([str(PG / "psql.exe"), "-h", "127.0.0.1", "-p", "54329",
+    exists = subprocess.run([str(PG / "psql.exe"), "-h", "127.0.0.1", "-p", port,
                              "-U", "pastpaper", "-d", "postgres", "-tAc",
                              "SELECT 1 FROM pg_database WHERE datname='pastpaper'"],
                             capture_output=True, text=True, env=env, creationflags=FLAGS, check=True)
     if exists.stdout.strip() != "1":
-        run([PG / "createdb.exe", "-h", "127.0.0.1", "-p", "54329", "-U", "pastpaper", "pastpaper"], env=env)
-    print("Local PostgreSQL ready on 127.0.0.1:54329. Private settings: var/local.json")
+        run([PG / "createdb.exe", "-h", "127.0.0.1", "-p", port, "-U", "pastpaper", "pastpaper"], env=env)
+    print(f"Local PostgreSQL ready on 127.0.0.1:{port}. Private settings: var/local.json")
 
 
 def pg_start():
-    result = subprocess.run([str(PG / "pg_ctl.exe"), "-D", str(VAR / "postgres"), "status"],
+    result = subprocess.run([str(PG / "pg_ctl.exe"), "-D", str(pg_data()), "status"],
                             capture_output=True, creationflags=FLAGS)
     if result.returncode:
-        run([PG / "pg_ctl.exe", "-D", VAR / "postgres", "-l", VAR / "logs/postgres.log", "-w", "start"])
+        # A previous Windows/OneDrive log handle can remain locked after shutdown.
+        # Preserve it and open a distinct log for each start.
+        log_path = VAR / "logs" / f"postgres-{time.time_ns()}.log"
+        run([PG / "pg_ctl.exe", "-D", pg_data(), "-l", log_path, "-w", "start"])
 
 
 def services():
@@ -108,7 +122,7 @@ def start():
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen("http://127.0.0.1:5173/api/v1/session", timeout=2) as response:
-                if json.load(response).get("batch") == 1:
+                if json.load(response).get("batch") in (1, 2):
                     break
         except (OSError, ValueError):
             time.sleep(0.5)
@@ -117,7 +131,7 @@ def start():
     if any(not process_is_ours(item["pid"], item["started"]) for item in saved.values()):
         raise SystemExit("A service exited during startup. Inspect var/logs.")
     print("Workspace: http://127.0.0.1:5173")
-    print("Logs: var/logs; course analysis remains disabled. Scoped API checks require an explicit ai_validate command.")
+    print("Logs: var/logs; course analysis requires explicit consent for the displayed input scope.")
 
 
 def restart_api():
@@ -145,7 +159,7 @@ def stop():
                     child.terminate()
                 p.terminate()
         pidfile.unlink()
-    run([PG / "pg_ctl.exe", "-D", VAR / "postgres", "-m", "fast", "-w", "stop"])
+    run([PG / "pg_ctl.exe", "-D", pg_data(), "-m", "fast", "-w", "stop"])
 
 
 if __name__ == "__main__":

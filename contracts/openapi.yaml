@@ -17,6 +17,158 @@ paths:
               schema:
                 $ref: '#/components/schemas/CoursesSchema'
           description: ''
+  /api/v1/courses/{course_id}/analyses:
+    post:
+      operationId: v1_courses_analyses_create
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnalyseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnalyseRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSchema'
+          description: ''
+  /api/v1/courses/{course_id}/analysis-preflight:
+    get:
+      operationId: v1_courses_analysis_preflight_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreflightSchema'
+          description: ''
+  /api/v1/courses/{course_id}/answers:
+    post:
+      operationId: v1_courses_answers_create
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResponse'
+          description: ''
+  /api/v1/courses/{course_id}/confirmations:
+    post:
+      operationId: v1_courses_confirmations_create
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConfirmRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionSchema'
+          description: ''
+  /api/v1/courses/{course_id}/draft:
+    patch:
+      operationId: v1_courses_draft_partial_update
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDraftRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDraftRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDraftRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftResponse'
+          description: ''
   /api/v1/courses/{course_id}/materials:
     get:
       operationId: v1_courses_materials_retrieve
@@ -67,6 +219,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/UploadResultSchema'
           description: ''
+  /api/v1/courses/{course_id}/profile:
+    get:
+      operationId: v1_courses_profile_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileSchema'
+          description: ''
   /api/v1/courses/{course_id}/tasks:
     get:
       operationId: v1_courses_tasks_retrieve
@@ -87,6 +260,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TasksSchema'
+          description: ''
+  /api/v1/courses/{course_id}/versions/{version_id}:
+    get:
+      operationId: v1_courses_versions_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionSchema'
           description: ''
   /api/v1/material-versions/{version_id}/classification:
     patch:
@@ -338,6 +538,49 @@ paths:
           description: ''
 components:
   schemas:
+    AnalyseRequest:
+      type: object
+      properties:
+        context_hash:
+          type: string
+          maxLength: 64
+        authorize_upload:
+          type: boolean
+          default: false
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - context_hash
+    AnswerRequest:
+      type: object
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1
+        question_id:
+          type: string
+          maxLength: 120
+        text:
+          type: string
+          maxLength: 3000
+      required:
+      - expected_revision
+      - question_id
+      - text
+    ConfirmRequest:
+      type: object
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        expected_revision:
+          type: integer
+          minimum: 1
+      required:
+      - draft_id
+      - expected_revision
     CourseSchema:
       type: object
       properties:
@@ -367,6 +610,15 @@ components:
             $ref: '#/components/schemas/CourseSchema'
       required:
       - courses
+    DraftResponse:
+      type: object
+      properties:
+        draft: {}
+        committed_revision:
+          type: integer
+      required:
+      - committed_revision
+      - draft
     IssueSchema:
       type: object
       properties:
@@ -566,6 +818,52 @@ components:
             $ref: '#/components/schemas/RolesEnum'
           maxItems: 10
           minItems: 1
+    PatchedDraftRequest:
+      type: object
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1
+        patches:
+          type: array
+          items: {}
+          maxItems: 100
+        acknowledge_merge:
+          type: boolean
+          default: false
+    PreflightSchema:
+      type: object
+      properties:
+        scope: {}
+        authorized:
+          type: boolean
+        api_key_configured:
+          type: boolean
+      required:
+      - api_key_configured
+      - authorized
+      - scope
+    ProfileSchema:
+      type: object
+      properties:
+        draft:
+          nullable: true
+        versions:
+          type: array
+          items: {}
+        active_task_id:
+          type: string
+          format: uuid
+          nullable: true
+        latest_task_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - active_task_id
+      - draft
+      - latest_task_id
+      - versions
     RelationInput:
       type: object
       properties:
@@ -837,6 +1135,38 @@ components:
       - duplicate
       - task_id
       - version_id
+    VersionSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        mode:
+          type: string
+        draft_revision:
+          type: integer
+        payload_hash:
+          type: string
+        frozen_payload: {}
+        evidence_manifest: {}
+        statements: {}
+        manual_patches: {}
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - draft_revision
+      - evidence_manifest
+      - frozen_payload
+      - id
+      - manual_patches
+      - mode
+      - number
+      - payload_hash
+      - statements
   securitySchemes:
     cookieAuth:
       type: apiKey

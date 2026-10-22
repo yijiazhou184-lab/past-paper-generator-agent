@@ -53,7 +53,7 @@ class SessionView(APIView):
             db_version = cursor.fetchone()[0].split(",")[0]
         return Response({"authenticated": request.user.is_authenticated, "csrf_token": get_token(request),
                          "local_access": settings.LOCAL_ACCESS,
-                         "database": db_version, "batch": 1, "model_mode": "disabled",
+                         "database": db_version, "batch": 2, "model_mode": "scoped_consent",
                          "course_data_upload": False})
 
     @extend_schema(request=None, responses=SessionSchema)
@@ -70,7 +70,7 @@ class SessionView(APIView):
 class CoursesView(APIView):
     @extend_schema(responses=CoursesSchema)
     def get(self, request):
-        return Response({"courses": list(Course.objects.filter(owner=request.user).values(
+        return Response({"courses": list(Course.objects.filter(owner=request.user).order_by("created_at").values(
             "id", "title", "code", "scope_statement", "scope_provenance"))})
 
 

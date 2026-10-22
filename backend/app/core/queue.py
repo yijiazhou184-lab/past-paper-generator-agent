@@ -17,7 +17,7 @@ def run_business_task(task_id):
     if not token:
         return
     task = Task.objects.get(pk=task_id)
-    command = {"parse": "parse_one", "ai_validation": "validate_ai_one"}.get(task.kind)
+    command = {"parse": "parse_one", "ai_validation": "validate_ai_one", "analysis": "analyse_course_one"}.get(task.kind)
     if command is None:
         fail_task(token, "NOT_IMPLEMENTED", "This stage is not available in batch 1.", False)
         return
@@ -32,7 +32,7 @@ def run_business_task(task_id):
         try:
             while process.poll() is None:
                 heartbeat(token)
-                pending = ModelInvocation.objects.filter(task=task, state="started").first() if task.kind == "ai_validation" else None
+                pending = ModelInvocation.objects.filter(task=task, state="started").first() if task.kind in ("ai_validation", "analysis") else None
                 if pending and (timezone.now() - pending.created_at).total_seconds() > pending.metadata["timeout_seconds"]:
                     raise DomainError("PROVIDER_TIMEOUT")
                 time.sleep(2)
