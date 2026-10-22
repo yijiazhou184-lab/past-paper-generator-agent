@@ -20,6 +20,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["v1_courses_analyses_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/analysis-preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_courses_analysis_preflight_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["v1_courses_answers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["v1_courses_confirmations_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["v1_courses_draft_partial_update"];
+        trace?: never;
+    };
     "/api/v1/courses/{course_id}/materials": {
         parameters: {
             query?: never;
@@ -36,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_courses_profile_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/courses/{course_id}/tasks": {
         parameters: {
             query?: never;
@@ -44,6 +140,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["v1_courses_tasks_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_courses_versions_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -216,6 +328,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AnalyseRequest: {
+            context_hash: string;
+            /** @default false */
+            authorize_upload: boolean;
+            /** Format: uuid */
+            parent_id?: string | null;
+        };
+        AnswerRequest: {
+            expected_revision: number;
+            question_id: string;
+            text: string;
+        };
+        ConfirmRequest: {
+            /** Format: uuid */
+            draft_id: string;
+            expected_revision: number;
+        };
         CourseSchema: {
             /** Format: uuid */
             id: string;
@@ -226,6 +355,10 @@ export interface components {
         };
         CoursesSchema: {
             courses: components["schemas"]["CourseSchema"][];
+        };
+        DraftResponse: {
+            draft: unknown;
+            committed_revision: number;
         };
         IssueSchema: {
             code: string;
@@ -298,6 +431,25 @@ export interface components {
         PatchedClassificationInput: {
             expected_revision?: number;
             roles?: components["schemas"]["RolesEnum"][];
+        };
+        PatchedDraftRequest: {
+            expected_revision?: number;
+            patches?: unknown[];
+            /** @default false */
+            acknowledge_merge: boolean;
+        };
+        PreflightSchema: {
+            scope: unknown;
+            authorized: boolean;
+            api_key_configured: boolean;
+        };
+        ProfileSchema: {
+            draft: unknown;
+            versions: unknown[];
+            /** Format: uuid */
+            active_task_id: string | null;
+            /** Format: uuid */
+            latest_task_id: string | null;
         };
         RelationInput: {
             /** Format: uuid */
@@ -423,6 +575,20 @@ export interface components {
             task_id: string;
             duplicate: boolean;
         };
+        VersionSchema: {
+            /** Format: uuid */
+            id: string;
+            number: number;
+            mode: string;
+            draft_revision: number;
+            payload_hash: string;
+            frozen_payload: unknown;
+            evidence_manifest: unknown;
+            statements: unknown;
+            manual_patches: unknown;
+            /** Format: date-time */
+            created_at: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -447,6 +613,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CoursesSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_analyses_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyseRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnalyseRequest"];
+                "multipart/form-data": components["schemas"]["AnalyseRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_analysis_preflight_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreflightSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_answers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnswerRequest"];
+                "multipart/form-data": components["schemas"]["AnswerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftResponse"];
+                };
+            };
+        };
+    };
+    v1_courses_confirmations_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ConfirmRequest"];
+                "multipart/form-data": components["schemas"]["ConfirmRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_draft_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDraftRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDraftRequest"];
+                "multipart/form-data": components["schemas"]["PatchedDraftRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftResponse"];
                 };
             };
         };
@@ -498,6 +793,27 @@ export interface operations {
             };
         };
     };
+    v1_courses_profile_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSchema"];
+                };
+            };
+        };
+    };
     v1_courses_tasks_retrieve: {
         parameters: {
             query?: never;
@@ -515,6 +831,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TasksSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_versions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionSchema"];
                 };
             };
         };

@@ -38,6 +38,7 @@ export function TaskPage() {
     );
   const task = query.data;
   const liveValidation = task.kind === "ai_validation";
+  const analysis = task.kind === "analysis";
   return (
     <>
       <Link className="back-link" to={`/courses/${task.course_id}/materials`}>
@@ -46,10 +47,11 @@ export function TaskPage() {
       </Link>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">{liveValidation ? "Live model validation" : "Material processing"}</p>
+          <p className="breadcrumb">{analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
           <h1>{task.state === "failed" ? "Processing failed" : task.stage}</h1>
           <p>
-            {liveValidation ? "A bounded integration check. The saved call records show exactly what ran; page observations remain separate from original evidence."
+            {analysis ? "Your analysis uses a frozen selection of sources and statements. Refreshing this page restores the same task. Review the resulting draft before confirming your course."
+              : liveValidation ? "A bounded integration check. The saved call records show exactly what ran; page observations remain separate from original evidence."
               : task.state === "succeeded" ? "Processing is complete. Your sources are saved in the materials workspace."
               : task.state === "cancelled" ? "Processing was cancelled. Your original file is still available."
               : task.state === "failed" ? "Processing stopped. Review the diagnostic below or retry."
@@ -107,15 +109,15 @@ export function TaskPage() {
               onClick={() => retry.mutate()}
               disabled={retry.isPending}
             >
-              Retry processing
+              {analysis ? "Retry analysis (new model call)" : "Retry processing"}
             </button>
           )}
-          {task.state === "succeeded" && (
+          {["succeeded", "needs_info"].includes(task.state) && (
             <Link
               className="button primary"
-              to={`/courses/${task.course_id}/materials`}
+              to={`/courses/${task.course_id}/${analysis ? "profile" : "materials"}`}
             >
-              Review material
+              {analysis ? "Review course profile" : "Review material"}
             </Link>
           )}
         </div>
@@ -125,7 +127,7 @@ export function TaskPage() {
         {task.model_calls?.length > 0 && (
           <section aria-label="Model call records">
             <h2>Model call records</h2>
-            <p>These are live integration checks. Page interpretations are model candidates, not verified course facts.</p>
+            <p>{analysis ? "Saved calls for this course draft. A parsed response is not a confirmed course version." : "These are live integration checks. Page interpretations are model candidates, not verified course facts."}</p>
             {task.model_calls.map((call) => (
               <article className="model-call" key={call.id}>
                 <h3>{call.key} · {call.status.replaceAll("_", " ")}</h3>

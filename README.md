@@ -1,8 +1,8 @@
 # AI Past Paper Generator
 
-当前实现：第一轮 **批次 1（Task 1–2）本地材料工作区及有界 API 接入验证**。可上传数字 PDF、复用重复内容、编辑材料类型和答案关联、查看固定版本的原始页、跟踪/取消/重试解析任务。2026-10-22 已成功完成官方 `gpt-6.1-sol` 的 1 次合成检查及 5 页真实材料识别，结构化输出、来源绑定和选定数学断言通过。此前两次额度错误及充值后的成功尝试均保留。课程分析、组卷、答案生成和两个输出 PDF 尚未实现。
+当前实现：第一轮 **批次 1–2（Task 1–4）材料工作区、课程分析、编辑与确认**。可上传数字 PDF、复用解析、查看固定版本原页、跟踪任务，并从获准的材料片段形成课程草稿；支持直接编辑、澄清回答、保存冲突处理和不可变确认版本。组卷、答案生成和两个输出 PDF 属于后续批次，尚未实现。
 
-本轮方案已获确认；用户已提供本地 API key，并授权五个指定页的官方 API 验证。需求入口见 [AGENTS.md](AGENTS.md)，实际验证与限制见 [docs/round-1-validation.md](docs/round-1-validation.md) 和 [本次接入记录](docs/batch-1-live-validation.md)。历史原型和原材料保持原位。
+2026-10-22 完成第一批 5 页真实模型核对；2026-10-23 在用户新授权的 36 页抽取文字和 5 页已有核对结果上运行课程分析，得到真实的 `needs_info` 草稿，未冒充课程已确认。需求入口见 [AGENTS.md](AGENTS.md)，记录见 [批次一](docs/batch-1-live-validation.md) 和 [批次二](docs/batch-2-validation.md)。历史原型和原材料保持原位。
 
 ## 当前电脑启动（已实际运行）
 
@@ -14,9 +14,9 @@
 
 访问 **http://127.0.0.1:5173**，点击 **Open local workspace**。程序检查 API 就绪后才打印地址。重复执行会复用已确认身份的本项目进程，补起已停止的服务。
 
-- `5173`：Vite 前端；`8000`：Django API；`54329`：项目 PostgreSQL。
+- `5173`：Vite 前端；`8000`：Django API；本机当前 `54330`：项目 PostgreSQL（新环境默认 `54329`，实际以 `var/local.json` 为准）。
 - worker、outbox dispatcher、API 和前端均在后台运行；日志在 `var/logs/`。
-- 数据库在 `var/postgres/`；文件/解析/页图在 `var/data/`；离线解析权重在 `var/models/`。
+- 本机活动数据库在 `var/postgres-20261023/`；原 `var/postgres/` 是本次恢复前的保留副本，不是活动库。文件/解析/页图在 `var/data/`；离线解析权重在 `var/models/`。恢复原因和核对见批次二记录；不要把旧副本当作新数据备份。
 - 项目进程信息在 `var/services.json`；本地随机密钥和数据库密码在被忽略的 `var/local.json`。不要分享这些文件。
 - 当前是绑定回环地址的单人开发工作区，通过显式按钮建立受控本地 Session；所有材料端点有归属校验及 CSRF。它不提供正式邀请/密码登录功能，不应对外暴露。
 
@@ -44,6 +44,10 @@
 3. 点击类型按钮修改分类；保存有反馈，旧 revision 返回冲突。分类建议不是官方考试范围判断。
 4. **Answer associations** 可登记这份答案对应的题卷和页/题范围，可解除关联。
 5. 未完成/失败材料可点 **View task**；已完成材料的来源面板有 **Processing task**。任务详情保留真实阶段、时间、诊断和此前尝试。
+6. **Course profile** 查看真实 Topic 2 草稿：Knowledge、Scope & methods、Exam reference。来源按钮在同页打开原材料版本和物理页，刷新可恢复。
+7. 修改字段后 800ms 串行自动保存，也可点 **Save changes**。失败保留输入；冲突必须比较后选择服务器版本或保留本地修改。浏览器当前标签的未提交编辑用 sessionStorage 恢复；服务器已保存草稿可跨会话找回。
+8. 必要问题的 **Save answer** 会记录 UserStatement，需解释的新回答由新分析任务处理，不自动付费调用。读取缺口显示现有页图入口；不是要求再次上传已存在的材料。
+9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 入口；结构规划仍待批次三实现。真实 QM 目前因解析与来源冲突未确认；浏览器测试确认只发生在显式标记的 `B2-TEST` 课程。
 
 `Parsed` 只表示本地解析结束。Docling 当前关闭 OCR 和公式增强；数学页可能漏抽公式、丢失根号或读序错误，所有页面保持 `needs_review`。应查看原页图。后续 AI 分析必须选择相关页图或经验证的公式解析路径，不能把当前文本作为完整数学内容。
 
@@ -73,7 +77,7 @@ pnpm --dir frontend install --frozen-lockfile
 
 本机没有 Docker/WSL，采用项目内 PostgreSQL 二进制与 Python/Node 进程实现已确认架构；没有安装系统数据库服务，没有声称 Linux 容器方案已验证。本批未创建未验证的 Compose 启动入口。
 
-`.env.local` 是可选覆盖项，可从 `.env.example` 复制。留空 `APP_DATABASE_URL` 会使用本地私有配置。原有 LiteLLM `.env` 和虚拟环境不参与本应用。`OPENAI_API_KEY` 只保存在本地，不应发送到聊天或提交 Git。网页课程分析仍未启用；填入 key 不会自动触发调用。
+`.env.local` 是可选覆盖项，可从 `.env.example` 复制。留空 `APP_DATABASE_URL` 会使用本地私有配置。原有 LiteLLM `.env` 和虚拟环境不参与本应用。`OPENAI_API_KEY` 只保存在本地，不应发送到聊天或提交 Git。填入 key 不自动调用；网页分析必须显式提交，并对展示的输入范围授权。
 
 ## 第一批 API 接入验证
 
@@ -95,7 +99,22 @@ Materials 顶部的 **View saved call records** 可找回真实调用任务。�
 
 相同 key 和输入返回同一任务，不重复调用。需要人工审阅后的新尝试可传 `--parent <failed-task-id>` 保留尝试链。没有自动付费重试；远端结果不明的调用不能在恢复时自动重发。取消不能承诺撤销服务端已收到的请求或费用，但旧执行不能发布结果。
 
-命令行授权仅覆盖本次固定清单，`APP_MODEL_MODE=disabled` / `ALLOW_COURSE_DATA_UPLOAD=false` 可继续保留；它们不是这条显式验收命令的开启条件。普通应用调用边界仍返回 `not_executed`，不把命令行授权扩大为网页全部课程数据的长期外发权限。请求固定使用官方 Responses API、`store:false`、SDK 重试次数 0；`store:false` 不代表零保留。
+命令行授权仅覆盖固定清单，`APP_MODEL_MODE=disabled` / `ALLOW_COURSE_DATA_UPLOAD=false` 可继续保留。批次二使用单独的、绑定 course 和 context hash 的 AnalysisGrant；它只允许显式提交这份分析输入，不授权整门课长期外发。请求固定使用官方 Responses API、`store:false`、SDK 重试次数 0；`store:false` 不代表零保留。
+
+## 第二批课程分析
+
+入口：`/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/profile`。最新真实任务：`cd0d0c32-50c2-4f42-a2b6-3e9d148dd702`。8 个知识组均有来源关联；5 组为 partial，3 组 supported。源页公式缺失和局部/全局极值定义冲突保留为两组待处理事项。当前缺口不能仅凭确认或文本断言清除。
+
+查看已有结果不会调用模型。**Analyse again** 会先展示精确发送范围；提交会产生新的真实 API 调用。材料/声明/模型/提示词变化导致 hash 改变，需要明确授权新输入。同一提交 key 复用原任务，旧任务快照不变。原任务 `needs_info` 后的新分析有 parent 关联；取消或 lease 失效的执行不能发布草稿。
+
+以下命令只读本地数据，不调用模型：
+
+```powershell
+& .\.venv\Scripts\python.exe backend/manage.py course_analysis
+& .\.venv\Scripts\python.exe backend/manage.py course_analysis --report cd0d0c32-50c2-4f42-a2b6-3e9d148dd702
+```
+
+已授权的第二批 scope 是 36 页文字、5 页已有识别结果和已提供的范围声明，**没有包含新页图**。本轮尚未把页图补读自动接入课程分析。补读公式需扩大具体页图授权并实现该恢复分支；当前如实保留 `needs_info`，不静默删去不支持的知识组。
 
 ## 检查命令
 
@@ -108,6 +127,7 @@ Materials 顶部的 **View saved call records** 可找回真实调用任务。�
 pnpm --dir frontend api:types
 pnpm --dir frontend typecheck
 pnpm --dir frontend build
+pnpm --dir frontend test --run
 & .\.venv\Scripts\python.exe scripts/test_workspace.py
 & .\.venv\Scripts\python.exe backend/manage.py audit_batch1
 ```
@@ -116,4 +136,11 @@ pnpm --dir frontend build
 
 `scripts/test_live_recovery.py` 是本批特定失败样本的故障注入检查：取消重试任务、终止本项目 worker 并重启，保留尝试链。它需要特定失败前置状态，不是日常启动命令；结果记录在 `var/recovery-check.json`。
 
-当前浏览器检查由 Python Playwright 执行；尚未建立 Vitest 单元测试集或 Node Playwright 测试集，不将包中的未来测试脚本作为已运行检查。
+课程页面浏览器测试使用独立的 fixture 课程（会新建 `B2-TEST`，不改真实 QM 草稿），其中一个本地保存请求被故意中断以模拟网络故障：
+
+```powershell
+& .\.venv\Scripts\python.exe scripts/prepare_profile_browser_fixture.py
+& .\.venv\Scripts\python.exe scripts/test_course_profile.py
+```
+
+Vitest 覆盖串行保存、迟到响应、未知保存结果的同 key 重试、冲突和标签刷新恢复。Python Playwright 覆盖实际浏览器；仍未建立 Node Playwright 测试集，不把 `test:e2e` 脚本视为已验收入口。

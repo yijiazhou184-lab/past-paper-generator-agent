@@ -362,11 +362,11 @@ export function MaterialsPage() {
         <div>
           <h3>Next: understand your course</h3>
           <p>
-            Course analysis and confirmation will follow this materials
-            workspace. Saved integration checks are available above when present.
+            Build a course draft from the selected Topic 2 sources, then review
+            evidence, edit the profile and confirm a saved course version.
           </p>
         </div>
-        <button disabled>Analyse course</button>
+        <Link className="button primary" to={`/courses/${course.id}/profile`}>Analyse course</Link>
       </div>
       {selected && (
         <SourcePanel

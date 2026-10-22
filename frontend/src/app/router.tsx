@@ -20,6 +20,7 @@ import { api } from "../api/client";
 import type { Course, Session } from "../api/types";
 import { MaterialsPage } from "../features/materials/MaterialsPage";
 import { TaskPage } from "../features/tasks/TaskPage";
+import { ProfilePage, GenerateGate } from "../features/profile/ProfilePage";
 
 export const useCourse = () => useOutletContext<Course>();
 function Workspace() {
@@ -72,7 +73,7 @@ function Workspace() {
           Open local workspace <ArrowRight size={18} />
         </button>
         <small>
-          Private workspace on this computer. Course analysis is not enabled yet.
+          Private workspace on this computer. Review the selected sources before analysis.
         </small>
         {enter.isError && <p role="alert">{enter.error.message}</p>}
       </div>
@@ -85,7 +86,8 @@ function Workspace() {
         <button onClick={() => courses.refetch()}>Retry</button>
       </div>
     );
-  const course = courses.data?.courses[0];
+  const requestedCourse = location.pathname.match(/^\/courses\/([^/]+)/)?.[1];
+  const course = requestedCourse ? courses.data?.courses.find(c => c.id === requestedCourse) : courses.data?.courses[0];
   if (!course)
     return (
       <div className="welcome">
@@ -122,13 +124,10 @@ function Workspace() {
             <Files size={19} />
             Materials
           </Link>
-          <span
-            className="nav-item disabled"
-            title="Course analysis is not available yet"
-          >
+          <Link className={location.pathname.includes("profile") ? "nav-item active" : "nav-item"} to={`/courses/${course.id}/profile`}>
             <FileCheck2 size={19} />
             Course profile
-          </span>
+          </Link>
           <span
             className="nav-item disabled"
             title="Generation is not available yet"
@@ -143,7 +142,7 @@ function Workspace() {
         </nav>
         <div className="sidebar-footer">
           <span className="online-dot" /> Local workspace
-          <small>Course analysis pending</small>
+          <small>Course profile and source review</small>
         </div>
       </aside>
       <div className="workspace-body">
@@ -179,6 +178,8 @@ export const router = createBrowserRouter([
     children: [
       { path: "/", element: <Home /> },
       { path: "/courses/:courseId/materials", element: <MaterialsPage /> },
+      { path: "/courses/:courseId/profile", element: <ProfilePage /> },
+      { path: "/courses/:courseId/generate", element: <GenerateGate /> },
       { path: "/tasks/:taskId", element: <TaskPage /> },
     ],
   },
