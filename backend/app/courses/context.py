@@ -17,7 +17,7 @@ from app.materials.transcription import cached, decide, page_entry, signal_pages
 from .models import UserStatement
 from .schemas import AnalysisOutput
 
-PROMPT_VERSION = "r1-course-analysis-2"
+PROMPT_VERSION = "r1-course-analysis-3"
 SCHEMA_VERSION = "r1-course-draft-1"
 # 2026-10-24: user added the main L'Hopital and implicit-differentiation teaching pages
 # (M34 p34, 46-49; M14 p4; M48 p19, 21, 22) after the first visual re-analysis found them missing.

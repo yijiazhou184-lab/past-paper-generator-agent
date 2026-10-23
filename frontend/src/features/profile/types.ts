@@ -8,7 +8,7 @@ export type Payload = { title: string; target_exam: { label: string | null; acad
   knowledge_nodes: { id: string; title: string; requirements: string; depth: number; readiness: string; evidence_ids: string[] }[];
   scope_claims: Claim[]; method_rules: Claim[]; historical_style: Claim[]; template_suggestion: Template | null };
 export type Question = { id: string; question: string; reason: string; impact: string; status: string;
-  answer?: { text: string; reanalysis_required: boolean }; affected_ids: string[]; evidence_ids: string[];
+  answer?: { text: string; reanalysis_required: boolean }; affected_ids: string[]; evidence_ids: string[]; suggested_answers?: string[];
   action_kind: "clarification" | "review_existing_sources" | "evidence_note" };
 export type Draft = { id: string; revision: number; payload: Payload; mode: string; manual_patches: Patch[];
   merge_warnings: { path: string[]; message: string; machine_value: unknown; manual_value: unknown }[];

@@ -41,18 +41,26 @@ function AnalysisDialog({ courseId, onClose }: { courseId: string; onClose: () =
 }
 
 function ClarificationCard({ question, courseId, draft, saved, onSaved }: { question: Question; courseId: string; draft: Draft; saved: boolean; onSaved: () => void }) {
-  const [text, setText] = useState("");
+  const options = question.suggested_answers ?? [];
+  // A suggested answer is saved as its exact text; "own" keeps the free-text answer for anything else.
+  const [choice, setChoice] = useState(options.length ? "" : "own");
+  const [own, setOwn] = useState("");
+  const text = choice === "own" ? own : choice;
   const [, setParams] = useSearchParams();
   const key = useMemo(requestKey, [text, draft.revision]);
   const answer = useMutation({ mutationFn: () => api(`/courses/${courseId}/answers`, { method: "POST", headers: { "Idempotency-Key": key },
-    body: JSON.stringify({ question_id: question.id, expected_revision: draft.revision, text }) }), onSuccess: () => { setText(""); onSaved(); },
+    body: JSON.stringify({ question_id: question.id, expected_revision: draft.revision, text }) }), onSuccess: () => { setOwn(""); setChoice(options.length ? "" : "own"); onSaved(); },
     onError: error => { if (error instanceof ApiError && error.status === 409) onSaved(); } });
   return <article className="clarification"><span className={`profile-tag ${question.impact === "blocks_selected_scope" ? "attention" : ""}`}>{words(question.impact)}</span>
     <h3>{question.question}</h3><p>{question.reason}</p>
     <div className="source-chips">{question.evidence_ids?.map(id => {const e = draft.evidence.find(e => e.id === id); return <button className="source-chip" key={id} onClick={() => setParams({source:id})}>{e ? `${e.material_code} · p${e.physical_page}` : "View source"}</button>;})}</div>
     {question.answer ? <div className="review-note"><strong>Provided by you</strong><p>{question.answer.text}</p>
       {question.answer.reanalysis_required && <small>Saved. Analyse again to interpret this answer; evidence gaps remain until resolved.</small>}</div>
-      : question.action_kind === "clarification" ? <><label>Answer<textarea value={text} onChange={e => setText(e.target.value)} maxLength={3000} /></label><button disabled={!saved || !text.trim() || answer.isPending} onClick={() => answer.mutate()}>Save answer</button></>
+      : question.action_kind === "clarification" ? <>{options.length > 0 && <fieldset className="answer-options"><legend>Choose an answer</legend>
+          {options.map(option => <label className="check-row" key={option}><input type="radio" name={`answer-${question.id}`} checked={choice === option} onChange={() => setChoice(option)} />{option}</label>)}
+          <label className="check-row"><input type="radio" name={`answer-${question.id}`} checked={choice === "own"} onChange={() => setChoice("own")} />Write my own answer</label></fieldset>}
+        {choice === "own" && <label>{options.length ? "Your answer" : "Answer"}<textarea value={own} onChange={e => setOwn(e.target.value)} maxLength={3000} /></label>}
+        <button disabled={!saved || !text.trim() || answer.isPending} onClick={() => answer.mutate()}>Save answer</button></>
       : question.action_kind === "review_existing_sources" ? <p className="review-note">Image-based re-analysis needs authorisation for these existing pages. A text assertion cannot restore the missing formulas.</p> : null}
     {answer.isError && <p role="alert">{answer.error.message}</p>}
   </article>;
