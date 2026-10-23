@@ -83,20 +83,20 @@ with sync_playwright() as pw:
     page.get_by_role("button", name="Review & confirm").click()
     expect(page.get_by_role("dialog", name="Confirm this course version")).to_be_visible()
     page.get_by_role("button", name="Confirm course", exact=True).click()
-    expect(page.get_by_role("heading", name="Course version 1 confirmed")).to_be_visible()
+    expect(page.get_by_text("Course version 1 confirmed", exact=True)).to_be_visible()
     first_version = parse_qs(urlparse(page.url).query)["courseVersion"][0]
     first_url = f"{BASE}/api/v1/courses/{fixture['course_id']}/versions/{first_version}"
     frozen = context.request.get(first_url).json()
-    page.get_by_role("link", name="Return to course profile").click()
+    page.get_by_role("link", name="Review course", exact=True).click()
     page.wait_for_load_state("networkidle")
     requirement.fill("Changed after the first confirmation")
     expect(page.locator(".save-bar strong")).to_have_text("Saved")
     page.get_by_role("button", name="Review & confirm").click()
     page.get_by_role("button", name="Confirm course", exact=True).click()
-    expect(page.get_by_role("heading", name="Course version 2 confirmed")).to_be_visible()
+    expect(page.get_by_text("Course version 2 confirmed", exact=True)).to_be_visible()
     assert context.request.get(first_url).json()["frozen_payload"] == frozen["frozen_payload"]
     checks.append("Confirmation uses a saved revision; later edits leave version 1 unchanged")
-    page.get_by_role("link", name="Return to course profile").click()
+    page.get_by_role("link", name="Review course", exact=True).click()
     page.wait_for_load_state("networkidle")
     page.get_by_label("Answer", exact=True).fill("A synthetic clarification answer")
     with page.expect_response("**/answers") as response:

@@ -4,6 +4,7 @@ import { Clock, CheckCircle2, ArrowLeft } from "lucide-react";
 import { api, requestKey } from "../../api/client";
 import { useMemo } from "react";
 import type { Task } from "../../api/types";
+import type { Blueprint } from "../generate/types";
 export function TaskPage() {
   const { taskId } = useParams();
   const retryKey = useMemo(() => requestKey(), [taskId]);
@@ -16,6 +17,12 @@ export function TaskPage() {
       ["queued", "processing"].includes(q.state.data?.state ?? "")
         ? 2000
         : false,
+  });
+  const blueprintId = query.data?.kind === "planning" ? query.data.result.blueprint_id : null;
+  const savedBlueprint = useQuery({
+    queryKey: ["task-blueprint", query.data?.course_id, blueprintId],
+    queryFn: () => api<{result: Blueprint}>(`/courses/${query.data!.course_id}/blueprints/${blueprintId}`),
+    enabled: typeof blueprintId === "string",
   });
   const cancel = useMutation({
     mutationFn: () => api(`/tasks/${taskId}/cancel`, { method: "POST" }),
@@ -39,18 +46,20 @@ export function TaskPage() {
   const task = query.data;
   const liveValidation = task.kind === "ai_validation";
   const analysis = task.kind === "analysis";
+  const planning = task.kind === "planning";
   return (
     <>
-      <Link className="back-link" to={`/courses/${task.course_id}/materials`}>
+      <Link className="back-link" to={`/courses/${task.course_id}/${planning ? "generate" : "materials"}`}>
         <ArrowLeft size={16} />
-        Back to materials
+        {planning ? "Back to Generate" : "Back to materials"}
       </Link>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">{analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
+          <p className="breadcrumb">{planning ? "Practice planning" : analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
           <h1>{task.state === "failed" ? "Processing failed" : task.stage}</h1>
           <p>
-            {analysis ? "Your analysis uses a frozen selection of sources and statements. Refreshing this page restores the same task. Review the resulting draft before confirming your course."
+            {planning ? "This task plans a structure from a frozen course version and configuration. Refreshing restores the same task. No questions or answers are generated at this stage."
+              : analysis ? "Your analysis uses a frozen selection of sources and statements. Refreshing this page restores the same task. Review the resulting draft before confirming your course."
               : liveValidation ? "A bounded integration check. The saved call records show exactly what ran; page observations remain separate from original evidence."
               : task.state === "succeeded" ? "Processing is complete. Your sources are saved in the materials workspace."
               : task.state === "cancelled" ? "Processing was cancelled. Your original file is still available."
@@ -60,6 +69,16 @@ export function TaskPage() {
         </div>
         <span className={`status ${task.state}`}>{task.state}</span>
       </div>
+      {planning && <section className="review-note"><strong>{task.result.mode === "fixture" ? "Synthetic fixture · no model call" : "Planning result"}</strong>
+        {!!task.result.message && <p>{String(task.result.message)}</p>}{!!task.result.explanation && <p>{String(task.result.explanation)}</p>}
+        {!!task.result.blueprint_id && <details><summary>Saved structure identity</summary><p>Blueprint: {String(task.result.blueprint_id)}</p><p>Configuration revision: {String(task.result.config_revision)}</p><p>{task.result.superseded ? "Superseded: the current configuration was not replaced." : "Review and confirm this structure in Generate."}</p></details>}</section>}
+      {planning && typeof blueprintId === "string" && <section className="panel task-panel"><h2>Saved planning structure</h2>
+        <p>This is the original result for this task. Later edits and configurations do not change it.</p>
+        {savedBlueprint.isPending ? <p>Loading saved structure…</p> : savedBlueprint.isError ? <p role="alert">{savedBlueprint.error.message}</p> : <>
+          <p>{savedBlueprint.data?.result.payload.main_question_count} main questions · {savedBlueprint.data?.result.payload.attempt_marks} attempt marks · {savedBlueprint.data?.result.payload.suggested_minutes} suggested minutes</p>
+          {savedBlueprint.data?.result.payload.questions.map(q=><details key={q.id}><summary>Q{q.number}: {q.title}</summary><p>{q.objective}</p><ul>{q.parts.map(p=><li key={p.id}>({p.label}) {p.response_type.replaceAll("_"," ")} · {p.marks} marks</li>)}</ul></details>)}
+          <details><summary>Inspect saved blueprint</summary><pre className="model-output">{JSON.stringify(savedBlueprint.data?.result.payload,null,2)}</pre></details>
+        </>}</section>}
       <section className="task-panel panel">
         <div className="task-clock">
           <Clock size={22} />
@@ -103,7 +122,7 @@ export function TaskPage() {
               {cancel.isPending ? "Cancellation requested…" : "Cancel task"}
             </button>
           )}
-          {!liveValidation && ["failed", "cancelled"].includes(task.state) && (
+          {!liveValidation && !planning && ["failed", "cancelled"].includes(task.state) && (
             <button
               className="primary"
               onClick={() => retry.mutate()}
@@ -115,19 +134,20 @@ export function TaskPage() {
           {["succeeded", "needs_info"].includes(task.state) && (
             <Link
               className="button primary"
-              to={`/courses/${task.course_id}/${analysis ? "profile" : "materials"}`}
+              to={`/courses/${task.course_id}/${planning ? "generate" : analysis ? "profile" : "materials"}`}
             >
-              {analysis ? "Review course profile" : "Review material"}
+              {planning ? "Review practice structure" : analysis ? "Review course profile" : "Review material"}
             </Link>
           )}
         </div>
+        {planning && ["failed", "cancelled"].includes(task.state) && <Link className="button primary" to={`/courses/${task.course_id}/generate`}>Review configuration before a new plan</Link>}
         {liveValidation && ["failed", "cancelled"].includes(task.state) && (
           <p className="review-note">Review the saved calls before a new paid validation run. This page does not automatically retry model requests.</p>
         )}
         {task.model_calls?.length > 0 && (
           <section aria-label="Model call records">
             <h2>Model call records</h2>
-            <p>{analysis ? "Saved calls for this course draft. A parsed response is not a confirmed course version." : "These are live integration checks. Page interpretations are model candidates, not verified course facts."}</p>
+            <p>{planning ? "Saved planning calls. Parsed output still needs programmatic validation and your structure confirmation." : analysis ? "Saved calls for this course draft. A parsed response is not a confirmed course version." : "These are live integration checks. Page interpretations are model candidates, not verified course facts."}</p>
             {task.model_calls.map((call) => (
               <article className="model-call" key={call.id}>
                 <h3>{call.key} · {call.status.replaceAll("_", " ")}</h3>

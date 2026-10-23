@@ -32,7 +32,8 @@ export async function api<T>(
     throw new ApiError(
       response.status,
       body.code ?? "REQUEST_FAILED",
-      body.message ?? "Request failed",
+      (body.message ?? "Request failed") + (body.field_errors && Object.keys(body.field_errors).length
+        ? " " + Object.entries(body.field_errors).map(([field, detail]) => `${field}: ${Array.isArray(detail) ? detail.join(", ") : String(detail)}`).join("; ") : ""),
       body.task_id,
     );
   if (body.csrf_token) csrf = body.csrf_token;

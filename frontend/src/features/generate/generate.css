@@ -1,0 +1,63 @@
+.generation-meta {display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 24px;color:var(--muted);font-size:13px}
+.generation-meta a {margin-left:auto}
+.generation-grid {display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:24px;align-items:start}
+.generation-config,.generation-structure,.generation-handoff,.generation-history {padding:26px;min-width:0}
+.generation-grid fieldset {border:0;padding:0;margin:0;min-width:0}
+.generation-config label:not(.check-line) {margin:0 0 18px}
+.generation-config h3 {margin-top:22px}
+.generation-config .topic-caption {font-size:13px;margin-bottom:12px}
+.config-heading {display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.config-heading h2 {margin:0}
+.generation-grid .check-line {display:flex;align-items:flex-start;gap:10px;margin:11px 0;line-height:1.5}
+.generation-grid .check-line input,.edit-modal .check-line input {width:17px;min-height:17px;height:17px;flex-shrink:0;margin-top:3px;accent-color:var(--accent)}
+.generation-grid small {display:block}
+.knowledge-options {max-height:300px;overflow:auto;padding-right:5px}
+.config-save-status {padding:16px 0;font-size:13px;color:var(--muted)}
+.generation-config>button {width:100%;margin-top:10px}
+.field-errors {padding-left:18px;color:#a43131;font-size:13px}
+.structure-heading {display:flex;align-items:start;justify-content:space-between;gap:12px}
+.structure-heading p {font-size:13px}
+.structure-numbers {display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--border);padding:20px 0;margin:20px 0;gap:10px}
+.structure-numbers strong {display:block;font-size:25px;font-weight:600;font-variant-numeric:tabular-nums}
+.structure-numbers span {font-size:12px;color:var(--muted)}
+.structure-controls {display:flex;align-items:center;gap:24px!important;margin-bottom:22px!important}
+.structure-controls input[type=number] {max-width:130px}
+.structure-differences,.coverage-summary {margin:20px 0;font-size:13px}
+.structure-differences summary,.coverage-summary summary {cursor:pointer;font-weight:600}
+.structure-differences li,.coverage-summary li {margin:7px 0}
+.structure-section {border-top:1px solid var(--border);padding:20px 0}
+.selection-controls {display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.selection-controls label {flex:1;min-width:120px}
+.selection-controls small {width:100%}
+.blueprint-question {border:1px solid var(--border);border-radius:10px;margin:12px 0;overflow:hidden}
+.blueprint-question summary {display:flex;align-items:center;gap:12px;cursor:pointer;padding:16px;background:#fafbfe;list-style:none}
+.blueprint-question summary strong {flex:1;min-width:0}
+.blueprint-question summary>span:last-child {font-size:12px;white-space:nowrap}
+.question-number {color:var(--accent);font-weight:600;font-size:14px}
+.blueprint-question-body {padding:18px}
+.blueprint-question-body>p {font-size:13px;max-width:70ch}
+.coverage-line {border-left:2px solid #c9ceff;padding-left:12px}
+.part-row {display:grid;grid-template-columns:24px minmax(0,1fr) 100px;gap:12px;padding:16px 0;border-top:1px solid #eceef4;align-items:start}
+.part-row>strong {padding-top:27px;font-size:13px}
+.part-row label {font-size:12px}
+.part-row small {margin-top:6px}
+.part-row .text-button {grid-column:2/-1;justify-self:start;min-height:30px;padding:3px 0;border:0;color:var(--muted);font-size:12px;background:none}
+.structure-footer {display:flex;justify-content:space-between;gap:18px;align-items:center;border-top:1px solid var(--border);padding-top:24px;margin-top:24px}
+.structure-footer p {font-size:13px;margin:4px 0 0}
+.structure-footer button {flex-shrink:0}
+.planning-status {padding:16px;background:var(--accent-soft);border-radius:8px;margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;font-size:13px}
+.planning-status strong {width:100%}
+.planning-status a {margin-left:auto}
+.planning-status p {width:100%;margin:5px 0}
+.structure-empty {padding:70px 20px;text-align:center;display:flex;align-items:center;flex-direction:column;gap:14px}
+.structure-empty p {max-width:45ch}
+.generation-handoff {margin-top:24px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.generation-handoff p {margin-bottom:8px}
+.generation-handoff .actions {flex-shrink:0;flex-direction:column}
+.generation-history {margin-top:24px}
+.generation-history button {margin:0 10px 10px 0;font-size:13px}
+.config-comparison {display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.config-comparison>div {min-width:0}
+.config-comparison pre,.generation-history pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+@media(max-width:1100px) {.generation-grid {grid-template-columns:290px minmax(0,1fr);gap:16px}.generation-config,.generation-structure {padding:20px}.part-row {grid-template-columns:20px minmax(0,1fr)}.part-marks {grid-column:2}.structure-footer {align-items:start;flex-direction:column}.generation-handoff {flex-direction:column;align-items:stretch}.generation-handoff .actions {flex-direction:row}}
+@media(max-width:800px) {.generation-grid {grid-template-columns:minmax(0,1fr)}.generation-meta a {margin:0}.structure-controls {flex-wrap:wrap}.config-comparison {grid-template-columns:1fr}.generation-handoff .actions {flex-wrap:wrap}.blueprint-question summary {flex-wrap:wrap}.structure-numbers {gap:8px}.structure-numbers strong {font-size:22px}}

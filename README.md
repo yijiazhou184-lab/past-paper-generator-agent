@@ -1,8 +1,8 @@
 # AI Past Paper Generator
 
-当前实现：第一轮 **批次 1–2（Task 1–4）材料工作区、课程分析、编辑与确认**。可上传数字 PDF、复用解析、查看固定版本原页、跟踪任务，并从获准的材料片段形成课程草稿；支持直接编辑、澄清回答、保存冲突处理和不可变确认版本。组卷、答案生成和两个输出 PDF 属于后续批次，尚未实现。
+当前实现：第一轮 **批次 1–3（Task 1–6）材料工作区、课程分析、编辑确认、练习配置和结构规划**。支持版本化来源、持久任务、课程澄清与确认，以及独立练习配置、蓝图校验与编辑、结构确认和不可变生成输入。本批尚不生成题答或两个输出 PDF；正式生成入口待批次四接入。
 
-2026-10-22 完成第一批 5 页真实模型核对；2026-10-23 在用户新授权的 36 页抽取文字和 5 页已有核对结果上运行课程分析，得到真实的 `needs_info` 草稿，未冒充课程已确认。需求入口见 [AGENTS.md](AGENTS.md)，记录见 [批次一](docs/batch-1-live-validation.md) 和 [批次二](docs/batch-2-validation.md)。历史原型和原材料保持原位。
+2026-10-22 完成第一批 5 页真实模型核对；2026-10-23 在用户新授权的 36 页抽取文字和 5 页已有核对结果上运行课程分析，得到真实的 `needs_info` 草稿，未冒充课程已确认。第三批于 2026-10-23–24 完成本地功能验证，真实规划调用次数为 0。需求入口见 [AGENTS.md](AGENTS.md)，记录见 [批次一](docs/batch-1-live-validation.md)、[批次二](docs/batch-2-validation.md)、[批次三](docs/batch-3-validation.md)。历史原型和原材料保持原位。
 
 ## 当前电脑启动（已实际运行）
 
@@ -35,7 +35,7 @@
 & .\.venv\Scripts\python.exe .\scripts\local.py start
 ```
 
-`setup` 会复用已有私有配置和数据库，不清空数据。仅更新 API 代码时可用 `scripts/local.py restart-api`。机器休眠/意外停止后重新执行 `start`；任务租约过期 90 秒后重排队，旧执行不能写回。
+`setup` 会复用已有私有配置和数据库，不清空数据。仅更新 API 代码时可用 `scripts/local.py restart-api`；更新队列映射后可用 `scripts/local.py restart-workers`，它仅重启本项目 worker/dispatcher，并在有排队或执行中任务时拒绝重启。本批迁移已应用，无需重复停库。机器休眠/意外停止后重新执行 `start`；任务租约过期 90 秒后重排队，旧执行不能写回。
 
 ## 可以操作什么
 
@@ -47,7 +47,9 @@
 6. **Course profile** 查看真实 Topic 2 草稿：Knowledge、Scope & methods、Exam reference。来源按钮在同页打开原材料版本和物理页，刷新可恢复。
 7. 修改字段后 800ms 串行自动保存，也可点 **Save changes**。失败保留输入；冲突必须比较后选择服务器版本或保留本地修改。浏览器当前标签的未提交编辑用 sessionStorage 恢复；服务器已保存草稿可跨会话找回。
 8. 必要问题的 **Save answer** 会记录 UserStatement，需解释的新回答由新分析任务处理，不自动付费调用。读取缺口显示现有页图入口；不是要求再次上传已存在的材料。
-9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 入口；结构规划仍待批次三实现。真实 QM 目前因解析与来源冲突未确认；浏览器测试确认只发生在显式标记的 `B2-TEST` 课程。
+9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 工作区。真实 QM 目前仍因解析与来源冲突未确认；测试确认只发生在显式标记的 `B2-TEST` / `B3-FIXTURE` 课程。
+10. **Generate** 可选择知识、三档难度、2–4 大题及三类题型；先 **Save configuration**，再 **Review structure** 查看精确输入并提交规划。修改本次配置不改课程默认；改回原值也需要重新规划和确认。
+11. 结构中可编辑小问、分值、时长、选答和小问数量锁定。**Save structure** 后由服务端重新汇总并检查；有效结构经 **Confirm structure** 后可 **Prepare generation** 保存不可变输入，旧快照可再次打开。**Generate practice** 暂不可用，不会创建假出卷任务。
 
 `Parsed` 只表示本地解析结束。Docling 当前关闭 OCR 和公式增强；数学页可能漏抽公式、丢失根号或读序错误，所有页面保持 `needs_review`。应查看原页图。后续 AI 分析必须选择相关页图或经验证的公式解析路径，不能把当前文本作为完整数学内容。
 
@@ -116,6 +118,16 @@ Materials 顶部的 **View saved call records** 可找回真实调用任务。�
 
 已授权的第二批 scope 是 36 页文字、5 页已有识别结果和已提供的范围声明，**没有包含新页图**。本轮尚未把页图补读自动接入课程分析。补读公式需扩大具体页图授权并实现该恢复分支；当前如实保留 `needs_info`，不静默删去不支持的知识组。
 
+## 第三批组卷规划
+
+可操作的独立模拟课程：<http://127.0.0.1:5173/courses/5557e765-063f-4170-a75d-970799a675f1/generate>。该页面有已确认的四大题结构及两份历史输入快照。`Fixture data · no model call` 表示确定性测试数据；其分值、时间和教学安排不代表模型或真实课程质量结论。修改该模拟课程可走本地队列，不发送课程材料。
+
+真实课程入口：<http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/generate>。目前提示先处理课程草稿；本批保留真实 QM revision 3，未替用户确认。
+
+真实规划复用官方 Responses 适配器，但需要单独的 `PlanningGrant`，不会沿用第二批 `AnalysisGrant`。预检展示冻结课程描述、方法/范围、声明、配置及来源索引；不发送原页文字或新页图。授权绑定精确输入、模型、提示词与 schema。限额为每任务最多 2 次调用、180 秒截止、每次 150 秒、输入/输出 60k/12k，SDK 自动重试 0。当前实现正常规划只调用一次；未知结果不会自动重放。真实 AI②的质量、耗时与扣费尚未验证。
+
+规划 Task detail 支持真实阶段、取消、错误和原始蓝图找回。迟到结果不能覆盖新配置；取消后的旧执行不能发布。后续题答生成将读取 `GenerationSnapshot`；目前历史截止已冻结，历史试卷集合明确为空（Papers 尚未实现）。六次真实验收仍未执行。
+
 ## 检查命令
 
 项目根目录 PowerShell：
@@ -142,5 +154,14 @@ pnpm --dir frontend test --run
 & .\.venv\Scripts\python.exe scripts/prepare_profile_browser_fixture.py
 & .\.venv\Scripts\python.exe scripts/test_course_profile.py
 ```
+
+第三批浏览器测试同样使用独立模拟课程与合成教学 PDF，通过实际本地 API/队列验证，不调用模型：
+
+```powershell
+& .\.venv\Scripts\python.exe scripts/prepare_generation_browser_fixture.py
+& .\.venv\Scripts\python.exe scripts/test_generation_workspace.py
+```
+
+每次重跑应先创建新的测试课程；脚本会保存配置、规划、确认和快照，覆盖其 `var/batch3-browser-fixture.json` 指针，不删除旧测试课程。当前完整后端回归 98 项、前端 12 项通过；浏览器覆盖范围与未验证项详见批次三记录。
 
 Vitest 覆盖串行保存、迟到响应、未知保存结果的同 key 重试、冲突和标签刷新恢复。Python Playwright 覆盖实际浏览器；仍未建立 Node Playwright 测试集，不把 `test:e2e` 脚本视为已验收入口。

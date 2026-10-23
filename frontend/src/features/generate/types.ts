@@ -1,0 +1,27 @@
+import type { Task } from "../../api/types";
+import type { Payload } from "../profile/types";
+
+export const responseTypes = ["calculation", "explanation_proof", "applied_optimisation"] as const;
+export type ResponseType = typeof responseTypes[number];
+export type Config = { course_version_id: string; mode: "chapter_practice"; topic_ids: string[];
+  difficulty: "foundation" | "exam_standard" | "challenge"; main_question_count: number; question_types: ResponseType[] };
+export type Plan = { sections: { id: string; title: string; question_ids: string[]; selection: {mode: "all" | "choose"; choose_count: number} }[];
+  questions: { id: string; number: number; title: string; objective: string; knowledge_ids: string[]; evidence_ids: string[];
+    parts: {id: string; label: string; response_type: ResponseType; marks: number; knowledge_ids: string[]; asset_needs: string[]}[] }[];
+  main_question_count: number; subquestion_count: number; subquestion_count_locked: boolean;
+  printed_marks: number; attempt_marks: number; suggested_minutes: number;
+  coverage: {knowledge_id: string; question_ids: string[]}[]; differences: string[]; calibration: string };
+export type Blueprint = {id: string; revision: number; config_revision: number; config_hash: string; course_version_id: string;
+  payload: Plan; payload_hash: string; differences: string[]; mode: string; task_id: string | null};
+export type ConfigDraft = {id: string; revision: number; config: Config; config_hash: string; blueprint: Blueprint | null;
+  confirmation_id: string | null; confirmed: boolean; latest_task_id: string | null};
+export type Source = {id: string; material_code?: string; material_version_id?: string; physical_page?: number};
+export type CourseVersion = {id: string; number: number; mode: string; payload: Payload; evidence: Source[]};
+export type Snapshot = {id: string; mode: string; payload_hash: string; confirmation_id: string; created_at: string;
+  payload?: {config: Config; blueprint: Plan; history_cutoff: string; course_version_id: string; [key: string]: unknown}};
+export type Workspace = {draft: ConfigDraft | null; versions: CourseVersion[]; latest_task: Task | null;
+  snapshots: Snapshot[]; generation_available: boolean};
+export type Preflight = {authorized: boolean; api_key_configured: boolean; scope: {context_hash: string; mode: string; model: string;
+  endpoint: string; store: false; config_revision: number; evidence: Source[]; input: unknown;
+  new_page_images: number; raw_page_texts: number; purpose: string; max_calls: number; task_seconds: number; call_seconds: number}};
+export const typeLabels: Record<ResponseType, string> = {calculation: "Calculation", explanation_proof: "Explanation / proof", applied_optimisation: "Applied optimisation"};

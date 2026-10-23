@@ -20,7 +20,8 @@ import { api } from "../api/client";
 import type { Course, Session } from "../api/types";
 import { MaterialsPage } from "../features/materials/MaterialsPage";
 import { TaskPage } from "../features/tasks/TaskPage";
-import { ProfilePage, GenerateGate } from "../features/profile/ProfilePage";
+import { ProfilePage } from "../features/profile/ProfilePage";
+import { GeneratePage } from "../features/generate/GeneratePage";
 
 export const useCourse = () => useOutletContext<Course>();
 function Workspace() {
@@ -128,13 +129,10 @@ function Workspace() {
             <FileCheck2 size={19} />
             Course profile
           </Link>
-          <span
-            className="nav-item disabled"
-            title="Generation is not available yet"
-          >
+          <Link className={location.pathname.includes("generate") ? "nav-item active" : "nav-item"} to={`/courses/${course.id}/generate`}>
             <SlidersHorizontal size={19} />
             Generate
-          </span>
+          </Link>
           <span className="nav-item disabled" title="No generated papers yet">
             <LibraryBig size={19} />
             Papers
@@ -142,7 +140,7 @@ function Workspace() {
         </nav>
         <div className="sidebar-footer">
           <span className="online-dot" /> Local workspace
-          <small>Course profile and source review</small>
+          <small>Materials, course profile and practice planning</small>
         </div>
       </aside>
       <div className="workspace-body">
@@ -179,7 +177,7 @@ export const router = createBrowserRouter([
       { path: "/", element: <Home /> },
       { path: "/courses/:courseId/materials", element: <MaterialsPage /> },
       { path: "/courses/:courseId/profile", element: <ProfilePage /> },
-      { path: "/courses/:courseId/generate", element: <GenerateGate /> },
+      { path: "/courses/:courseId/generate", element: <GeneratePage /> },
       { path: "/tasks/:taskId", element: <TaskPage /> },
     ],
   },
