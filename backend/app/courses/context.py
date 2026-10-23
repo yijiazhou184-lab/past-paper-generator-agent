@@ -19,8 +19,10 @@ from .schemas import AnalysisOutput
 
 PROMPT_VERSION = "r1-course-analysis-2"
 SCHEMA_VERSION = "r1-course-draft-1"
-PAGE_SELECTION = {"M35": list(range(2, 18)), "M34": [14, 28, 29, 30, 31, 32, 33, 41],
-    "M48": [20], "M06": [2, 6], "M32": [2], "M46": [3, 4, 6], "M05": [1, 3, 5], "M14": [5], "M33": [22]}
+# 2026-10-24: user added the main L'Hopital and implicit-differentiation teaching pages
+# (M34 p34, 46-49; M14 p4; M48 p19, 21, 22) after the first visual re-analysis found them missing.
+PAGE_SELECTION = {"M35": list(range(2, 18)), "M34": [14, 28, 29, 30, 31, 32, 33, 34, 41, 46, 47, 48, 49],
+    "M48": [19, 20, 21, 22], "M06": [2, 6], "M32": [2], "M46": [3, 4, 6], "M05": [1, 3, 5], "M14": [4, 5], "M33": [22]}
 TARGETS = {"K1": "Definition and differentiability", "K2": "Differentiation rules and higher derivatives",
     "K3": "Stationary points and extrema", "K4": "Business applications and optimisation",
     "K5": "Rolle and Mean Value Theorems", "K6": "L'Hopital's Rule", "K7": "Implicit differentiation",
