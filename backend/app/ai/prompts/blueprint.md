@@ -8,6 +8,9 @@ Use all selected types and knowledge; do not invent or silently remove selection
 and associate each question with the teaching evidence of its knowledge. Keep IDs unique across sections, questions and parts.
 Number main questions consecutively. Suggest meaningful objectives, marks in positive 0.5 steps, and a justified practice duration.
 Do not mechanically use 10 marks or a fixed duration per main question. Do not copy an old question or generate its solution.
+Each part's label is only its letter: a, b, c … in order within its question, with no brackets or words. Put what the part
+assesses in focus: one short phrase naming the skill or reasoning required (at most 200 characters). Focus is a planning note
+for the later question-writing stage, not question text; do not include numbers, functions or wording of an actual question.
 
 Default to answer-all sections. If explicitly constrained to choose, each permitted choice must have equal marks and cover all
 selected knowledge and response types. Report printed marks and attempt marks separately. Calculate sums and coverage accurately;

@@ -163,3 +163,42 @@ def test_replanning_blocks_old_confirmation_and_editing(course, planned):
     with pytest.raises(DomainError, match="PLANNING_IN_PROGRESS"):
         edit_blueprint(course.owner, course.id, planned.blueprint_id, planned.revision, planned.blueprint.revision, planned.blueprint.payload, "edit-during-plan")
     cancel_task(course.owner, task.id)
+
+
+def test_v2_plan_edits_focus_and_keeps_letters(course, planned):
+    from app.generation.schemas import schema_version_of
+    old = planned.blueprint
+    assert schema_version_of(old.payload) == "blueprint-v2"
+    changed = copy.deepcopy(old.payload)
+    changed["questions"][0]["parts"][0]["focus"] = "Interpret the derivative as a rate of change"
+    edited = edit_blueprint(course.owner, course.id, old.id, planned.revision, old.revision, changed, "focus-edit")
+    assert edited.blueprint.payload["questions"][0]["parts"][0]["focus"] == "Interpret the derivative as a rate of change"
+    assert any("parts" in d for d in edited.blueprint.differences)
+    stripped = copy.deepcopy(edited.blueprint.payload)
+    for q in stripped["questions"]:
+        for p in q["parts"]:
+            p.pop("focus")
+    with pytest.raises(DomainError, match="BLUEPRINT_SCHEMA_VERSION_MISMATCH"):
+        edit_blueprint(course.owner, course.id, edited.blueprint.id, planned.revision, edited.blueprint.revision, stripped, "drop-focus")
+
+
+def test_legacy_v1_blueprint_can_still_be_edited_and_confirmed(course, planned):
+    from app.generation.models import Blueprint
+    from app.generation.snapshots import binding_valid
+    old = planned.blueprint
+    legacy = copy.deepcopy(old.payload)
+    for q in legacy["questions"]:
+        for p in q["parts"]:
+            p.pop("focus")
+            p["label"] = f"({p['label']}) Legacy label"
+    v1 = Blueprint.objects.create(draft=planned, course_version=old.course_version, config_revision=old.config_revision,
+        config_hash=old.config_hash, family=old.family, revision=old.revision + 1, payload=legacy, payload_hash="legacy",
+        differences=[], mode=old.mode, context_hash=old.context_hash)
+    planned.blueprint = v1
+    planned.save()
+    changed = copy.deepcopy(legacy)
+    changed["suggested_minutes"] += 5
+    edited = edit_blueprint(course.owner, course.id, v1.id, planned.revision, v1.revision, changed, "legacy-edit")
+    assert edited.blueprint.payload["questions"][0]["parts"][0]["label"] == "(a) Legacy label"
+    confirmed = confirm(course, edited, key="legacy-confirm")
+    assert binding_valid(confirmed)

@@ -16,8 +16,8 @@ def blueprint_inputs():
     for n in range(1, 3):
         questions.append({"id": f"q{n}", "number": n, "title": f"Practice question {n}", "objective": "Connect methods and interpretation",
             "knowledge_ids": config["topic_ids"], "evidence_ids": ["e1"],
-            "parts": [{"id": f"q{n}{letter}", "label": letter, "response_type": kind, "marks": marks,
-                       "knowledge_ids": [kid], "asset_needs": []}
+            "parts": [{"id": f"q{n}{letter}", "label": letter, "focus": f"Assess {kind} reasoning", "response_type": kind,
+                       "marks": marks, "knowledge_ids": [kid], "asset_needs": []}
                       for letter, kind, kid, marks in zip("abc", config["question_types"], config["topic_ids"], [3, 2, 4])]})
     payload = {"sections": [{"id": "s1", "title": "Topic 2 practice", "question_ids": ["q1", "q2"],
                             "selection": {"mode": "all", "choose_count": 2}}],
@@ -93,3 +93,36 @@ def test_insufficient_selected_evidence_and_excluded_scope_rejected(blueprint_in
     course["scope_claims"] = [{"subject_ids": ["K1"], "disposition": "exclude", "applicability": "current_exam"}]
     with pytest.raises(DomainError, match="SELECTED_KNOWLEDGE_EXCLUDED"):
         validate_blueprint(config, payload, course, evidence)
+
+
+@pytest.mark.parametrize("damage,code", [
+    (lambda p: p["questions"][0]["parts"][0].update(label="(a) Derivative from the limit"), "BLUEPRINT_SCHEMA_INVALID"),
+    (lambda p: p["questions"][0]["parts"][1].update(label="c"), "PART_LABELS_INVALID"),
+    (lambda p: p["questions"][0]["parts"][0].update(focus="   "), "PART_FOCUS_REQUIRED"),
+    (lambda p: p["questions"][0]["parts"][0].update(focus="x" * 201), "BLUEPRINT_SCHEMA_INVALID"),
+    (lambda p: p["questions"][0]["parts"][0].pop("focus"), "BLUEPRINT_SCHEMA_INVALID"),  # mixed v1/v2 parts
+])
+def test_v2_labels_are_letters_and_focus_is_required(blueprint_inputs, damage, code):
+    config, payload, course, evidence = copy.deepcopy(blueprint_inputs)
+    damage(payload)
+    with pytest.raises(DomainError, match=code):
+        validate_blueprint(config, payload, course, evidence)
+
+
+def legacy(payload):
+    """A blueprint-v1 structure as saved before focus existed, with long labels."""
+    for q in payload["questions"]:
+        for p in q["parts"]:
+            p.pop("focus")
+            p["label"] = "(" + p["label"] + ") Derivative from the limit"[:30]
+    return payload
+
+
+def test_v1_blueprint_stays_valid_and_cannot_switch_version_silently(blueprint_inputs):
+    config, payload, course, evidence = copy.deepcopy(blueprint_inputs)
+    old = legacy(copy.deepcopy(payload))
+    assert validate_blueprint(config, old, course, evidence, schema_version="blueprint-v1")["subquestion_count"] == 6
+    with pytest.raises(DomainError, match="BLUEPRINT_SCHEMA_VERSION_MISMATCH"):
+        validate_blueprint(config, old, course, evidence, schema_version="blueprint-v2")
+    with pytest.raises(DomainError, match="BLUEPRINT_SCHEMA_VERSION_MISMATCH"):
+        validate_blueprint(config, payload, course, evidence, schema_version="blueprint-v1")

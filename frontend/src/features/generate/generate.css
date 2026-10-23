@@ -61,3 +61,11 @@
 .config-comparison pre,.generation-history pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
 @media(max-width:1100px) {.generation-grid {grid-template-columns:290px minmax(0,1fr);gap:16px}.generation-config,.generation-structure {padding:20px}.part-row {grid-template-columns:20px minmax(0,1fr)}.part-marks {grid-column:2}.structure-footer {align-items:start;flex-direction:column}.generation-handoff {flex-direction:column;align-items:stretch}.generation-handoff .actions {flex-direction:row}}
 @media(max-width:800px) {.generation-grid {grid-template-columns:minmax(0,1fr)}.generation-meta a {margin:0}.structure-controls {flex-wrap:wrap}.config-comparison {grid-template-columns:1fr}.generation-handoff .actions {flex-wrap:wrap}.blueprint-question summary {flex-wrap:wrap}.structure-numbers {gap:8px}.structure-numbers strong {font-size:22px}}
+
+.part-focus {
+  display: block;
+  margin-bottom: 6px;
+}
+.part-focus input {
+  width: 100%;
+}

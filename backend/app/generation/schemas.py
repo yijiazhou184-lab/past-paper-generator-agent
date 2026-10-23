@@ -33,9 +33,15 @@ class Section(Strict):
     selection: Selection
 
 
+SCHEMA_VERSION = "blueprint-v2"
+LEGACY_SCHEMA_VERSION = "blueprint-v1"
+
+
 class Part(Strict):
+    """blueprint-v2: label is the part's letter only; focus says what the part assesses."""
     id: str = Field(min_length=1, max_length=80)
-    label: str = Field(min_length=1, max_length=30)
+    label: str = Field(pattern=r"^[a-z]$")
+    focus: str = Field(min_length=1, max_length=200)
     response_type: ResponseType
     marks: float = Field(gt=0, le=100, multiple_of=0.5, strict=True)
     knowledge_ids: list[str] = Field(min_length=1, max_length=30)
@@ -50,6 +56,20 @@ class Question(Strict):
     knowledge_ids: list[str] = Field(min_length=1, max_length=30)
     parts: list[Part] = Field(min_length=1, max_length=12)
     evidence_ids: list[str] = Field(min_length=1, max_length=40)
+
+
+class PartV1(Strict):
+    """blueprint-v1, kept so earlier blueprints stay readable, editable and confirmable."""
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=30)
+    response_type: ResponseType
+    marks: float = Field(gt=0, le=100, multiple_of=0.5, strict=True)
+    knowledge_ids: list[str] = Field(min_length=1, max_length=30)
+    asset_needs: list[Literal["function_graph", "data_table"]] = Field(max_length=2)
+
+
+class QuestionV1(Question):
+    parts: list[PartV1] = Field(min_length=1, max_length=12)
 
 
 class Coverage(Strict):
@@ -69,6 +89,21 @@ class BlueprintPayload(Strict):
     coverage: list[Coverage]
     differences: list[str] = Field(max_length=20)
     calibration: Literal["historical_reference", "uncalibrated"]
+
+
+class BlueprintPayloadV1(BlueprintPayload):
+    questions: list[QuestionV1] = Field(min_length=2, max_length=4)
+
+
+def schema_version_of(payload):
+    """v2 when every part carries focus, v1 when none does; a mixture is invalid."""
+    parts = [p for q in (payload.get("questions") or []) if isinstance(q, dict) for p in (q.get("parts") or []) if isinstance(p, dict)]
+    with_focus = {"focus" in p for p in parts}
+    if with_focus == {False}:
+        return LEGACY_SCHEMA_VERSION
+    if with_focus == {True} or not parts:
+        return SCHEMA_VERSION
+    raise DomainError("BLUEPRINT_SCHEMA_INVALID", "Every part needs a focus, or none for an earlier structure.", status=400)
 
 
 class PlanningOutput(Strict):
@@ -140,9 +175,19 @@ def summarize(payload):
         "coverage": [{"knowledge_id": k, "question_ids": v} for k, v in sorted(coverage.items())]}
 
 
-def validate_blueprint(config, payload, course_payload, evidence, *, recalculate=False):
+def validate_blueprint(config, payload, course_payload, evidence, *, recalculate=False, schema_version=None):
+    """schema_version pins the expected version: a model plan must be v2, an edit keeps its predecessor's."""
     config = validate_config(config, course_payload, evidence)
-    plan = parse_schema(BlueprintPayload, payload, "BLUEPRINT_SCHEMA_INVALID")
+    version = schema_version_of(payload)
+    if schema_version and version != schema_version:
+        raise DomainError("BLUEPRINT_SCHEMA_VERSION_MISMATCH", "The structure format does not match its saved version.", status=400)
+    plan = parse_schema(BlueprintPayload if version == SCHEMA_VERSION else BlueprintPayloadV1, payload, "BLUEPRINT_SCHEMA_INVALID")
+    if version == SCHEMA_VERSION:
+        for q in plan["questions"]:
+            if [p["label"] for p in q["parts"]] != [chr(97 + i) for i in range(len(q["parts"]))]:
+                raise DomainError("PART_LABELS_INVALID", "Label each question's parts a, b, c … in order.", status=400)
+            if any(not p["focus"].strip() for p in q["parts"]):
+                raise DomainError("PART_FOCUS_REQUIRED", "Describe what each part assesses.", status=400)
     questions = plan["questions"]
     if len(questions) != config["main_question_count"]:
         raise DomainError("MAIN_QUESTION_COUNT_MISMATCH", "The plan must match the requested main-question count.", status=400)

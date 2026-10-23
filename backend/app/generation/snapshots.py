@@ -6,7 +6,7 @@ from app.core.errors import DomainError
 from app.core.idempotency import digest, intent
 from app.courses.models import Course, CourseVersion
 from .models import GenerationDraft, Blueprint, StructureConfirmation, GenerationSnapshot
-from .schemas import GenerationConfig, parse_schema, validate_config, validate_blueprint
+from .schemas import GenerationConfig, parse_schema, validate_config, validate_blueprint, schema_version_of
 
 
 def owned_course(owner, course_id):
@@ -101,7 +101,8 @@ def edit_blueprint(owner, course_id, blueprint_id, config_revision, expected_rev
     if draft.blueprint_id != previous.id or previous.revision != expected_revision or previous.config_revision != draft.revision:
         raise DomainError("BLUEPRINT_REVISION_CONFLICT", "This structure is no longer current. Review the saved configuration and structure.")
     version = draft.course_version
-    validated = validate_blueprint(draft.config, payload, version.frozen_payload, version.evidence_manifest["evidence"], recalculate=True)
+    validated = validate_blueprint(draft.config, payload, version.frozen_payload, version.evidence_manifest["evidence"],
+                                   recalculate=True, schema_version=schema_version_of(previous.payload))
     # Provider explanations are not used as a programmatic diff, even on edited plans.
     validated["differences"] = previous.payload["differences"]
     draft.blueprint = Blueprint.objects.create(draft=draft, course_version=version, config_revision=draft.revision,

@@ -12,7 +12,7 @@ from app.core.idempotency import digest, intent
 from app.core.models import Task, TaskAttempt, TaskEvent
 from app.core.tasks import submit_task, locked_task, checkpoint, finish_task
 from .models import GenerationDraft, Blueprint, PlanningGrant
-from .schemas import PlanningOutput, validate_config, validate_blueprint
+from .schemas import PlanningOutput, SCHEMA_VERSION, validate_config, validate_blueprint
 from .snapshots import owned_course, require_revision, structure_diff
 
 
@@ -22,7 +22,7 @@ def build_context(draft):
     if digest(version.frozen_payload) != version.payload_hash:
         raise DomainError("COURSE_VERSION_HASH_MISMATCH")
     prompt = (Path(__file__).resolve().parents[1] / "ai/prompts/blueprint.md").read_text(encoding="utf-8")
-    snapshot = {"prompt_version": "blueprint-v1", "schema_version": "blueprint-v1", "prompt": prompt,
+    snapshot = {"prompt_version": SCHEMA_VERSION, "schema_version": SCHEMA_VERSION, "prompt": prompt,
         "schema_hash": digest(PlanningOutput.model_json_schema()), "limits_version": "r1-limits-proposal-1",
         "adapter_version": "official-responses-v1", "model_settings": {"reasoning_effort": "medium", "max_input_tokens": 60000,
             "max_output_tokens": 12000, "sdk_max_retries": 0, "task_deadline_seconds": 180, "call_timeout_seconds": 150},
@@ -94,7 +94,8 @@ def publish_plan(token, payload):
     snapshot = task.snapshot
     draft = get_object_or_404(GenerationDraft.objects.select_related("blueprint"), pk=snapshot["draft_id"], course=course)
     frozen = snapshot["input"]
-    payload = validate_blueprint(frozen["config"], payload, frozen["course"], frozen["evidence"])
+    payload = validate_blueprint(frozen["config"], payload, frozen["course"], frozen["evidence"],
+                                 schema_version=snapshot.get("schema_version"))
     existing = Blueprint.objects.filter(task=task).first()
     if existing:
         raise DomainError("BLUEPRINT_ALREADY_PUBLISHED")

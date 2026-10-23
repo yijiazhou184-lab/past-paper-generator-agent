@@ -11,6 +11,7 @@ def fixture_blueprint(config, course_payload):
         parts = []
         for i, kind in enumerate(config["question_types"]):
             parts.append({"id": f"q{number}-{i}", "label": chr(97 + i), "response_type": kind,
+                "focus": f"Synthetic {kind.replace('_', ' ')} part for testing; not an assessed objective.",
                 "marks": allocations[config["main_question_count"]][i], "knowledge_ids": config["topic_ids"],
                 "asset_needs": ["function_graph"] if number == 1 and i == 0 else []})
         questions.append({"id": f"q{number}", "number": number,

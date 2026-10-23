@@ -7,7 +7,8 @@ export type Config = { course_version_id: string; mode: "chapter_practice"; topi
   difficulty: "foundation" | "exam_standard" | "challenge"; main_question_count: number; question_types: ResponseType[] };
 export type Plan = { sections: { id: string; title: string; question_ids: string[]; selection: {mode: "all" | "choose"; choose_count: number} }[];
   questions: { id: string; number: number; title: string; objective: string; knowledge_ids: string[]; evidence_ids: string[];
-    parts: {id: string; label: string; response_type: ResponseType; marks: number; knowledge_ids: string[]; asset_needs: string[]}[] }[];
+    // focus is present on blueprint-v2 plans; earlier plans keep their long labels and have none.
+    parts: {id: string; label: string; focus?: string; response_type: ResponseType; marks: number; knowledge_ids: string[]; asset_needs: string[]}[] }[];
   main_question_count: number; subquestion_count: number; subquestion_count_locked: boolean;
   printed_marks: number; attempt_marks: number; suggested_minutes: number;
   coverage: {knowledge_id: string; question_ids: string[]}[]; differences: string[]; calibration: string };
