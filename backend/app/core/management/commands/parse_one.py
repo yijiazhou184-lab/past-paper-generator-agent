@@ -5,6 +5,18 @@ from app.core.tasks import fail_task
 from app.core.errors import DomainError
 from app.materials.parser import parse_material
 from uuid import UUID
+import sys
+
+
+def schedule_after_parse(task):
+    """Queue page transcription for the parsed version; a scheduling problem never fails the parse."""
+    from app.materials.models import MaterialVersion
+    from app.materials.transcription import schedule
+    try:
+        version = MaterialVersion.objects.select_related("blob", "material__course").get(pk=task.snapshot["material_version_id"])
+        schedule(task.course, "parse_complete", versions=[version])
+    except Exception as exc:
+        sys.stderr.write(f"Transcription scheduling skipped: {type(exc).__name__}\n")
 
 
 class Command(BaseCommand):
@@ -17,6 +29,7 @@ class Command(BaseCommand):
         task = Task.objects.get(pk=token.task_id)
         try:
             parse_material(token, task.snapshot["material_version_id"])
+            schedule_after_parse(task)
         except DomainError as exc:
             fail_task(token, exc.payload["code"], exc.payload["message"], exc.payload["retryable"])
         except Exception as exc:

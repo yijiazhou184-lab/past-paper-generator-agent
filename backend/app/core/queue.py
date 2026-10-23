@@ -11,13 +11,17 @@ from .models import Task, ModelInvocation
 from django.utils import timezone
 
 
+AI_KINDS = ("ai_validation", "analysis", "planning", "visual_transcription")
+
+
 @app.task(name="run_business_task")
 def run_business_task(task_id):
     token = claim_task(task_id)
     if not token:
         return
     task = Task.objects.get(pk=task_id)
-    command = {"parse": "parse_one", "ai_validation": "validate_ai_one", "analysis": "analyse_course_one", "planning": "plan_practice_one"}.get(task.kind)
+    command = {"parse": "parse_one", "ai_validation": "validate_ai_one", "analysis": "analyse_course_one", "planning": "plan_practice_one",
+               "visual_transcription": "transcribe_visual_one"}.get(task.kind)
     if command is None:
         fail_task(token, "NOT_IMPLEMENTED", "This stage is not available in the current development batch.", False)
         return
@@ -32,8 +36,10 @@ def run_business_task(task_id):
         try:
             while process.poll() is None:
                 heartbeat(token)
-                pending = ModelInvocation.objects.filter(task=task, state="started").first() if task.kind in ("ai_validation", "analysis", "planning") else None
-                if pending and (timezone.now() - pending.created_at).total_seconds() > pending.metadata["timeout_seconds"]:
+                pending = ModelInvocation.objects.filter(task=task, state="started") if task.kind in AI_KINDS else []
+                # Parallel page calls each enforce their own SDK timeout; the grace avoids killing their siblings.
+                grace = 30 if task.kind == "visual_transcription" else 0
+                if any((timezone.now() - p.created_at).total_seconds() > p.metadata["timeout_seconds"] + grace for p in pending):
                     raise DomainError("PROVIDER_TIMEOUT")
                 time.sleep(2)
         except DomainError as exc:
