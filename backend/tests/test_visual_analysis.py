@@ -115,3 +115,19 @@ def test_analysis_schema_keeps_requests_strict():
     schema = AnalysisOutput.model_json_schema()
     assert "visual_review_requests" in schema["required"]
     assert schema["$defs"]["VisualReviewRequest"]["additionalProperties"] is False
+
+
+def test_materials_and_source_api_show_transcription_state(course):
+    from rest_framework.test import APIClient
+    version = parsed_version(course, 3)
+    row = accept(version.evidence.get(physical_page=1))
+    client = APIClient()
+    client.force_authenticate(course.owner)
+    summary = client.get(f"/api/v1/courses/{course.id}/materials").json()["materials"][0]["transcription"]
+    assert summary == {"visual_pages": 2, "done": 1, "running": 0, "not_started": 0, "awaiting_consent": 1,
+                       "failed": 0, "task_id": None}
+    first = client.get(f"/api/v1/sources/{row.evidence_id}").json()
+    assert first["transcription_status"] == "done" and first["transcription"]["origin"] == "fixture"
+    assert first["route"]["route"] == "visual" and "empty_formula_region" in first["route"]["signals"]
+    prose = client.get(f"/api/v1/sources/{version.evidence.get(physical_page=2).id}").json()
+    assert prose["transcription_status"] == "not_needed" and prose["transcription"] is None

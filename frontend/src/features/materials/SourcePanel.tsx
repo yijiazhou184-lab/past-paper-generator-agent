@@ -167,6 +167,7 @@ export function SourcePanel({
             Formula transcription has not been verified. Use the original page
             to check mathematical notation.
           </div>
+          {query.data && <PageTranscription source={query.data} />}
           <details>
             <summary>Original paths ({material.aliases.length})</summary>
             {material.aliases.map((p) => (
@@ -243,5 +244,98 @@ export function SourcePanel({
         </aside>
       </div>
     </dialog>
+  );
+}
+
+type VisualItem = {
+  kind: string;
+  location: string;
+  legibility: string;
+  value_origin: string;
+  latex_as_printed: string | null;
+  text: string | null;
+  units: string | null;
+  columns: string[] | null;
+  rows: { cells: string[] }[] | null;
+  axes: { name: string; label_as_printed: string }[] | null;
+  labelled_values: { label: string; value_as_printed: string }[] | null;
+  elements: string[] | null;
+};
+type VisualPayload = {
+  status: string;
+  page_title: string;
+  faithful_transcription: string;
+  items: VisualItem[];
+  findings: { kind: string; observation: string }[];
+  unresolved: string[];
+};
+
+const STATUS_TEXT: Record<string, string> = {
+  not_needed: "Extracted text is used for this page.",
+  awaiting_consent: "This page needs its image read. It is waiting for consent to send the image.",
+  not_started: "This page image is authorised and will be transcribed shortly.",
+  running: "This page image is being transcribed.",
+  failed: "Transcription of this page image failed. The task shows the reason.",
+  superseded_parse: "This page belongs to an older parse.",
+};
+
+function itemContent(item: VisualItem) {
+  if (item.latex_as_printed) return item.latex_as_printed;
+  if (item.rows)
+    return [item.columns?.join(" | "), ...item.rows.map((r) => r.cells.join(" | "))]
+      .filter(Boolean)
+      .join("\n");
+  if (item.axes)
+    return [
+      ...item.axes.map((a) => `${a.name}: ${a.label_as_printed}`),
+      ...(item.labelled_values ?? []).map((v) => `${v.label} = ${v.value_as_printed}`),
+    ].join("\n");
+  return item.elements?.join(", ") ?? item.text ?? "";
+}
+
+function PageTranscription({ source }: { source: Source }) {
+  const record = source.transcription;
+  const signals = source.route.signals.map((s) => s.replaceAll("_", " ")).join(", ");
+  if (!record)
+    return (
+      <div className="transcription-state">
+        <h3>Page image transcription</h3>
+        <p>{STATUS_TEXT[source.transcription_status] ?? source.transcription_status}</p>
+        {signals && <small>Why: {signals}</small>}
+      </div>
+    );
+  const payload = record.payload as unknown as VisualPayload;
+  return (
+    <details className="transcription-state" open>
+      <summary>Page image transcription</summary>
+      <p className="candidate-label">
+        Model candidate · not verified · {payload.status.replaceAll("_", " ")}
+      </p>
+      <small>
+        {record.model} · {record.origin} · Why: {signals}
+      </small>
+      <pre>{payload.faithful_transcription}</pre>
+      {payload.items.length > 0 && (
+        <ul className="transcription-items">
+          {payload.items.map((item, i) => (
+            <li key={i}>
+              <strong>{item.kind}</strong> · {item.location} · {item.legibility}
+              {item.value_origin === "read_from_image" && " · read from image"}
+              <pre>{itemContent(item)}</pre>
+            </li>
+          ))}
+        </ul>
+      )}
+      {payload.findings.map((f, i) => (
+        <p key={i}>
+          <strong>{f.kind.replaceAll("_", " ")}:</strong> {f.observation}
+        </p>
+      ))}
+      {payload.unresolved.map((u, i) => (
+        <p key={`u${i}`} className="muted">
+          Unresolved: {u}
+        </p>
+      ))}
+    </details>
   );
 }

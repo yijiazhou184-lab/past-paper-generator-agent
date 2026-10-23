@@ -1044,6 +1044,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        transcription:
+          $ref: '#/components/schemas/TranscriptionSummarySchema'
       required:
       - aliases
       - answer_links
@@ -1064,6 +1066,7 @@ components:
       - sha256
       - state
       - task_id
+      - transcription
     MaterialsSchema:
       type: object
       properties:
@@ -1313,6 +1316,25 @@ components:
         * `personal_notes` - personal_notes
         * `software_reference` - software_reference
         * `other` - other
+    RouteSchema:
+      type: object
+      properties:
+        locator:
+          type: object
+          additionalProperties: {}
+        route:
+          type: string
+        signals:
+          type: array
+          items:
+            type: string
+        rule_version:
+          type: string
+      required:
+      - locator
+      - route
+      - rule_version
+      - signals
     SessionSchema:
       type: object
       properties:
@@ -1365,6 +1387,14 @@ components:
           type: string
         image_url:
           type: string
+        route:
+          $ref: '#/components/schemas/RouteSchema'
+        transcription_status:
+          type: string
+        transcription:
+          allOf:
+          - $ref: '#/components/schemas/SourceTranscriptionSchema'
+          nullable: true
       required:
       - blocks
       - fidelity_status
@@ -1375,8 +1405,44 @@ components:
       - parse_version_id
       - physical_page
       - printed_label
+      - route
       - sha256
       - text
+      - transcription
+      - transcription_status
+    SourceTranscriptionSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        origin:
+          type: string
+        status:
+          type: string
+        model:
+          type: string
+        prompt_version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        task_id:
+          type: string
+          format: uuid
+          nullable: true
+        payload:
+          type: object
+          additionalProperties: {}
+      required:
+      - created_at
+      - id
+      - model
+      - origin
+      - payload
+      - prompt_version
+      - status
+      - task_id
     StructureConfirmRequest:
       type: object
       properties:
@@ -1506,6 +1572,33 @@ components:
             $ref: '#/components/schemas/TaskSchema'
       required:
       - tasks
+    TranscriptionSummarySchema:
+      type: object
+      properties:
+        visual_pages:
+          type: integer
+        done:
+          type: integer
+        running:
+          type: integer
+        not_started:
+          type: integer
+        awaiting_consent:
+          type: integer
+        failed:
+          type: integer
+        task_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - awaiting_consent
+      - done
+      - failed
+      - not_started
+      - running
+      - task_id
+      - visual_pages
     UploadInput:
       type: object
       properties:

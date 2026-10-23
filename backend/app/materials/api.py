@@ -9,7 +9,9 @@ from drf_spectacular.utils import extend_schema
 from .schemas import (MaterialsSchema, MaterialSchema, UploadResultSchema, RelationResultSchema, RemoveResultSchema, SourceSchema)
 from app.core.errors import DomainError
 from app.courses.models import Course
-from .models import MaterialVersion, MaterialRelation
+from .models import MaterialVersion, MaterialRelation, VisualTranscription
+from .routing import route_page
+from .transcription import page_states
 from .ingest import ingest_pdf
 from .evidence import render_page, get_source
 from .storage import path_for
@@ -33,7 +35,16 @@ class RelationInput(serializers.Serializer):
     coverage = serializers.CharField(max_length=500)
 
 
-def material_view(version):
+def transcription_summary(states):
+    visual = [s for s in states if s["status"] != "not_needed"]
+    count = lambda status: sum(s["status"] == status for s in visual)
+    tasks = [s["task_id"] for s in visual if s["status"] in ("running", "failed") and s["task_id"]]
+    return {"visual_pages": len(visual), "done": count("done"), "running": count("running"),
+            "not_started": count("not_started"), "awaiting_consent": count("awaiting_consent"),
+            "failed": count("failed"), "task_id": tasks[0] if tasks else None}
+
+
+def material_view(version, states=None):
     evidence = version.evidence.order_by("physical_page")
     parse = evidence.first().parse_version if evidence.exists() else None
     return {"id": str(version.id), "material_id": str(version.material_id), "number": version.number,
@@ -48,7 +59,9 @@ def material_view(version):
             "issues": parse.issues if parse else [],
             "evidence": list(evidence.values("id", "physical_page", "fidelity_status")),
             "answer_links": list(version.answer_links.filter(active=True).values("id", "target_id", "coverage", "revision")),
-            "metadata": version.content_metadata}
+            "metadata": version.content_metadata,
+            "transcription": transcription_summary(page_states(version.material.course, [version]) if states is None
+                                                   else [s for s in states if s["material_version_id"] == str(version.id)])}
 
 
 class MaterialsView(APIView):
@@ -57,8 +70,9 @@ class MaterialsView(APIView):
     @extend_schema(responses=MaterialsSchema)
     def get(self, request, course_id):
         course = get_object_or_404(Course, pk=course_id, owner=request.user)
-        versions = MaterialVersion.objects.filter(material__course=course).select_related("blob", "task").order_by("created_at")
-        return Response({"materials": [material_view(v) for v in versions], "roles": ROLES,
+        versions = list(MaterialVersion.objects.filter(material__course=course).select_related("blob", "task", "material__course").order_by("created_at"))
+        states = page_states(course, versions)
+        return Response({"materials": [material_view(v, states) for v in versions], "roles": ROLES,
                          "limits": {"file_mib": 20, "unique_files": 20, "paths": 30, "unique_pages": 300}})
 
     @extend_schema(request=UploadInput, responses={201: UploadResultSchema})
@@ -128,7 +142,21 @@ class SourceView(APIView):
             "blocks": source.blocks, "fidelity_status": source.fidelity_status,
             "filename": source.material_version.original_filename,
             "sha256": source.material_version.blob.sha256,
-            "image_url": f"/api/v1/material-versions/{source.material_version_id}/pages/{source.physical_page}"})
+            "image_url": f"/api/v1/material-versions/{source.material_version_id}/pages/{source.physical_page}",
+            **source_transcription(source)})
+
+
+def source_transcription(source):
+    version = source.material_version
+    state = next((s for s in page_states(version.material.course, [version]) if s["evidence_id"] == str(source.id)), None)
+    if state is None:  # A page of an older parse: its route still applies, its status is not tracked.
+        return {"route": route_page(source.physical_page, source.blocks, source.text), "transcription_status": "superseded_parse",
+                "transcription": None}
+    row = VisualTranscription.objects.filter(pk=state["transcription_id"]).first() if state["transcription_id"] else None
+    return {"route": state["route"], "transcription_status": state["status"],
+            "transcription": {"id": str(row.id), "origin": row.origin, "status": row.status, "model": row.model,
+                              "prompt_version": row.prompt_version, "created_at": row.created_at,
+                              "task_id": str(row.task_id) if row.task_id else None, "payload": row.payload} if row else None}
 
 
 class PageImageView(APIView):

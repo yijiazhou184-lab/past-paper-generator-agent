@@ -39,7 +39,7 @@ export function MaterialsPage() {
     queryFn: () => api<MaterialList>(`/courses/${course.id}/materials`),
     refetchInterval: (query) =>
       query.state.data?.materials.some((m) =>
-        ["queued", "processing"].includes(m.state),
+        ["queued", "processing"].includes(m.state) || m.transcription.running > 0,
       )
         ? 3000
         : false,
@@ -334,7 +334,7 @@ export function MaterialsPage() {
                           : "Queued"}
                 </span>
                 {m.state === "succeeded" ? (
-                  <small>Review maths on source pages</small>
+                  <TranscriptionProgress summary={m.transcription} />
                 ) : (
                   <Link to={`/tasks/${m.task_id}`}>View task</Link>
                 )}
@@ -414,5 +414,27 @@ export function MaterialsPage() {
         </Dialog>
       )}
     </>
+  );
+}
+
+function TranscriptionProgress({ summary }: { summary: Material["transcription"] }) {
+  if (summary.visual_pages === 0) return <small>No page images needed</small>;
+  const notes = [
+    summary.running && `${summary.running} in progress`,
+    summary.not_started && `${summary.not_started} queued`,
+    summary.awaiting_consent && `${summary.awaiting_consent} awaiting consent`,
+    summary.failed && `${summary.failed} failed`,
+  ].filter(Boolean);
+  return (
+    <small className="transcription-progress">
+      Page images: {summary.done}/{summary.visual_pages} transcribed
+      {notes.length > 0 && ` · ${notes.join(" · ")}`}
+      {summary.task_id && (
+        <>
+          {" · "}
+          <Link to={`/tasks/${summary.task_id}`}>Transcription task</Link>
+        </>
+      )}
+    </small>
   );
 }

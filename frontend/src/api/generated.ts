@@ -554,6 +554,7 @@ export interface components {
             metadata: {
                 [key: string]: string;
             };
+            transcription: components["schemas"]["TranscriptionSummarySchema"];
         };
         MaterialsSchema: {
             materials: components["schemas"]["MaterialSchema"][];
@@ -662,6 +663,14 @@ export interface components {
          * @enum {string}
          */
         RolesEnum: "lecture" | "summary" | "seminar" | "additional_questions" | "past_paper" | "answer" | "assessment_brief" | "personal_notes" | "software_reference" | "other";
+        RouteSchema: {
+            locator: {
+                [key: string]: unknown;
+            };
+            route: string;
+            signals: string[];
+            rule_version: string;
+        };
         SessionSchema: {
             authenticated: boolean;
             csrf_token: string;
@@ -688,6 +697,24 @@ export interface components {
             filename: string;
             sha256: string;
             image_url: string;
+            route: components["schemas"]["RouteSchema"];
+            transcription_status: string;
+            transcription: components["schemas"]["SourceTranscriptionSchema"] | null;
+        };
+        SourceTranscriptionSchema: {
+            /** Format: uuid */
+            id: string;
+            origin: string;
+            status: string;
+            model: string;
+            prompt_version: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            task_id: string | null;
+            payload: {
+                [key: string]: unknown;
+            };
         };
         StructureConfirmRequest: {
             config_revision: number;
@@ -743,6 +770,16 @@ export interface components {
         };
         TasksSchema: {
             tasks: components["schemas"]["TaskSchema"][];
+        };
+        TranscriptionSummarySchema: {
+            visual_pages: number;
+            done: number;
+            running: number;
+            not_started: number;
+            awaiting_consent: number;
+            failed: number;
+            /** Format: uuid */
+            task_id: string | null;
         };
         UploadInput: {
             /** Format: uri */

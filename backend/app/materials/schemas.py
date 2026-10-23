@@ -20,6 +20,16 @@ class IssueSchema(s.Serializer):
     pages = s.ListField(child=s.IntegerField(), required=False)
 
 
+class TranscriptionSummarySchema(s.Serializer):
+    visual_pages = s.IntegerField()
+    done = s.IntegerField()
+    running = s.IntegerField()
+    not_started = s.IntegerField()
+    awaiting_consent = s.IntegerField()
+    failed = s.IntegerField()
+    task_id = s.UUIDField(allow_null=True)
+
+
 class MaterialSchema(s.Serializer):
     id = s.UUIDField()
     material_id = s.UUIDField()
@@ -40,6 +50,7 @@ class MaterialSchema(s.Serializer):
     evidence = PageRefSchema(many=True)
     answer_links = RelationSchema(many=True)
     metadata = s.DictField(child=s.CharField())
+    transcription = TranscriptionSummarySchema()
 
 
 class MaterialLimitsSchema(s.Serializer):
@@ -61,6 +72,24 @@ class UploadResultSchema(s.Serializer):
     duplicate = s.BooleanField()
 
 
+class RouteSchema(s.Serializer):
+    locator = s.DictField()
+    route = s.CharField()
+    signals = s.ListField(child=s.CharField())
+    rule_version = s.CharField()
+
+
+class SourceTranscriptionSchema(s.Serializer):
+    id = s.UUIDField()
+    origin = s.CharField()
+    status = s.CharField()
+    model = s.CharField()
+    prompt_version = s.CharField()
+    created_at = s.DateTimeField()
+    task_id = s.UUIDField(allow_null=True)
+    payload = s.DictField()
+
+
 class SourceSchema(s.Serializer):
     id = s.UUIDField()
     material_version_id = s.UUIDField()
@@ -73,6 +102,9 @@ class SourceSchema(s.Serializer):
     filename = s.CharField()
     sha256 = s.CharField()
     image_url = s.CharField()
+    route = RouteSchema()
+    transcription_status = s.CharField()
+    transcription = SourceTranscriptionSchema(allow_null=True)
 
 
 class RelationResultSchema(s.Serializer):

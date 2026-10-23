@@ -25,7 +25,9 @@ function AnalysisDialog({ courseId, onClose }: { courseId: string; onClose: () =
     <p>A saved analysis task builds a reviewable course draft. Your edits and existing confirmed versions are preserved.</p>
     {query.isPending && <p role="status">Preparing the exact source selection…</p>}
     {query.isError && <p role="alert">{query.error.message} <button onClick={() => query.refetch()}>Retry</button></p>}
-    {query.data && <><div className="review-note">{query.data.scope.page_count} text pages · {query.data.scope.review_count} existing page-review candidates · no new images</div>
+    {query.data && <><div className="review-note">{query.data.scope.page_count} pages · {query.data.scope.review_count} page image transcriptions (model candidates) · no page images are sent in this analysis</div>
+      {query.data.scope.visual_pending.length > 0 && <div role="status" className="review-note">{query.data.scope.visual_pending.length} pages need their image read but have no transcription yet. The analysis will report them as gaps.
+        <details><summary>Pages awaiting image transcription</summary><ul>{query.data.scope.visual_pending.map(p => <li key={p.evidence_id}>{p.material_code} page {p.physical_page} · {p.signals.map(s => s.replaceAll("_", " ")).join(", ")}</li>)}</ul></details></div>}
       <details><summary>Review material versions and pages</summary><ul>{query.data.scope.materials.map(m => <li key={m.code}><strong>{m.filename}</strong><br />Physical pages {m.selected_pages.join(", ")}</li>)}</ul></details>
       <details><summary>Included user statements</summary>{query.data.scope.statements.map(s => <p key={s.id}>{s.text} <small>Provided by you · {s.source}</small></p>)}</details>
       <p className="muted">Official OpenAI API · {query.data.scope.model} · store:false. This does not mean zero data retention. Up to 8 calls, 150 seconds per call; unknown outcomes are not automatically retried.</p>

@@ -17,14 +17,25 @@ from .drafts import merge_manual
 from .clarifications import classify_gaps
 
 
+def sent_transcription(visual):
+    """The page as the model needs it. Readable items repeat formulas already inline in the transcription,
+    so only items that are not fully readable are sent; the snapshot keeps every item."""
+    return {"origin": visual["origin"], "status": visual["status"], "page_title": visual["page_title"],
+            "faithful_transcription": visual["faithful_transcription"],
+            "unclear_items": [{k: i[k] for k in ("kind", "location", "legibility")} for i in visual["items"]
+                              if i["legibility"] != "readable"],
+            "findings": [{k: f[k] for k in ("kind", "observation")} for f in visual["findings"]],
+            "unresolved": visual["unresolved"]}
+
+
 def make_spec(snapshot):
     # The immutable local snapshot retains complete hashes and parser identities.
     # The model needs source IDs and content, not the same parser hashes on every page.
     compact = copy.deepcopy(snapshot["input"])
     # A transcribed page is sent as its transcription; its extracted text stays in the local snapshot only.
     compact["evidence"] = [{**{k: e[k] for k in ("id", "material_version_id", "physical_page", "material_code", "roles",
-                                                 "fidelity_status", "route", "visual_status")},
-                            **({"visual": e["visual"]} if e["visual"] else {"text": e["text"]})}
+                                                 "fidelity_status", "visual_status")}, "route": e["route"]["route"],
+                            **({"visual": sent_transcription(e["visual"])} if e["visual"] else {"text": e["text"]})}
                            for e in compact["evidence"]]
     compact["materials"] = [{k: m[k] for k in ("material_version_id", "filename", "code", "roles", "classification_basis", "selected_pages", "answer_links")}
                             for m in compact["materials"]]
