@@ -1,8 +1,8 @@
 # AI Past Paper Generator
 
-当前实现：第一轮 **批次 1–3（Task 1–6）材料工作区、课程分析、编辑确认、练习配置和结构规划**。支持版本化来源、持久任务、课程澄清与确认，以及独立练习配置、蓝图校验与编辑、结构确认和不可变生成输入。本批尚不生成题答或两个输出 PDF；正式生成入口待批次四接入。
+当前实现：第一轮 **批次 1–3（Task 1–6）材料工作区、课程分析、编辑确认、练习配置和结构规划**。支持版本化来源、持久任务、课程澄清与确认，以及独立练习配置、蓝图校验与编辑、结构确认和不可变生成输入。本批尚不生成题答或两个输出 PDF；正式生成入口待批次四接入。另已实现**视觉证据路径**的本地部分：页级分流、页图转写任务（带授权、缓存和并行）、转写接入课程分析，以及页面展示；真实转写尚未运行。
 
-2026-10-22 完成第一批 5 页真实模型核对；2026-10-23 在用户新授权的 36 页抽取文字和 5 页已有核对结果上运行课程分析，得到真实的 `needs_info` 草稿，未冒充课程已确认。第三批于 2026-10-23–24 完成本地功能验证，真实规划调用次数为 0。需求入口见 [AGENTS.md](AGENTS.md)，记录见 [批次一](docs/batch-1-live-validation.md)、[批次二](docs/batch-2-validation.md)、[批次三](docs/batch-3-validation.md)。历史原型和原材料保持原位。
+2026-10-22 完成第一批 5 页真实模型核对；2026-10-23 在用户新授权的 36 页抽取文字和 5 页已有核对结果上运行课程分析，得到真实的 `needs_info` 草稿，未冒充课程已确认。第三批于 2026-10-23–24 完成本地功能验证，真实规划调用次数为 0。需求入口见 [AGENTS.md](AGENTS.md)，记录见 [批次一](docs/batch-1-live-validation.md)、[批次二](docs/batch-2-validation.md)、[批次三](docs/batch-3-validation.md)、[视觉证据路径](docs/visual-evidence-validation.md)。历史原型和原材料保持原位。
 
 ## 当前电脑启动（已实际运行）
 
@@ -127,6 +127,30 @@ Materials 顶部的 **View saved call records** 可找回真实调用任务。�
 真实规划复用官方 Responses 适配器，但需要单独的 `PlanningGrant`，不会沿用第二批 `AnalysisGrant`。预检展示冻结课程描述、方法/范围、声明、配置及来源索引；不发送原页文字或新页图。授权绑定精确输入、模型、提示词与 schema。限额为每任务最多 2 次调用、180 秒截止、每次 150 秒、输入/输出 60k/12k，SDK 自动重试 0。当前实现正常规划只调用一次；未知结果不会自动重放。真实 AI②的质量、耗时与扣费尚未验证。
 
 规划 Task detail 支持真实阶段、取消、错误和原始蓝图找回。迟到结果不能覆盖新配置；取消后的旧执行不能发布。后续题答生成将读取 `GenerationSnapshot`；目前历史截止已冻结，历史试卷集合明确为空（Papers 尚未实现）。六次真实验收仍未执行。
+
+## 视觉证据路径（页图转写）
+
+计划见 [2026-10-24 计划](docs/superpowers/plans/2026-10-24-visual-evidence-path.md)，验证记录见 [visual-evidence-validation.md](docs/visual-evidence-validation.md)。
+
+- **分流**：每页按 Docling 版面标签和文字量判断走 `text` 还是 `visual`（规则 `pdf-route-1`），判断原因记录在 signals 中。规则不看科目或文件名；拿不准的页走 `visual`。
+- **转写**：`visual_transcription` 任务每页调用一次（官方 Responses、`store:false`、不自动重试），并发上限由 `APP_TRANSCRIPTION_CONCURRENCY` 控制，默认 6。结果按“页 + 解析 hash + 页图 hash + 模型 + 提示词/schema 版本”缓存，写入后不可修改，始终是模型候选，页面状态仍为 `needs_review`。
+- **触发与授权**：解析完成后、授权创建后会自动排队。开发阶段只发送已按页清单授权的页，其余页显示“awaiting consent”，不会发送。
+- **分析**：课程分析读取转写文字，不发送页图；没有转写的视觉页标为 `visual_pending`，模型不得猜测其内容。提示词或 schema 变化会改变 context hash，需要重新授权分析。
+
+以下命令只读本地数据，不调用模型：
+
+```powershell
+# 每页状态汇总
+& .\.venv\Scripts\python.exe backend/manage.py visual_transcription
+# 预览指定页的精确授权范围（版本 ID:页码）
+& .\.venv\Scripts\python.exe backend/manage.py visual_transcription --select <material-version-id>:2-6,8
+# 查看某个转写任务的记录
+& .\.venv\Scripts\python.exe backend/manage.py visual_transcription --report <task-id>
+```
+
+**会产生真实 API 请求**：在预览命令后加 `--authorize --scope-hash <预览得到的 hash>`。它会写入授权记录，并立即为这些页排队转写，只应在用户明确授权该页清单后执行。
+
+浏览器检查用的 fixture：`scripts/prepare_visual_browser_fixture.py`。它会新建 `B4-VISUAL-FIXTURE` 课程，数据是合成解析结果和一条 fixture 转写，不调用模型。
 
 ## 检查命令
 
