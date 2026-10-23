@@ -53,7 +53,7 @@ class SessionView(APIView):
             db_version = cursor.fetchone()[0].split(",")[0]
         return Response({"authenticated": request.user.is_authenticated, "csrf_token": get_token(request),
                          "local_access": settings.LOCAL_ACCESS,
-                         "database": db_version, "batch": 2, "model_mode": "scoped_consent",
+                         "database": db_version, "batch": 3, "model_mode": "scoped_consent",
                          "course_data_upload": False})
 
     @extend_schema(request=None, responses=SessionSchema)
@@ -102,6 +102,8 @@ class RetryView(APIView):
         if original.kind == "ai_validation":
             raise DomainError("LIVE_VALIDATION_COMMAND_REQUIRED",
                               "Review the saved model calls before starting another paid validation run.")
+        if original.kind == "planning":
+            raise DomainError("PLANNING_REVIEW_REQUIRED", "Return to Generate, review the current configuration and start a new plan. The previous task is preserved.")
         task = submit_task(original.course, original.kind, original.snapshot,
                            request.headers.get("Idempotency-Key"), parent=original)
         if task.kind == "parse":

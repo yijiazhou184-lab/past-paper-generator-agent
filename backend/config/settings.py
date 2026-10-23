@@ -16,7 +16,7 @@ DEBUG = os.environ.get("APP_DEBUG", "false") == "true"
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver"]
 INSTALLED_APPS = [
     "django.contrib.auth", "django.contrib.contenttypes", "django.contrib.sessions",
-    "rest_framework", "drf_spectacular", "app.core", "app.courses", "app.materials",
+    "rest_framework", "drf_spectacular", "app.core", "app.courses", "app.materials", "app.generation",
     "procrastinate.contrib.django",
 ]
 MIDDLEWARE = [

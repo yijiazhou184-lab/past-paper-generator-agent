@@ -122,7 +122,7 @@ def start():
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen("http://127.0.0.1:5173/api/v1/session", timeout=2) as response:
-                if json.load(response).get("batch") in (1, 2):
+                if json.load(response).get("batch") in (1, 2, 3):
                     break
         except (OSError, ValueError):
             time.sleep(0.5)
@@ -148,6 +148,29 @@ def restart_api():
     start()
 
 
+def restart_workers():
+    """Only replace this project's worker processes while business tasks are idle."""
+    import psutil
+    sys.path.insert(0, str(ROOT / "backend"))
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    import django
+    django.setup()
+    from app.core.models import Task
+    if Task.objects.filter(state__in=["queued", "processing"]).exists():
+        raise SystemExit("Wait for active tasks to finish or cancel them before restarting workers.")
+    pidfile = VAR / "services.json"
+    saved = json.loads(pidfile.read_text()) if pidfile.exists() else {}
+    for name in ("worker", "dispatcher"):
+        item = saved.get(name)
+        if item and process_is_ours(item["pid"], item["started"]):
+            process = psutil.Process(item["pid"])
+            process.terminate()
+            process.wait(timeout=10)
+        saved.pop(name, None)
+    pidfile.write_text(json.dumps(saved, indent=2))
+    start()
+
+
 def stop():
     import psutil
     pidfile = VAR / "services.json"
@@ -164,6 +187,6 @@ def stop():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["setup", "start", "stop", "restart-api"])
+    parser.add_argument("command", choices=["setup", "start", "stop", "restart-api", "restart-workers"])
     command = parser.parse_args().command
-    {"setup": setup, "start": start, "stop": stop, "restart-api": restart_api}[command]()
+    {"setup": setup, "start": start, "stop": stop, "restart-api": restart_api, "restart-workers": restart_workers}[command]()
