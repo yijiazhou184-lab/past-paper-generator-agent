@@ -56,6 +56,8 @@ function ClarificationCard({ question, courseId, draft, saved, onSaved }: { ques
     <div className="source-chips">{question.evidence_ids?.map(id => {const e = draft.evidence.find(e => e.id === id); return <button className="source-chip" key={id} onClick={() => setParams({source:id})}>{e ? `${e.material_code} · p${e.physical_page}` : "View source"}</button>;})}</div>
     {question.answer ? <div className="review-note"><strong>Provided by you</strong><p>{question.answer.text}</p>
       {question.answer.reanalysis_required && <small>Saved. Analyse again to interpret this answer; evidence gaps remain until resolved.</small>}</div>
+      // The analysis reports this question as already settled by an earlier statement; asking again would duplicate it.
+      : question.status === "answered" ? <p className="review-note">Already answered in one of your earlier statements, which this analysis applied. No new answer is needed.</p>
       : question.action_kind === "clarification" ? <>{options.length > 0 && <fieldset className="answer-options"><legend>Choose an answer</legend>
           {options.map(option => <label className="check-row" key={option}><input type="radio" name={`answer-${question.id}`} checked={choice === option} onChange={() => setChoice(option)} />{option}</label>)}
           <label className="check-row"><input type="radio" name={`answer-${question.id}`} checked={choice === "own"} onChange={() => setChoice("own")} />Write my own answer</label></fieldset>}
