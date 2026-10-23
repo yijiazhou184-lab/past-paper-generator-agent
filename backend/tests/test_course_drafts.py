@@ -98,3 +98,17 @@ def test_invalid_template_and_cross_owner_changes_rejected(course, draft, django
         save_draft(course.owner, course.id, 1, [{"path": ["template_suggestion"], "value": template}], "bad-template")
     draft.refresh_from_db()
     assert draft.revision == 1
+
+
+def test_answer_keeps_the_question_it_answers(course, draft):
+    from app.courses.context import statement_list
+    draft.payload["clarifications"] = [{"id": "q-pref", "question": "Which practice treatment for flagged source departures?",
+        "reason": "Five printed statements depart from standard usage.", "affected_ids": ["K1"], "impact": "needs_confirmation",
+        "suggested_answers": ["Follow the course material as printed", "Use the standard definition and note the difference"],
+        "resolves_issue_ids": [], "status": "open"}]
+    draft.save()
+    answer_clarification(course.owner, course.id, "q-pref", "Use the standard definition and note the difference", 1, "answer-pref")
+    statement = course.statements.get(clarification_id="q-pref")
+    assert statement.question == "Which practice treatment for flagged source departures?"
+    sent = next(s for s in statement_list(course) if s["clarification_id"] == "q-pref")
+    assert sent["question"] == statement.question and sent["text"] == "Use the standard definition and note the difference"

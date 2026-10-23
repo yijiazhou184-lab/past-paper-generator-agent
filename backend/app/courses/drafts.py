@@ -134,12 +134,13 @@ def answer_clarification(owner, course_id, question_id, text, expected_revision,
     if draft.revision != expected_revision:
         raise DomainError("DRAFT_REVISION_CONFLICT")
     questions = classify_gaps(draft.payload, draft.machine_base.context["target_ids"])
-    if question_id not in {q["id"] for q in questions}:
+    asked = next((q for q in questions if q["id"] == question_id), None)
+    if asked is None:
         raise DomainError("CLARIFICATION_NOT_FOUND", status=404)
     if not isinstance(text, str) or not 1 <= len(text.strip()) <= 3000:
         raise DomainError("ANSWER_INVALID", status=400)
     statement = UserStatement.objects.create(course=course, text=text.strip(), kind="exam_scope" if question_id == "gap-exam-scope" else "clarification",
-        source="Answer to course clarification", clarification_id=question_id, submitted_by=owner)
+        source="Answer to course clarification", clarification_id=question_id, question=asked["question"], submitted_by=owner)
     draft.clarification_answers[question_id] = {"text": text.strip(), "statement_id": str(statement.id),
         "reanalysis_required": question_id != "gap-exam-scope"}
     if question_id == "gap-exam-scope":

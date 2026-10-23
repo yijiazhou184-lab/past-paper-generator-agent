@@ -17,6 +17,8 @@ class UserStatement(UUIDModel):
     kind = models.CharField(max_length=40)
     source = models.CharField(max_length=200)
     clarification_id = models.CharField(max_length=120, blank=True)
+    # The question as it was asked; a later analysis may re-word or re-number it.
+    question = models.TextField(blank=True, default="")
     submitted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
 

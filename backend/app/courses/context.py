@@ -34,12 +34,13 @@ def target_knowledge(course):
 
 
 def statement_list(course):
-    rows = list(course.statements.order_by("created_at", "id").values("id", "text", "kind", "source", "clarification_id"))
+    # An answer is only meaningful with its question, so the question text travels with it.
+    rows = list(course.statements.order_by("created_at", "id").values("id", "text", "kind", "source", "clarification_id", "question"))
     for row in rows:
         row["id"] = str(row["id"])
     if not rows and course.scope_statement and course.scope_provenance == "user_statement":
         rows = [{"id": str(uuid.uuid5(course.id, "initial-scope")), "text": course.scope_statement,
-                 "kind": "exam_scope", "source": "User's existing course scope declaration", "clarification_id": ""}]
+                 "kind": "exam_scope", "source": "User's existing course scope declaration", "clarification_id": "", "question": ""}]
     return rows
 
 
