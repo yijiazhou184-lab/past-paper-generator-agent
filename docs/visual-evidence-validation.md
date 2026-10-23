@@ -180,3 +180,13 @@ context hash `65b5d272e3449fa6085bb907f75bce1e735d5ce252b2110e7eca893868e9d92e`�
 ### M35 p7 转写范围预览（未授权）
 
 scope hash `00cf020b0898770244f2551b8e7213e9514a5cde01c13b2ed1463aab5e38abce`：1 页，即 M35 Lecture summary p7（evidence `e4e87d33-3eab-4a23-a7f1-a8dd02d76807`），信号为 `model_requested`，模型 `gpt-6.1-sol`。授权记录仍为 2 条，没有新增，也没有发送。
+
+### M35 p7 转写结果（用户授权 scope `00cf020b…`）
+
+Task `82fd4f4b-7092-409e-bb6f-7b91ca8bd9fd`：1/1 transcribed；提交到完成 20.4 秒，单次调用 16.3 秒；input 3,315（其中 cached 1,500），output 1,020，total 4,335。原始记录在 `var/visual-transcription-82fd4f4b-7092-409e-bb6f-7b91ca8bd9fd.json`。
+
+**Claude 核对**：转写内容为 \(f'(x)\)、\(y'\)、\(\frac{df}{dx}\)、\(\frac{dy}{dx}\)，以及 \(f'(a)\) 或 \(\left.\frac{df}{dx}\right|_{x=a}\)，与原图一致。原抽取文字中，分式和取值竖线都已丢失。
+
+这一页的公式在 PDF 中是数学斜体 Unicode 文字，Docling 没有把它标成公式区域，所以版面规则漏判了。是模型在分析中提出申请（`model_requested`）后才补上的，说明兜底路径有效。以后可以考虑把“文字中含数学字母数字符号”加为分流信号，本次没有改。
+
+按用户要求**没有重新分析**。草稿仍是 revision 6；这一页的转写会进入下一次分析，届时 context hash 会改变，需要重新授权。
