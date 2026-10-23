@@ -13,6 +13,9 @@ from pydantic import BaseModel, ValidationError
 
 from .contracts import ModelCallSpec, ModelCallResult, Usage
 
+# Hard ceiling for any single request; each stage sets its own limit at or below it.
+MAX_CALL_SECONDS = 300
+
 
 def request_body(spec: ModelCallSpec, instructions: str, output_type: Type[BaseModel],
                  model: str, image: bytes | None = None, *, byte_admission: bool = True):
@@ -91,7 +94,7 @@ def call_official(action, *, api_key, timeout_seconds, transport):
         # Explicit URL prevents ambient OPENAI_BASE_URL from redirecting private material.
         with httpx.Client(transport=transport, follow_redirects=False) as http_client:
             with OpenAI(api_key=api_key, base_url="https://api.openai.com/v1", max_retries=0,
-                        timeout=min(timeout_seconds, 150), http_client=http_client) as client:
+                        timeout=min(timeout_seconds, MAX_CALL_SECONDS), http_client=http_client) as client:
                 result = action(client)
     except APITimeoutError:
         result = ModelCallResult(mode="live", status="provider_error", error_code="PROVIDER_TIMEOUT")

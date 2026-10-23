@@ -133,7 +133,8 @@ def run_analysis(token):
     counted = count_call(token, "course-analysis:count", spec, instructions=snapshot["prompt"],
                          output_type=AnalysisOutput, api_key=key, model=snapshot["model"])
     result = run_call(token, "course-analysis", spec, instructions=snapshot["prompt"],
-        output_type=AnalysisOutput, api_key=key, model=snapshot["model"], counted_tokens=counted)
+        output_type=AnalysisOutput, api_key=key, model=snapshot["model"], counted_tokens=counted,
+        call_seconds=snapshot.get("call_timeout_seconds", 150))
     if result.status != "parsed":
         raise DomainError(result.error_code or "COURSE_ANALYSIS_FAILED", "The model did not return a usable course draft. Saved call details explain the failure.")
     output = AnalysisOutput.model_validate(result.payload)

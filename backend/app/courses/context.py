@@ -18,6 +18,7 @@ from .models import UserStatement
 from .schemas import AnalysisOutput
 
 PROMPT_VERSION = "r1-course-analysis-3"
+ANALYSIS_CALL_SECONDS = 300
 SCHEMA_VERSION = "r1-course-draft-1"
 # 2026-10-24: user added the main L'Hopital and implicit-differentiation teaching pages
 # (M34 p34, 46-49; M14 p4; M48 p19, 21, 22) after the first visual re-analysis found them missing.
@@ -132,6 +133,8 @@ def build_context(course):
     frozen = {"input": data, "prompt": prompt, "prompt_version": PROMPT_VERSION, "schema_version": SCHEMA_VERSION,
               "projection_version": "r1-compact-evidence-2",
               "admission": {"method": "official_input_tokens_count", "limit_tokens": 60000},
+              # User decision 2026-10-24: a 45-page analysis took 142.6 s and the next timed out at 150 s.
+              "call_timeout_seconds": ANALYSIS_CALL_SECONDS,
               "schema_hash": digest(schema), "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"),
               "endpoint": "https://api.openai.com/v1/responses", "store": False}
     return {**frozen, "context_hash": digest(frozen)}
@@ -146,7 +149,7 @@ def inspect_scope(snapshot):
         "visual_pending": [{"evidence_id": e["id"], "material_code": e["material_code"], "physical_page": e["physical_page"],
                             "signals": e["route"]["signals"]} for e in data["evidence"] if e["visual_status"] == "visual_pending"],
         "materials": [{k: m[k] for k in ("code", "filename", "selected_pages", "material_version_id", "sha256")} for m in data["materials"]],
-        "statements": data["statements"], "max_calls": 8, "call_timeout_seconds": 150,
+        "statements": data["statements"], "max_calls": 8, "call_timeout_seconds": snapshot["call_timeout_seconds"],
         "admission": {**snapshot["admission"], "local_utf8_bytes": local_bytes(snapshot),
                       "note": "One official token-count request is sent after authorisation; above the limit "
                               "the analysis stops without an analysis request."}}

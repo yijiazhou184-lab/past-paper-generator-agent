@@ -185,3 +185,28 @@ def test_preflight_states_the_token_admission(course):
     scope = inspect_scope(build_context(course))
     assert scope["admission"]["method"] == "official_input_tokens_count" and scope["admission"]["limit_tokens"] == 60000
     assert scope["admission"]["local_utf8_bytes"] > 0
+
+
+def test_analysis_call_limit_comes_from_its_snapshot_and_other_stages_keep_150(course, monkeypatch):
+    from app.core.models import Task as T
+    task, calls = counted_task(course, monkeypatch, 19500)
+    T.objects.filter(pk=task.pk).update(snapshot={**task.snapshot, "call_timeout_seconds": 300})
+    seen = {}
+    from app.ai import invocations
+    def generate(spec, **kw):
+        seen["timeout"] = kw["timeout_seconds"]
+        return ModelCallResult(mode="fixture", status="refusal", error_code="MODEL_REFUSAL")
+    monkeypatch.setattr(invocations, "invoke_official", generate)
+    with pytest.raises(DomainError, match="MODEL_REFUSAL"):
+        analysis.run_analysis(claim_task(task.id))
+    assert 295 < seen["timeout"] <= 300
+    assert ModelInvocation.objects.get(task=task, call_key="course-analysis").metadata["timeout_seconds"] > 295
+    # Another stage without its own setting keeps the 150-second default.
+    import inspect
+    assert inspect.signature(invocations.run_call).parameters["call_seconds"].default == 150
+
+
+def test_preflight_shows_the_300_second_analysis_limit(course):
+    from app.courses.context import build_context, inspect_scope
+    snapshot = build_context(course)
+    assert snapshot["call_timeout_seconds"] == 300 and inspect_scope(snapshot)["call_timeout_seconds"] == 300

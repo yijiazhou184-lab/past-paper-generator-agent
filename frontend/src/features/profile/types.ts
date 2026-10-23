@@ -19,7 +19,7 @@ export type Draft = { id: string; revision: number; payload: Payload; mode: stri
 export type Profile = { draft: Draft | null; active_task_id: string | null; latest_task_id: string | null;
   versions: { id: string; number: number; draft_revision: number; created_at: string }[] };
 export type Preflight = { authorized: boolean; api_key_configured: boolean; scope: { context_hash: string; model: string;
-  page_count: number; review_count: number; endpoint: string; statements: Draft["statements"];
+  page_count: number; review_count: number; endpoint: string; statements: Draft["statements"]; max_calls: number; call_timeout_seconds: number;
   visual_pending: { evidence_id: string; material_code: string; physical_page: number; signals: string[] }[];
   admission: { method: string; limit_tokens: number; local_utf8_bytes: number; note: string };
   materials: { code: string; filename: string; selected_pages: number[] }[] } };

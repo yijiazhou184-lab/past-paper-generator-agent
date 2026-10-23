@@ -12,8 +12,10 @@ from .responses import invoke_official, request_body, count_official
 TOKEN_LIMIT = 60000
 
 
-def run_call(token, call_key, spec, *, instructions, output_type, api_key, model, image=None, counted_tokens=None):
-    """counted_tokens: an official input-token count of this exact request, replacing the byte bound."""
+def run_call(token, call_key, spec, *, instructions, output_type, api_key, model, image=None, counted_tokens=None,
+             call_seconds=150):
+    """counted_tokens: an official input-token count of this exact request, replacing the byte bound.
+    call_seconds: this stage's per-call limit (150 unless a stage sets otherwise)."""
     body = request_body(spec, instructions, output_type, model, image, byte_admission=counted_tokens is None)
     request_hash = digest(body)
     with transaction.atomic():
@@ -38,10 +40,10 @@ def run_call(token, call_key, spec, *, instructions, output_type, api_key, model
                 "input_admission_method": ("official_input_tokens_count" if counted_tokens is not None else
                                            "utf8_bytes_plus_8192_per_bounded_page_not_billed_usage"),
                 "counted_input_tokens": counted_tokens,
-                "timeout_seconds": min(150, remaining), "sdk_max_retries": 0})
+                "timeout_seconds": min(call_seconds, remaining), "sdk_max_retries": 0})
     checkpoint(token, f"Calling model: {call_key}", {"call_id": str(invocation.id), "call_key": call_key})
     result = invoke_official(spec, instructions=instructions, output_type=output_type, api_key=api_key,
-                             model=model, image=image, timeout_seconds=min(150, remaining),
+                             model=model, image=image, timeout_seconds=min(call_seconds, remaining),
                              byte_admission=counted_tokens is None)
     # Usage can be retained after cancellation, but the stale attempt cannot publish a task result.
     ModelInvocation.objects.filter(pk=invocation.id).update(
