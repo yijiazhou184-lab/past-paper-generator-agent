@@ -176,3 +176,7 @@ context hash `65b5d272e3449fa6085bb907f75bce1e735d5ce252b2110e7eca893868e9d92e`�
 模型请求读页图：M35 p7（Lecture summary）。理由是这一页走文字路径，但求导记号中的分式被压平、在某点取值的写法损坏。这一页已经通过 `model_requested` 信号升级为视觉路径，状态为 awaiting_consent，**没有发送**。
 
 本次结果说明草稿已具备进入 **Review & confirm** 的条件，但**课程尚未确认**：确认需要用户在页面上操作。练习偏好那一问是 `needs_confirmation`，不阻塞确认。供应商结构化输出合格，不代表数学内容已经验证。
+
+### M35 p7 转写范围预览（未授权）
+
+scope hash `00cf020b0898770244f2551b8e7213e9514a5cde01c13b2ed1463aab5e38abce`：1 页，即 M35 Lecture summary p7（evidence `e4e87d33-3eab-4a23-a7f1-a8dd02d76807`），信号为 `model_requested`，模型 `gpt-6.1-sol`。授权记录仍为 2 条，没有新增，也没有发送。
