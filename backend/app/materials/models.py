@@ -70,3 +70,36 @@ class MaterialRelation(UUIDModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["source", "target"], name="unique_material_relation")]
+
+
+class VisualTranscription(UUIDModel):
+    """One accepted page-image transcription; a cache entry that is never updated in place."""
+    evidence = models.ForeignKey(Evidence, related_name="transcriptions", on_delete=models.PROTECT)
+    parse_content_hash = models.CharField(max_length=64)
+    image_sha256 = models.CharField(max_length=64)
+    model = models.CharField(max_length=100)
+    prompt_version = models.CharField(max_length=60)
+    schema_version = models.CharField(max_length=60)
+    route = models.JSONField()
+    status = models.CharField(max_length=30)
+    payload = models.JSONField()
+    origin = models.CharField(max_length=20)
+    task = models.ForeignKey("core.Task", null=True, on_delete=models.PROTECT)
+    invocation = models.ForeignKey("core.ModelInvocation", null=True, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["evidence", "parse_content_hash", "image_sha256", "model", "prompt_version", "schema_version"],
+            name="unique_visual_transcription_key")]
+
+
+class TranscriptionGrant(UUIDModel):
+    """Development consent for sending an exact list of page images; scope entries carry their full cache keys."""
+    course = models.ForeignKey("courses.Course", on_delete=models.PROTECT)
+    scope_hash = models.CharField(max_length=64)
+    granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    scope = models.JSONField()
+    source = models.CharField(max_length=200)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["course", "scope_hash"], name="unique_transcription_grant")]
