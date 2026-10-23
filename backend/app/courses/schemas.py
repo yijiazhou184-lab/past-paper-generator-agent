@@ -89,10 +89,16 @@ class CourseDraftPayload(StrictModel):
     clarifications: list[Clarification] = Field(max_length=30)
 
 
+class VisualReviewRequest(StrictModel):
+    evidence_id: str = Field(max_length=100)
+    reason: str = Field(max_length=500)
+
+
 class AnalysisOutput(StrictModel):
     status: Literal["complete", "needs_info", "unable_to_determine", "not_checked"]
     explanation: str = Field(max_length=2000)
     draft: CourseDraftPayload | None
+    visual_review_requests: list[VisualReviewRequest] = Field(max_length=36)
 
 
 TEACHING_ROLES = {"lecture", "summary", "seminar", "revision", "teaching"}

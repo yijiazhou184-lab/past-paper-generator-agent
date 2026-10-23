@@ -8,13 +8,16 @@ from django.conf import settings
 from app.core.idempotency import digest
 from app.core.errors import DomainError
 from app.core.models import ModelInvocation
-from app.materials.models import MaterialVersion
-from app.materials.evidence import build_evidence_pack
+from app.ai.visual import legacy_to_visual
+from app.materials.models import MaterialVersion, Evidence
+from app.materials.evidence import build_evidence_pack, render_page
+from app.materials.routing import RULE_VERSION
 from app.materials.storage import path_for
+from app.materials.transcription import cached, decide, page_entry, signal_pages
 from .models import UserStatement
 from .schemas import AnalysisOutput
 
-PROMPT_VERSION = "r1-course-analysis-1"
+PROMPT_VERSION = "r1-course-analysis-2"
 SCHEMA_VERSION = "r1-course-draft-1"
 PAGE_SELECTION = {"M35": list(range(2, 18)), "M34": [14, 28, 29, 30, 31, 32, 33, 41],
     "M48": [20], "M06": [2, 6], "M32": [2], "M46": [3, 4, 6], "M05": [1, 3, 5], "M14": [5], "M33": [22]}
@@ -44,6 +47,55 @@ def ensure_statements(course):
             "course": course, "submitted_by": course.owner})
 
 
+def compact_transcription(payload, origin, record_id):
+    items = [{k: v for k, v in item.items() if v is not None} for item in payload["items"]]
+    return {"origin": origin, "record_id": record_id, "verification": "model_candidate_not_human_verified",
+            "status": payload["status"], "page_title": payload["page_title"],
+            "faithful_transcription": payload["faithful_transcription"], "items": items,
+            "findings": payload["findings"], "unresolved": payload["unresolved"]}
+
+
+def legacy_reviews(course):
+    """Batch-one page reviews whose page, parse and image are unchanged; keyed by evidence id."""
+    reviews = {}
+    for call in ModelInvocation.objects.filter(task__course=course, task__kind="ai_validation",
+                                               state="completed").select_related("task").order_by("created_at"):
+        candidate = call.result.get("payload") or {}
+        source = candidate.get("source", {})
+        if call.result.get("status") != "parsed" or source.get("evidence_id") in reviews:
+            continue
+        sent = next((p for p in call.task.snapshot.get("pages", []) if p["source"] == source), None)
+        if sent:
+            reviews[source["evidence_id"]] = (call, candidate, sent["image_sha256"])
+    return reviews
+
+
+def attach_visual_evidence(course, evidence):
+    """Give every page its route and, for image-route pages, an accepted transcription or a pending marker."""
+    requested, manual = signal_pages(course)
+    rows = {str(e.id): e for e in Evidence.objects.filter(pk__in=[e["id"] for e in evidence])
+            .select_related("material_version__blob", "material_version__material__course", "parse_version")}
+    legacy = legacy_reviews(course)
+    for e in evidence:
+        row = rows[e["id"]]
+        decision = decide(row, requested, manual)
+        e["route"] = {"route": decision["route"], "signals": decision["signals"]}
+        e["visual"] = None
+        if decision["route"] != "visual":
+            e["visual_status"] = "not_needed"
+            continue
+        found = cached(page_entry(row, decision))
+        if found:
+            e["visual"] = compact_transcription(found.payload, found.origin, str(found.id))
+        elif e["id"] in legacy:
+            call, review, image_sha = legacy[e["id"]]
+            image = render_page(course.owner, row.material_version_id, row.physical_page).read_bytes()
+            if (review["source"]["parse_content_hash"] == e["parse_content_hash"]
+                    and hashlib.sha256(image).hexdigest() == image_sha):
+                e["visual"] = compact_transcription(legacy_to_visual(review), "legacy_page_review", str(call.id))
+        e["visual_status"] = "transcribed" if e["visual"] else "visual_pending"
+
+
 def build_context(course):
     # Material hashes are the reviewed round-one manifest, not untrusted filename matching.
     inventory = json.loads((Path(__file__).parent / "qm_analysis_manifest.json").read_text(encoding="utf-8"))
@@ -67,28 +119,15 @@ def build_context(course):
         if e["physical_page"] in PAGE_SELECTION[code]:
             evidence.append({k: value for k, value in {**e, "material_code": code,
                             "roles": v.roles, "blob_sha256": v.blob.sha256}.items() if k != "blocks"})
-    evidence_ids = {e["id"] for e in evidence}
-    reviews = []
-    seen = set()
-    for call in ModelInvocation.objects.filter(task__course=course, task__kind="ai_validation",
-                                               state="completed").order_by("created_at"):
-        candidate = call.result.get("payload") or {}
-        source = candidate.get("source", {})
-        source_id = source.get("evidence_id")
-        if source_id in evidence_ids and source_id not in seen and call.result.get("status") == "parsed":
-            original = next(e for e in evidence if e["id"] == source_id)
-            if source.get("parse_content_hash") != original["parse_content_hash"]:
-                continue
-            seen.add(source_id)
-            reviews.append({"call_id": str(call.id), "verification": "model_candidate_not_human_verified", "review": candidate})
+    attach_visual_evidence(course, evidence)
     targets = target_knowledge(course)
     data = {"course_title": course.title, "target_ids": [t["id"] for t in targets], "target_knowledge": targets,
-        "materials": materials, "evidence": evidence, "page_review_candidates": reviews, "statements": statement_list(course),
+        "materials": materials, "evidence": evidence, "route_rule_version": RULE_VERSION, "statements": statement_list(course),
         "round1_exclusions": ["software_command_answers", "above_and_beyond_curve_sketching", "other_chapters"]}
     prompt = (Path(__file__).parents[1] / "ai/prompts/course_analysis.md").read_text(encoding="utf-8")
     schema = AnalysisOutput.model_json_schema()
     frozen = {"input": data, "prompt": prompt, "prompt_version": PROMPT_VERSION, "schema_version": SCHEMA_VERSION,
-              "projection_version": "r1-compact-evidence-1",
+              "projection_version": "r1-compact-evidence-2",
               "schema_hash": digest(schema), "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"),
               "endpoint": "https://api.openai.com/v1/responses", "store": False}
     return {**frozen, "context_hash": digest(frozen)}
@@ -98,7 +137,10 @@ def inspect_scope(snapshot):
     data = snapshot["input"]
     return {"context_hash": snapshot["context_hash"], "model": snapshot["model"],
         "endpoint": snapshot["endpoint"], "store": False, "new_images": 0,
-        "page_count": len(data["evidence"]), "review_count": len(data["page_review_candidates"]),
+        "page_count": len(data["evidence"]),
+        "review_count": sum(e["visual_status"] == "transcribed" for e in data["evidence"]),
+        "visual_pending": [{"evidence_id": e["id"], "material_code": e["material_code"], "physical_page": e["physical_page"],
+                            "signals": e["route"]["signals"]} for e in data["evidence"] if e["visual_status"] == "visual_pending"],
         "materials": [{k: m[k] for k in ("code", "filename", "selected_pages", "material_version_id", "sha256")} for m in data["materials"]],
         "statements": data["statements"], "max_calls": 8, "call_timeout_seconds": 150}
 

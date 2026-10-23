@@ -21,7 +21,10 @@ def make_spec(snapshot):
     # The immutable local snapshot retains complete hashes and parser identities.
     # The model needs source IDs and content, not the same parser hashes on every page.
     compact = copy.deepcopy(snapshot["input"])
-    compact["evidence"] = [{k: e[k] for k in ("id", "material_version_id", "physical_page", "material_code", "roles", "fidelity_status", "text")}
+    # A transcribed page is sent as its transcription; its extracted text stays in the local snapshot only.
+    compact["evidence"] = [{**{k: e[k] for k in ("id", "material_version_id", "physical_page", "material_code", "roles",
+                                                 "fidelity_status", "route", "visual_status")},
+                            **({"visual": e["visual"]} if e["visual"] else {"text": e["text"]})}
                            for e in compact["evidence"]]
     compact["materials"] = [{k: m[k] for k in ("material_version_id", "filename", "code", "roles", "classification_basis", "selected_pages", "answer_links")}
                             for m in compact["materials"]]
@@ -73,7 +76,7 @@ def assign_ids(course, payload, target_ids):
 
 
 @transaction.atomic
-def publish_analysis(token, payload, context, mode):
+def publish_analysis(token, payload, context, mode, visual_review_requests=()):
     task = locked_task(token)
     # Serialize with all editing and confirmation. Late edits are merged from the current draft.
     course = Course.objects.select_for_update().get(pk=task.course_id)
@@ -92,7 +95,8 @@ def publish_analysis(token, payload, context, mode):
     questions = classify_gaps(merged, context["target_ids"])
     blocked = any(q["impact"] == "blocks_selected_scope" for q in questions)
     result = {"draft_id": str(draft.id), "revision": draft.revision, "mode": mode,
-              "profile_url": f"/courses/{course.id}/profile", "blocking_gaps": sum(q["impact"] == "blocks_selected_scope" for q in questions)}
+              "profile_url": f"/courses/{course.id}/profile", "blocking_gaps": sum(q["impact"] == "blocks_selected_scope" for q in questions),
+              "visual_review_requests": list(visual_review_requests)}
     if blocked:
         task.state, task.stage, task.result = "needs_info", "Course draft needs information", result
         task.finished_at = timezone.now()
@@ -127,4 +131,13 @@ def run_analysis(token):
             "affected_ids": snapshot["input"]["target_ids"], "explanation": output.explanation, "evidence_ids": [],
             "suggested_action": "Review the information needed by the analysis."})
     payload = assign_ids(task.course, payload, snapshot["input"]["target_ids"])
-    publish_analysis(token, payload, snapshot["input"], "live")
+    publish_analysis(token, payload, snapshot["input"], "live", visual_requests(output, snapshot["input"]))
+
+
+def visual_requests(output, context):
+    """Pages the model wants read from their image; they become model_requested route signals."""
+    known = {e["id"] for e in context["evidence"]}
+    requests = [r.model_dump() for r in output.visual_review_requests]
+    if {r["evidence_id"] for r in requests} - known:
+        raise DomainError("EVIDENCE_REFERENCE_INVALID", "A page-image request names a page outside this analysis.")
+    return requests
