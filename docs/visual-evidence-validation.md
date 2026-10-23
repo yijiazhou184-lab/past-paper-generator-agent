@@ -82,13 +82,25 @@
 - 本次分析选中的 36 页中，需要新转写的是 **18 页**：在计划列出的 17 页之外，加上 M46 p3（表格 + 文字少）。
 - 第一批的 5 页 legacy 结果会进入分析，但材料列表和来源面板只统计新格式的转写，所以这 5 页在列表里仍显示为待授权。
 
+## 准入改为按 token 计算（2026-10-24）
+
+用户决定：课程分析的准入改为按 token 计算，上限仍为 60k tokens；token 数用官方计数接口获得（[Counting tokens](https://developers.openai.com/api/docs/guides/token-counting)、[input_tokens.count 参考](https://developers.openai.com/api/reference/python/resources/responses/subresources/input_tokens/methods/count)，2026-10-24 查阅）。官方页面没有说明该接口是否计费、有哪些速率限制、数据如何保留，本记录对此也不作推断。
+
+| 改动 | 行为 |
+|---|---|
+| `ai/responses.py` | 新增 `count_official`，调用 `POST https://api.openai.com/v1/responses/input_tokens`，只发送 model、instructions、input、reasoning、text 五项，不生成内容；固定官方地址，SDK 重试 0。`request_body(byte_admission=False)` 跳过字节上限 |
+| `ai/invocations.py` | `count_call` 把计数请求记录为单独的调用记录（purpose `input_token_count`）。超过 60,000 时报 `TOKEN_BUDGET_EXCEEDED`，**不发分析请求**；计数失败也不发。中断后的计数可以重做，因为它不生成内容。`run_call(counted_tokens=…)` 用计数结果代替字节估算，并把来源写入调用元数据 |
+| 课程分析 | 授权后先计数再分析。提交前的检查只确认请求结构有效，不再用字节数拒绝。快照新增 `admission`，所以 context hash 变了，需要新的授权 |
+| 预检与页面 | 预检展示本地字节数，并说明授权后会先发一次计数请求、超过上限即停止 |
+| 其他阶段 | 规划、页图转写、第一批核对仍沿用字节上限，没有改 |
+
+**测试误发真实请求**：新增计数后，4 个已有测试只替换了生成调用，没有替换计数调用。设置会读取 `.env.local` 中的真实 key，这 4 个测试因此向官方计数接口发出了 **4 次真实请求**。请求内容是合成 fixture（提示词 “fixture”、证据为空、模型名 “fixture”），**不含课程数据**，全部被 OpenAI 以 404（模型不存在）拒绝。已修复：`conftest.py` 新增自动生效的 fixture，测试中一律删除 `OPENAI_API_KEY`；这 4 个测试也单独替换了计数调用。
+
+检查：后端 pytest **141 passed**（新增 5 项：计数请求契约、字节上限只在没有计数时生效、超限时不发分析请求、限内时记录计数、预检展示准入方式）；前端 tsc、vitest 12 项、build 通过；`restart-api` 后，内置浏览器打开真实课程的预检对话框，确认显示正确，未提交。
+
+新预检（只读）：context hash `b73c0b52ef37e65f626e58915cd52126e11ff5dce11c88c063034c72b1003108`；36 页（23 页使用转写，13 页使用文字，0 页待转写）；不发送页图；本地 66,229 字节；最多 8 次调用；包含两条用户声明：“All lecture content”，以及此前已保存、尚未分析的澄清回答（按标准邻域定义；critical point 只包括 f′(c)=0）。
+
 ## 待用户决定
 
-1. **分析输入预算**：实测准入估算是 66,741 字节，超过 60,000 字节上限。可选做法：
-   - 改成按 token 估算准入，例如用本地 tokenizer 计数，上限保持 60k tokens；
-   - 调高字节上限；
-   - 把分析拆成两次调用。
-
-   三种都属于预算规则变更。在用户决定之前，不提交带转写的分析。
-2. **新的分析授权**：上面的 context hash 还没授权。预算处理方式确定后，输入可能还会变化，需要用户在届时展示的精确范围上授权。
-3. **定义冲突**：重新分析后会以三个选项的澄清问题呈现，由用户选择。
+1. **授权上述新预检**：授权后会先发一次官方计数请求，再发一次分析请求（超过 60k tokens 则不发分析请求）。
+2. **定义冲突**：用户此前已保存一条澄清回答，本次分析会读取它；回答会以用户声明的身份进入分析，不会被当作对教学材料的更正。

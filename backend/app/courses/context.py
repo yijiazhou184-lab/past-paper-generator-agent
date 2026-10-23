@@ -128,6 +128,7 @@ def build_context(course):
     schema = AnalysisOutput.model_json_schema()
     frozen = {"input": data, "prompt": prompt, "prompt_version": PROMPT_VERSION, "schema_version": SCHEMA_VERSION,
               "projection_version": "r1-compact-evidence-2",
+              "admission": {"method": "official_input_tokens_count", "limit_tokens": 60000},
               "schema_hash": digest(schema), "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"),
               "endpoint": "https://api.openai.com/v1/responses", "store": False}
     return {**frozen, "context_hash": digest(frozen)}
@@ -142,7 +143,18 @@ def inspect_scope(snapshot):
         "visual_pending": [{"evidence_id": e["id"], "material_code": e["material_code"], "physical_page": e["physical_page"],
                             "signals": e["route"]["signals"]} for e in data["evidence"] if e["visual_status"] == "visual_pending"],
         "materials": [{k: m[k] for k in ("code", "filename", "selected_pages", "material_version_id", "sha256")} for m in data["materials"]],
-        "statements": data["statements"], "max_calls": 8, "call_timeout_seconds": 150}
+        "statements": data["statements"], "max_calls": 8, "call_timeout_seconds": 150,
+        "admission": {**snapshot["admission"], "local_utf8_bytes": local_bytes(snapshot),
+                      "note": "One official token-count request is sent after authorisation; above the limit "
+                              "the analysis stops without an analysis request."}}
+
+
+def local_bytes(snapshot):
+    """Size of the request as built locally; shown for orientation, not a token count."""
+    from .analysis import make_spec
+    spec = make_spec(snapshot)
+    return len((snapshot["prompt"] + json.dumps(spec.input, ensure_ascii=False)
+                + json.dumps(AnalysisOutput.model_json_schema())).encode("utf-8"))
 
 
 def verify_sources(snapshot, course):

@@ -8,7 +8,7 @@ from app.core.models import Task, TaskAttempt, TaskEvent
 from app.core.tasks import submit_task, locked_task, checkpoint, finish_task
 from app.core.idempotency import digest
 from app.ai.contracts import ModelCallSpec
-from app.ai.invocations import run_call
+from app.ai.invocations import run_call, count_call
 from app.ai.responses import request_body
 from .models import Course, CourseDraft, CourseMachineBase, AnalysisGrant
 from .context import build_context, ensure_statements, inspect_scope, verify_sources
@@ -54,9 +54,10 @@ def submit_analysis(course, context_hash, key, *, authorize=False, grant_source=
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         raise DomainError("API_KEY_MISSING", "Set OPENAI_API_KEY in the local .env.local file.")
     try:
-        request_body(make_spec(snapshot), snapshot["prompt"], AnalysisOutput, snapshot["model"])
+        # Size is checked by the official token count after consent, before the analysis request.
+        request_body(make_spec(snapshot), snapshot["prompt"], AnalysisOutput, snapshot["model"], byte_admission=False)
     except ValueError as exc:
-        raise DomainError(str(exc), "The selected input exceeds the frozen call budget. No data was sent.")
+        raise DomainError(str(exc), "The selected input cannot form a valid request. No data was sent.")
     if authorize:
         AnalysisGrant.objects.get_or_create(course=course, context_hash=context_hash,
             defaults={"granted_by": course.owner, "scope": inspect_scope(snapshot), "source": grant_source})
@@ -128,8 +129,11 @@ def run_analysis(token):
         raise DomainError("ANALYSIS_SCHEMA_CHANGED", "Restart analysis with the current schema; the old task was not altered.")
     checkpoint(token, "Checking frozen evidence")
     verify_sources(snapshot, task.course)
-    result = run_call(token, "course-analysis", make_spec(snapshot), instructions=snapshot["prompt"],
-        output_type=AnalysisOutput, api_key=os.environ.get("OPENAI_API_KEY", ""), model=snapshot["model"])
+    spec, key = make_spec(snapshot), os.environ.get("OPENAI_API_KEY", "")
+    counted = count_call(token, "course-analysis:count", spec, instructions=snapshot["prompt"],
+                         output_type=AnalysisOutput, api_key=key, model=snapshot["model"])
+    result = run_call(token, "course-analysis", spec, instructions=snapshot["prompt"],
+        output_type=AnalysisOutput, api_key=key, model=snapshot["model"], counted_tokens=counted)
     if result.status != "parsed":
         raise DomainError(result.error_code or "COURSE_ANALYSIS_FAILED", "The model did not return a usable course draft. Saved call details explain the failure.")
     output = AnalysisOutput.model_validate(result.payload)

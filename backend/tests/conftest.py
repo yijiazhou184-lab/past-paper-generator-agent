@@ -9,6 +9,12 @@ def private_test_storage(settings, tmp_path):
     settings.DATA_DIR = tmp_path / "data"
 
 
+@pytest.fixture(autouse=True)
+def no_real_api_key(monkeypatch):
+    """settings loads .env.local; tests must never reach the provider with the developer's real key."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
 @pytest.fixture
 def course(db, django_user_model):
     owner = django_user_model.objects.create_user(username="learner", password="test-only-password")

@@ -23,6 +23,7 @@ def test_provider_non_success_never_publishes(course, monkeypatch, status, code)
     task = submit_task(course, "analysis", snapshot, "failure-fixture")
     monkeypatch.setattr(analysis, "verify_sources", lambda *args: None)
     monkeypatch.setattr(analysis, "run_call", lambda *args, **kwargs: ModelCallResult(mode="fixture", status=status, error_code=code))
+    monkeypatch.setattr(analysis, "count_call", lambda *args, **kwargs: 1000)
     with pytest.raises(DomainError, match=code):
         analysis.run_analysis(claim_task(task.id))
     assert not CourseDraft.objects.filter(course=course).exists()

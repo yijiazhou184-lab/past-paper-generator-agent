@@ -131,3 +131,57 @@ def test_materials_and_source_api_show_transcription_state(course):
     assert first["route"]["route"] == "visual" and "empty_formula_region" in first["route"]["signals"]
     prose = client.get(f"/api/v1/sources/{version.evidence.get(physical_page=2).id}").json()
     assert prose["transcription_status"] == "not_needed" and prose["transcription"] is None
+
+
+def counted_task(course, monkeypatch, tokens):
+    from app.ai import invocations
+    from app.courses.models import AnalysisGrant
+    from app.core.idempotency import digest as d
+    calls = {"count": 0, "generate": 0}
+    def count(body, **kw):
+        calls["count"] += 1
+        return ModelCallResult(mode="fixture", status="parsed", payload={"input_tokens": tokens})
+    def generate(spec, **kw):
+        calls["generate"] += 1
+        assert kw["byte_admission"] is False
+        return ModelCallResult(mode="fixture", status="refusal", error_code="MODEL_REFUSAL")
+    monkeypatch.setattr(invocations, "count_official", count)
+    monkeypatch.setattr(invocations, "invoke_official", generate)
+    monkeypatch.setattr(analysis, "verify_sources", lambda *a: None)
+    # Larger than the old 60,000-byte bound, which must no longer decide admission.
+    evidence = [{"id": "e", "material_version_id": "v", "physical_page": 1, "material_code": "FX", "roles": ["lecture"],
+                 "fidelity_status": "needs_review", "text": "x" * 70000, "route": {"route": "text", "signals": []},
+                 "visual_status": "not_needed", "visual": None}]
+    snapshot = {"input": {"evidence": evidence, "materials": []}, "prompt": "fixture", "prompt_version": "fixture",
+                "schema_version": "fixture", "schema_hash": d(AnalysisOutput.model_json_schema()), "model": "fixture",
+                "context_hash": "counted-" + str(tokens)}
+    AnalysisGrant.objects.create(course=course, context_hash=snapshot["context_hash"], scope={}, source="test", granted_by=course.owner)
+    return submit_task(course, "analysis", snapshot, "counted-" + str(tokens)), calls
+
+
+def test_over_limit_count_stops_before_any_analysis_request(course, monkeypatch):
+    task, calls = counted_task(course, monkeypatch, 60001)
+    with pytest.raises(DomainError, match="TOKEN_BUDGET_EXCEEDED"):
+        analysis.run_analysis(claim_task(task.id))
+    assert calls == {"count": 1, "generate": 0}
+    count = ModelInvocation.objects.get(task=task)
+    assert count.metadata["purpose"] == "input_token_count" and count.result["payload"] == {"input_tokens": 60001}
+    task.refresh_from_db()
+    assert task.call_count == 0
+
+
+def test_counted_input_within_limit_proceeds_with_count_recorded(course, monkeypatch):
+    task, calls = counted_task(course, monkeypatch, 19500)
+    with pytest.raises(DomainError, match="MODEL_REFUSAL"):
+        analysis.run_analysis(claim_task(task.id))
+    assert calls == {"count": 1, "generate": 1}
+    generation = ModelInvocation.objects.get(task=task, call_key="course-analysis")
+    assert generation.metadata["input_admission_method"] == "official_input_tokens_count"
+    assert generation.metadata["counted_input_tokens"] == 19500
+
+
+def test_preflight_states_the_token_admission(course):
+    from app.courses.context import build_context, inspect_scope
+    scope = inspect_scope(build_context(course))
+    assert scope["admission"]["method"] == "official_input_tokens_count" and scope["admission"]["limit_tokens"] == 60000
+    assert scope["admission"]["local_utf8_bytes"] > 0

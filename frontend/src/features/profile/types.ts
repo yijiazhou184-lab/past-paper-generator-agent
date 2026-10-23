@@ -21,5 +21,6 @@ export type Profile = { draft: Draft | null; active_task_id: string | null; late
 export type Preflight = { authorized: boolean; api_key_configured: boolean; scope: { context_hash: string; model: string;
   page_count: number; review_count: number; endpoint: string; statements: Draft["statements"];
   visual_pending: { evidence_id: string; material_code: string; physical_page: number; signals: string[] }[];
+  admission: { method: string; limit_tokens: number; local_utf8_bytes: number; note: string };
   materials: { code: string; filename: string; selected_pages: number[] }[] } };
 export type Version = { id: string; number: number; mode: string; draft_revision: number; frozen_payload: Payload; created_at: string };

@@ -15,7 +15,8 @@ from .contracts import ModelCallSpec, ModelCallResult, Usage
 
 
 def request_body(spec: ModelCallSpec, instructions: str, output_type: Type[BaseModel],
-                 model: str, image: bytes | None = None):
+                 model: str, image: bytes | None = None, *, byte_admission: bool = True):
+    """byte_admission=False leaves the input bound to an official token count made before the call."""
     schema = output_type.model_json_schema()
     content = [{"type": "input_text", "text": json.dumps(spec.input, ensure_ascii=False)}]
     # Conservative local admission bound, not billed token usage. One small page only.
@@ -29,7 +30,7 @@ def request_body(spec: ModelCallSpec, instructions: str, output_type: Type[BaseM
         bound += 8192
         content.append({"type": "input_image", "image_url": "data:image/png;base64," +
                         base64.b64encode(image).decode("ascii"), "detail": "high"})
-    if bound > spec.max_input_tokens:
+    if byte_admission and bound > spec.max_input_tokens:
         raise ValueError("TOKEN_BUDGET_EXCEEDED")
     return {"model": model, "instructions": instructions,
             "input": [{"role": "user", "content": content}], "store": False,
@@ -64,18 +65,34 @@ def decode_response(response, output_type):
 
 
 def invoke_official(spec, *, instructions, output_type, api_key, model, image=None,
-                    timeout_seconds=150, transport=None):
+                    timeout_seconds=150, transport=None, byte_admission=True):
+    body = request_body(spec, instructions, output_type, model, image, byte_admission=byte_admission)
+    return call_official(lambda client: decode_response(client.responses.create(**body), output_type),
+                         api_key=api_key, timeout_seconds=timeout_seconds, transport=transport)
+
+
+COUNT_FIELDS = ("model", "instructions", "input", "reasoning", "text")
+
+
+def count_official(body, *, api_key, timeout_seconds=60, transport=None):
+    """Official input-token count for exactly this request body; nothing is generated."""
+    def count(client):
+        response = client.responses.input_tokens.count(**{k: body[k] for k in COUNT_FIELDS})
+        return ModelCallResult(mode="live", status="parsed", payload={"input_tokens": response.input_tokens},
+                               request_id=getattr(response, "_request_id", None))
+    return call_official(count, api_key=api_key, timeout_seconds=timeout_seconds, transport=transport)
+
+
+def call_official(action, *, api_key, timeout_seconds, transport):
     if not api_key or not api_key.strip():
         return ModelCallResult(mode="disabled", status="not_executed", error_code="API_KEY_MISSING")
-    body = request_body(spec, instructions, output_type, model, image)
     start = time.monotonic()
     try:
         # Explicit URL prevents ambient OPENAI_BASE_URL from redirecting private material.
         with httpx.Client(transport=transport, follow_redirects=False) as http_client:
             with OpenAI(api_key=api_key, base_url="https://api.openai.com/v1", max_retries=0,
                         timeout=min(timeout_seconds, 150), http_client=http_client) as client:
-                response = client.responses.create(**body)
-        result = decode_response(response, output_type)
+                result = action(client)
     except APITimeoutError:
         result = ModelCallResult(mode="live", status="provider_error", error_code="PROVIDER_TIMEOUT")
     except APIConnectionError:

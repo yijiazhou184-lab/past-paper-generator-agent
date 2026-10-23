@@ -31,6 +31,7 @@ function AnalysisDialog({ courseId, onClose }: { courseId: string; onClose: () =
       <details><summary>Review material versions and pages</summary><ul>{query.data.scope.materials.map(m => <li key={m.code}><strong>{m.filename}</strong><br />Physical pages {m.selected_pages.join(", ")}</li>)}</ul></details>
       <details><summary>Included user statements</summary>{query.data.scope.statements.map(s => <p key={s.id}>{s.text} <small>Provided by you · {s.source}</small></p>)}</details>
       <p className="muted">Official OpenAI API · {query.data.scope.model} · store:false. This does not mean zero data retention. Up to 8 calls, 150 seconds per call; unknown outcomes are not automatically retried.</p>
+      <p className="muted">Size check: this input is {query.data.scope.admission.local_utf8_bytes.toLocaleString()} bytes locally. After you authorise, one official token-count request (no answer is generated) measures it; above {query.data.scope.admission.limit_tokens.toLocaleString()} input tokens the analysis stops without an analysis request.</p>
       {!query.data.api_key_configured && <p role="alert">Configure OPENAI_API_KEY in .env.local before starting.</p>}
       {query.data.authorized ? <p><Check size={16} /> This exact input scope is already authorised.</p> : <label className="consent-row"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />I allow this listed input to be sent to the official OpenAI API for course analysis.</label>}
     </>}

@@ -103,3 +103,30 @@ def test_image_payload_and_size_are_bounded():
     Image.new("RGB", (1601, 600)).save(output, format="PNG")
     with pytest.raises(ValueError, match="IMAGE_DIMENSIONS_UNSUPPORTED"):
         request_body(spec(), "", SmokeResult, "gpt-6.1-sol", output.getvalue())
+
+
+def test_official_token_count_contract(monkeypatch):
+    from app.ai.responses import count_official, request_body
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://untrusted.invalid/v1")
+    body = request_body(spec(), "Synthetic fixture", SmokeResult, "gpt-6.1-sol", byte_admission=False)
+    def handler(request):
+        assert str(request.url) == "https://api.openai.com/v1/responses/input_tokens"
+        sent = json.loads(request.content)
+        assert set(sent) == {"model", "instructions", "input", "reasoning", "text"}  # nothing is generated or stored
+        assert sent["text"]["format"]["strict"] is True
+        return httpx.Response(200, json={"object": "response.input_tokens", "input_tokens": 1234})
+    result = count_official(body, api_key="test-not-a-real-key", transport=httpx.MockTransport(handler))
+    assert result.status == "parsed" and result.payload == {"input_tokens": 1234}
+    limited = count_official(body, api_key="test-not-a-real-key",
+                             transport=httpx.MockTransport(lambda r: httpx.Response(429, json={"error": {"code": "rate_limit_exceeded"}})))
+    assert limited.status == "provider_error" and limited.error_code == "PROVIDER_RATE_LIMIT"
+
+
+def test_byte_bound_applies_only_without_a_count():
+    from app.ai.contracts import ModelCallSpec
+    from app.ai.responses import request_body
+    big = ModelCallSpec(stage="course_analysis", prompt_version="f", schema_version="f", context_hash="f",
+                        input={"text": "x" * 70000})
+    with pytest.raises(ValueError, match="TOKEN_BUDGET_EXCEEDED"):
+        request_body(big, "Synthetic", SmokeResult, "gpt-6.1-sol")
+    assert request_body(big, "Synthetic", SmokeResult, "gpt-6.1-sol", byte_admission=False)["input"]
