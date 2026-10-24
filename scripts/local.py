@@ -122,7 +122,7 @@ def start():
     while time.monotonic() < deadline:
         try:
             with urllib.request.urlopen("http://127.0.0.1:5173/api/v1/session", timeout=2) as response:
-                if json.load(response).get("batch") in (1, 2, 3):
+                if json.load(response).get("batch") in (1, 2, 3, 4):
                     break
         except (OSError, ValueError):
             time.sleep(0.5)

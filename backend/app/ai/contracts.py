@@ -14,7 +14,7 @@ class Usage(BaseModel):
 class ModelCallSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
     stage: Literal["course_analysis", "blueprint", "question_pairs", "semantic_review", "repair",
-                   "visual_transcription"]
+                   "visual_transcription", "blind_solver"]
     prompt_version: str
     schema_version: str
     context_hash: str
