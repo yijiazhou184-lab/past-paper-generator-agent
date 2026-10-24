@@ -30,3 +30,14 @@ def pdf_bytes():
     document.drawString(60, 700, "Derivative definitions and the chain rule")
     document.save()
     return out.getvalue()
+
+@pytest.fixture(autouse=True)
+def block_unmocked_provider_transport(monkeypatch):
+    """MockTransport tests remain possible; default HTTPTransport must never send to OpenAI."""
+    import httpx
+    original = httpx.HTTPTransport.handle_request
+    def guarded(self, request):
+        if request.url.host == "api.openai.com":
+            raise AssertionError("Tests must mock every official provider request, including token counts.")
+        return original(self, request)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", guarded)

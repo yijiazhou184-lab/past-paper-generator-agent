@@ -76,7 +76,7 @@ class GenerationWorkspaceView(APIView):
             "payload": v.frozen_payload, "evidence": [{k: e[k] for k in ("id", "material_code", "material_version_id", "physical_page") if k in e}
                                                       for e in v.evidence_manifest["evidence"]]}
                     for v in CourseVersion.objects.filter(course=course).order_by("-number")]
-        return Response({"draft": draft_view(draft), "versions": versions, "generation_available": False,
+        return Response({"draft": draft_view(draft), "versions": versions, "generation_available": True,
             "latest_task": task_view(draft.latest_task) if draft and draft.latest_task_id else None,
             "snapshots": [{"id": str(s.id), "mode": s.mode, "created_at": s.created_at,
                 "confirmation_id": str(s.confirmation_id), "payload_hash": s.payload_hash}
@@ -146,12 +146,29 @@ class SnapshotDetailView(APIView):
         return Response({"result": snapshot_view(get_object_or_404(GenerationSnapshot, pk=snapshot_id, course_id=course_id, course__owner=request.user))})
 
 
-class GenerationsView(APIView):
-    @extend_schema(request=FreezeRequest, responses={501: JsonResult})
+class GenerationPreflightView(APIView):
+    @extend_schema(request=FreezeRequest, responses=PlanningPreflightSchema)
     def post(self, request, course_id):
-        # Validate the binding even before an execution pipeline exists; never queue fake work.
-        from .snapshots import require_confirmation
+        from .execution_context import prepare_generation, inspect_generation_scope
+        from .models import GenerationGrant
         data = validate(FreezeRequest, request.data)
-        draft = get_object_or_404(GenerationDraft.objects.select_related("blueprint", "confirmation"), course_id=course_id, course__owner=request.user)
-        require_confirmation(draft, data["confirmation_id"], data["config_revision"], data["config_hash"])
-        raise DomainError("QUESTION_GENERATION_NOT_AVAILABLE", "Question and answer generation is implemented in batch 4. You can prepare the frozen inputs now.", status=501)
+        context = prepare_generation(request.user, course_id, data["confirmation_id"], data["config_revision"],
+                                     data["config_hash"], request.headers.get("Idempotency-Key"))
+        return Response({"scope": inspect_generation_scope(context),
+            "authorized": context["mode"] == "fixture" or GenerationGrant.objects.filter(course_id=course_id, context_hash=context["context_hash"]).exists(),
+            "api_key_configured": bool(os.environ.get("OPENAI_API_KEY", "").strip())})
+
+
+class GenerateRequest(FreezeRequest):
+    context_hash = serializers.CharField(min_length=64, max_length=64)
+    authorize_upload = serializers.BooleanField(default=False)
+
+
+class GenerationsView(APIView):
+    @extend_schema(request=GenerateRequest, responses={202: TaskSchema})
+    def post(self, request, course_id):
+        from .execution_context import submit_generation
+        data = validate(GenerateRequest, request.data)
+        task = submit_generation(request.user, course_id, data["confirmation_id"], data["config_revision"],
+            data["config_hash"], data["context_hash"], request.headers.get("Idempotency-Key"), data["authorize_upload"])
+        return Response(task_view(task), status=202)

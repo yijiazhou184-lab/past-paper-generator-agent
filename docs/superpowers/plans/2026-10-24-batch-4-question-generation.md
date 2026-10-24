@@ -1,6 +1,6 @@
 # 批次 4：题答生成、分层核验与必要修复
 
-> 状态：**待用户确认的实施计划**（2026-10-24）。依据：[首轮计划 Task 7–8](2026-10-19-round-1-qm.md)、[round-1 设计 §5.4–5.5、§6](../../round-1-design.md)、[AI 技术方案 §5](../../ai-technical-design-v0.1.md)，以及[批次三记录](../../batch-3-validation.md)末尾已确认的“合并确认后出题”。不改写 PRD 或首轮原计划。
+> 状态：**用户已确认，实施中**（2026-10-24）。依据：[首轮计划 Task 7–8](2026-10-19-round-1-qm.md)、[round-1 设计 §5.4–5.5、§6](../../round-1-design.md)、[AI 技术方案 §5](../../ai-technical-design-v0.1.md)，以及[批次三记录](../../batch-3-validation.md)末尾已确认的“合并确认后出题”。不改写 PRD 或首轮原计划。
 
 ## 1. 目标与边界
 
@@ -100,3 +100,16 @@
 - fixture 流程端到端可用；所有检查结果的状态彼此不混淆；门槛不放行任何未通过的必需项；修复链可以追溯。
 - 真实运行一次（需授权），如实报告结果，不论门槛是否通过。
 - 不声称题目质量、难度校准或两分钟目标已经达标。这些在批次 6 的六次验收中判定。
+
+## 11. Codex 执行清单（2026-10-24）
+
+用户已明确开始批次 4，包含计划的 240 秒单次限额。真实外发仍按第 9 节单独授权。
+
+- [x] 1. execution_context.py、models.py、api.py、queue.py 与 Generate 页：预检、冻结、独立授权、任务骨架；test_generation_preflight.py 验证幂等、过期、忙碌和跨课程拒绝。
+- [ ] 2. content_schemas.py、generator.py、assets.py、question_pairs.md：成对题答、受限素材与分组持久化；test_question_pairs.py / test_generation_execution.py 验证缺答案、评分、恢复与取消。
+- [ ] 3. math_checks.py、checks.py、duplicates.py、reviewer.py、blind_solver.md / semantic_review.md：分层检查和门槛；test_generation_checks.py 验证定义域、端点、洛必达、盲解隔离和非通过状态。
+- [ ] 4. repair.md、generator.py / reviewer.py：一轮修复、候选链和重检；测试限制修复目标、拒绝第二轮、复用已完成分组。
+- [ ] 5. CandidatePreview.tsx、TaskPage.tsx、content API：题目与答案分离请求、主动打开答案、报告与来源；前端和浏览器测试覆盖恢复、长内容和错误。
+- [ ] 6. 全量后端 / 前端、fixture 浏览器流程、OpenAPI、README、batch-4-validation.md、handoff.md；精确列出实际运行及未运行项，提交并推送。
+
+所有步骤沿用现有租约、锁、幂等和不可变数据库触发器；只在独立测试库和 fixture 课程验证。未取得新的精确生成授权前不发送真实材料。命令均待执行，结果记录在验证文档。

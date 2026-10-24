@@ -5,7 +5,7 @@ from app.materials.api import (MaterialsView, ClassificationView, RelationsView,
                                RemoveRelationView, SourceView, PageImageView, OriginalView)
 from app.courses.api import (ProfileView, AnalysisPreflightView, AnalyseView, DraftView, AnswerView, ConfirmView, VersionView)
 from app.generation.api import (GenerationWorkspaceView, GenerationConfigView, PlanningPreflightView, PlansView,
-    BlueprintView, StructureConfirmView, GenerationSnapshotView, SnapshotDetailView, GenerationsView)
+    BlueprintView, StructureConfirmView, GenerationSnapshotView, SnapshotDetailView, GenerationsView, GenerationPreflightView)
 
 urlpatterns = [
     path("api/v1/session", SessionView.as_view()),
@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/v1/courses/<uuid:course_id>/blueprints/<uuid:blueprint_id>/confirmations", StructureConfirmView.as_view()),
     path("api/v1/courses/<uuid:course_id>/generation-snapshots", GenerationSnapshotView.as_view()),
     path("api/v1/courses/<uuid:course_id>/generation-snapshots/<uuid:snapshot_id>", SnapshotDetailView.as_view()),
+    path("api/v1/courses/<uuid:course_id>/generation-preflight", GenerationPreflightView.as_view()),
     path("api/v1/courses/<uuid:course_id>/generations", GenerationsView.as_view()),
     path("api/v1/courses/<uuid:course_id>/analysis-preflight", AnalysisPreflightView.as_view()),
     path("api/v1/courses/<uuid:course_id>/analyses", AnalyseView.as_view()),

@@ -134,9 +134,10 @@ def test_api_refresh_and_expired_generation_submission(course, planned, client):
     url = f"/api/v1/courses/{course.id}"
     body = {"confirmation_id": str(saved.confirmation_id), "config_revision": saved.revision, "config_hash": saved.config_hash}
     assert client.get(url + "/generation-workspace").json()["draft"]["confirmed"]
-    assert client.post(url + "/generations", body, content_type="application/json").status_code == 501
+    preflight = client.post(url + "/generation-preflight", body, content_type="application/json", HTTP_IDEMPOTENCY_KEY="preflight").json()
+    body["context_hash"] = preflight["scope"]["context_hash"]
     save_config(course.owner, course.id, 1, saved.config, "new-revision")
-    assert client.post(url + "/generations", body, content_type="application/json").status_code == 409
+    assert client.post(url + "/generations", body, content_type="application/json", HTTP_IDEMPOTENCY_KEY="expired").status_code == 409
 
 
 def test_foreign_version_and_unknown_topic_rejected(course, config, django_user_model):

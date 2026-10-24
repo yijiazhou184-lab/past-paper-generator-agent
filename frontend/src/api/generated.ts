@@ -148,6 +148,22 @@ export interface paths {
         patch: operations["v1_courses_generation_config_partial_update"];
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/generation-preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["v1_courses_generation_preflight_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/courses/{course_id}/generation-snapshots": {
         parameters: {
             query?: never;
@@ -513,6 +529,15 @@ export interface components {
             confirmation_id: string;
             config_revision: number;
             config_hash: string;
+        };
+        GenerateRequest: {
+            /** Format: uuid */
+            confirmation_id: string;
+            config_revision: number;
+            config_hash: string;
+            context_hash: string;
+            /** @default false */
+            authorize_upload: boolean;
         };
         IssueSchema: {
             code: string;
@@ -1077,6 +1102,33 @@ export interface operations {
             };
         };
     };
+    v1_courses_generation_preflight_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreezeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["FreezeRequest"];
+                "multipart/form-data": components["schemas"]["FreezeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanningPreflightSchema"];
+                };
+            };
+        };
+    };
     v1_courses_generation_snapshots_create: {
         parameters: {
             query?: never;
@@ -1158,18 +1210,18 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FreezeRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["FreezeRequest"];
-                "multipart/form-data": components["schemas"]["FreezeRequest"];
+                "application/json": components["schemas"]["GenerateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["GenerateRequest"];
+                "multipart/form-data": components["schemas"]["GenerateRequest"];
             };
         };
         responses: {
-            501: {
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JsonResult"];
+                    "application/json": components["schemas"]["TaskSchema"];
                 };
             };
         };

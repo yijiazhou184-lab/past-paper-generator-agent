@@ -71,3 +71,48 @@ class PlanningGrant(Immutable):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["course", "context_hash"], name="unique_planning_grant")]
+
+class GenerationGrant(Immutable):
+    course = models.ForeignKey("courses.Course", on_delete=models.PROTECT)
+    context_hash = models.CharField(max_length=64)
+    scope = models.JSONField()
+    granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    source = models.CharField(max_length=200)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["course", "context_hash"], name="unique_generation_grant")]
+
+
+class GenerationArtifact(Immutable):
+    """Completed groups and blind solutions survive worker interruption."""
+    task = models.ForeignKey("core.Task", on_delete=models.PROTECT, related_name="generation_artifacts")
+    key = models.CharField(max_length=100)
+    input_hash = models.CharField(max_length=64)
+    payload = models.JSONField()
+    payload_hash = models.CharField(max_length=64)
+    call_ids = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["task", "key"], name="unique_generation_artifact")]
+
+
+class CandidateVersion(Immutable):
+    snapshot = models.ForeignKey(GenerationSnapshot, on_delete=models.PROTECT)
+    task = models.ForeignKey("core.Task", on_delete=models.PROTECT, related_name="candidates")
+    parent = models.ForeignKey("self", null=True, on_delete=models.PROTECT)
+    revision = models.PositiveIntegerField()
+    payload = models.JSONField()
+    payload_hash = models.CharField(max_length=64)
+    mode = models.CharField(max_length=16)
+    stage = models.CharField(max_length=30)
+    call_ids = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["task", "revision"], name="unique_candidate_revision")]
+
+
+class CheckReport(Immutable):
+    candidate = models.OneToOneField(CandidateVersion, on_delete=models.PROTECT, related_name="check_report")
+    payload = models.JSONField()
+    payload_hash = models.CharField(max_length=64)
+    gate = models.JSONField()
