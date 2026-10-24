@@ -1,6 +1,8 @@
 # AI Past Paper Generator
 
-当前实现：第一轮 **批次 1–3（Task 1–6）材料工作区、课程分析、编辑确认、练习配置和结构规划**。支持版本化来源、持久任务、课程澄清与确认，以及独立练习配置、蓝图校验与编辑、结构确认和不可变生成输入。本批尚不生成题答或两个输出 PDF；正式生成入口待批次四接入。另已实现**视觉证据路径**的本地部分：页级分流、页图转写任务（带授权、缓存和并行）、转写接入课程分析，以及页面展示。2026-10-24 经用户授权，对 18 页做了真实转写（全部成功），并以官方 token 计数准入（上限 60k）重新分析：19,169 tokens，135.9 秒，结果仍为 `needs_info`。M35 公式缺口和极值定义冲突已不再阻塞；新的阻塞是 L'Hôpital 和隐函数求导，原因是首轮固定选页没有包含其主要教学页。随后经用户授权，补入 9 页（其中 8 页做了页图转写），再次分析 45 页：23,025 tokens，148.6 秒，结果为 **succeeded**，阻塞 0 个，8 个知识组全部 supported。用户已确认课程版本 1。2026-10-24 经用户授权，在真实课程上执行了一次 AI② 规划：17,921 tokens，55.4 秒，得到 3 道大题、60 分的蓝图，结构等待用户确认。发现小问标签受 30 字符上限截断，见[批次三记录](docs/batch-3-validation.md)。
+当前实现：第一轮 **批次 1–3（Task 1–6）材料工作区、课程分析、编辑确认、练习配置和结构规划**，以及**视觉证据路径**（页级分流、页图转写、转写接入分析）。支持版本化来源、持久任务、选项式课程澄清与确认、独立练习配置、blueprint-v2 蓝图校验与编辑、结构确认和不可变生成输入。尚不生成题答或两个输出 PDF；批次四（AI③ 题答生成、AI④ 核验）的[实施计划](docs/superpowers/plans/2026-10-24-batch-4-question-generation.md)已写好，**等待用户确认**，尚未开始编码。
+
+真实 QM 课程现状（2026-10-24）：用户已确认课程 **version 2**（45 页分析，32 页用页图转写，0 阻塞，8 个知识组全部 supported，含用户的两条练习偏好）；在其上完成真实 AI② 规划（blueprint-v2：3 道大题、13 个小问、60 分、95 分钟）、结构确认和输入冻结（快照 `7e2a758e-7e7e-4a03-b618-e7c12d56b708`），批次三真实验证完成。页图转写共 27 页（新格式，均经用户逐次授权），另有 5 页沿用第一批的页面核对结果；状态汇总中其余 138 页显示待授权（含那 5 页），未发送。
 
 2026-10-22 完成第一批 5 页真实模型核对；2026-10-23 在用户新授权的 36 页抽取文字和 5 页已有核对结果上运行课程分析，得到真实的 `needs_info` 草稿，未冒充课程已确认。第三批于 2026-10-23–24 完成本地功能验证；2026-10-24 在真实课程 version 2 上完成真实规划、结构确认和输入冻结（快照 `7e2a758e…`），批次三真实验证完成。需求入口见 [AGENTS.md](AGENTS.md)，记录见 [批次一](docs/batch-1-live-validation.md)、[批次二](docs/batch-2-validation.md)、[批次三](docs/batch-3-validation.md)、[视觉证据路径](docs/visual-evidence-validation.md)。历史原型和原材料保持原位。
 
@@ -46,10 +48,10 @@
 5. 未完成/失败材料可点 **View task**；已完成材料的来源面板有 **Processing task**。任务详情保留真实阶段、时间、诊断和此前尝试。
 6. **Course profile** 查看真实 Topic 2 草稿：Knowledge、Scope & methods、Exam reference。来源按钮在同页打开原材料版本和物理页，刷新可恢复。
 7. 修改字段后 800ms 串行自动保存，也可点 **Save changes**。失败保留输入；冲突必须比较后选择服务器版本或保留本地修改。浏览器当前标签的未提交编辑用 sessionStorage 恢复；服务器已保存草稿可跨会话找回。
-8. 必要问题的 **Save answer** 会记录 UserStatement，需解释的新回答由新分析任务处理，不自动付费调用。读取缺口显示现有页图入口；不是要求再次上传已存在的材料。
-9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 工作区。真实 QM 目前仍因解析与来源冲突未确认；测试确认只发生在显式标记的 `B2-TEST` / `B3-FIXTURE` 课程。
+8. 澄清问题有建议答案时显示为选项，另可 **Write my own answer**；**Save answer** 会记录 UserStatement，并保存当时所问的问题原文。需解释的新回答由新分析任务处理，不自动付费调用；分析已标为 answered 的问题不再重复询问。读取缺口显示现有页图入口；不是要求再次上传已存在的材料。
+9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 工作区。真实 QM 已有确认版本 1、2（当前使用 version 2）；fixture 课程标记为 `B2-TEST` / `B3-FIXTURE` / `B4-VISUAL-FIXTURE`。
 10. **Generate** 可选择知识、三档难度、2–4 大题及三类题型；先 **Save configuration**，再 **Review structure** 查看精确输入并提交规划。修改本次配置不改课程默认；改回原值也需要重新规划和确认。
-11. 结构中可编辑小问、分值、时长、选答和小问数量锁定。**Save structure** 后由服务端重新汇总并检查；有效结构经 **Confirm structure** 后可 **Prepare generation** 保存不可变输入，旧快照可再次打开。**Generate practice** 暂不可用，不会创建假出卷任务。
+11. 结构中可编辑小问、分值、时长、选答和小问数量锁定。**Save structure** 后由服务端重新汇总并检查；有效结构经 **Confirm structure** 后可 **Prepare generation** 保存不可变输入，旧快照可再次打开。**Generate practice** 暂不可用，不会创建假出卷任务。已确认：批次四会去掉单独的 Prepare generation，改为点 Generate practice 时自动冻结并经预检授权后出题。
 
 `Parsed` 只表示本地解析结束。Docling 当前关闭 OCR 和公式增强；数学页可能漏抽公式、丢失根号或读序错误，所有页面保持 `needs_review`。应查看原页图。后续 AI 分析必须选择相关页图或经验证的公式解析路径，不能把当前文本作为完整数学内容。
 
@@ -105,7 +107,7 @@ Materials 顶部的 **View saved call records** 可找回真实调用任务。�
 
 ## 第二批课程分析
 
-入口：`/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/profile`。最新真实任务：`cd0d0c32-50c2-4f42-a2b6-3e9d148dd702`。8 个知识组均有来源关联；5 组为 partial，3 组 supported。源页公式缺失和局部/全局极值定义冲突保留为两组待处理事项。当前缺口不能仅凭确认或文本断言清除。
+入口：`/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/profile`。最新真实任务：`5a60ab41-a2a4-4b92-991c-1e420b637796`（succeeded，用于确认 version 2）。准入改为官方 token 计数（上限 60k），课程分析单次调用时限 300 秒，其他阶段 150 秒。第二批原始任务 `cd0d0c32…` 的 `needs_info` 结果与后续演进见[视觉证据路径记录](docs/visual-evidence-validation.md)。
 
 查看已有结果不会调用模型。**Analyse again** 会先展示精确发送范围；提交会产生新的真实 API 调用。材料/声明/模型/提示词变化导致 hash 改变，需要明确授权新输入。同一提交 key 复用原任务，旧任务快照不变。原任务 `needs_info` 后的新分析有 parent 关联；取消或 lease 失效的执行不能发布草稿。
 
@@ -116,7 +118,7 @@ Materials 顶部的 **View saved call records** 可找回真实调用任务。�
 & .\.venv\Scripts\python.exe backend/manage.py course_analysis --report cd0d0c32-50c2-4f42-a2b6-3e9d148dd702
 ```
 
-已授权的第二批 scope 是 36 页文字、5 页已有识别结果和已提供的范围声明，**没有包含新页图**。本轮尚未把页图补读自动接入课程分析。补读公式需扩大具体页图授权并实现该恢复分支；当前如实保留 `needs_info`，不静默删去不支持的知识组。
+第二批原始授权只含 36 页文字和 5 页已有识别结果；之后的页图转写与重新分析均另行逐次授权，详见视觉证据路径记录。
 
 ## 第三批组卷规划
 
@@ -186,6 +188,6 @@ pnpm --dir frontend test --run
 & .\.venv\Scripts\python.exe scripts/test_generation_workspace.py
 ```
 
-每次重跑应先创建新的测试课程；脚本会保存配置、规划、确认和快照，覆盖其 `var/batch3-browser-fixture.json` 指针，不删除旧测试课程。当前完整后端回归 98 项、前端 12 项通过；浏览器覆盖范围与未验证项详见批次三记录。
+每次重跑应先创建新的测试课程；脚本会保存配置、规划、确认和快照，覆盖其 `var/batch3-browser-fixture.json` 指针，不删除旧测试课程。当前完整后端回归 152 项、前端 12 项通过（2026-10-24）；浏览器覆盖范围与未验证项详见各批记录。2026-10-24 的 Claude Code 会话中，本机当前用户没有 Playwright Chromium（`ms-playwright` 目录不存在），Python Playwright 脚本未能运行，改用内置浏览器检查；安装前需用户同意。
 
 Vitest 覆盖串行保存、迟到响应、未知保存结果的同 key 重试、冲突和标签刷新恢复。Python Playwright 覆盖实际浏览器；仍未建立 Node Playwright 测试集，不把 `test:e2e` 脚本视为已验收入口。
