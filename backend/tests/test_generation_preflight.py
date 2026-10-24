@@ -61,3 +61,33 @@ def test_context_tampering_and_cross_course_rejected(course, planned, client, dj
     body = {"confirmation_id": str(saved.confirmation_id), "config_revision": saved.revision, "config_hash": saved.config_hash}
     assert client.post(f"/api/v1/courses/{course.id}/generation-preflight", body,
                        content_type="application/json", HTTP_IDEMPOTENCY_KEY="foreign").status_code == 404
+
+
+def test_live_generation_requires_separate_exact_scope_grant(course, planned, monkeypatch):
+    from unittest.mock import patch
+    from app.core.idempotency import digest
+    from app.generation.models import PlanningGrant
+    saved, context = prepare(course, planned)
+    live = copy.deepcopy(context)
+    live["mode"] = "live"
+    live["context_hash"] = digest({k:v for k,v in live.items() if k != "context_hash"})
+    monkeypatch.setenv("OPENAI_API_KEY", "synthetic-test-only")
+    # A prior planning grant cannot authorise question generation.
+    PlanningGrant.objects.create(course=course, context_hash=live["context_hash"], scope={},
+                                 granted_by=course.owner, source="Synthetic prior-purpose consent")
+    args = (course.owner, course.id, saved.confirmation_id, saved.revision, saved.config_hash, live["context_hash"])
+    with patch("app.generation.execution_context.prepare_generation", return_value=live):
+        with pytest.raises(DomainError, match="GENERATION_CONSENT_REQUIRED"):
+            submit_generation(*args, "no-consent")
+        assert not Task.objects.filter(kind="generation").exists()
+        task = submit_generation(*args, "authorised", authorize=True)
+        grant = GenerationGrant.objects.get(course=course)
+        assert grant.context_hash == live["context_hash"] and grant.scope["store"] is False
+        assert task.call_count == 0
+        cancel_task(course.owner, task.id)
+        # Changing an input invalidates the old generation grant as well.
+        changed = copy.deepcopy(live)
+        changed["context_hash"] = "b"*64
+        with patch("app.generation.execution_context.prepare_generation", return_value=changed):
+            with pytest.raises(DomainError, match="GENERATION_CONSENT_REQUIRED"):
+                submit_generation(*args[:-1], changed["context_hash"], "changed-no-consent")

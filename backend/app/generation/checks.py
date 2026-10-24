@@ -1,7 +1,7 @@
 from collections import Counter
 from app.core.errors import DomainError
 from .content_validation import validate_group
-from .math_checks import check_math
+from .math_checks import MathWorker
 
 
 def check(check_id,targets,method,result,rationale,evidence=None,required=True):
@@ -28,19 +28,20 @@ def program_checks(context,payload):
 
 def mathematical_checks(pairs):
     checks=[]
-    for pair in pairs:
-        types={p["part_id"]:p["response_type"] for p in pair["parts"]}
-        for answer in pair["answers"]:
-            if not answer["checks"]:
-                qualitative=types[answer["part_id"]]=="explanation_proof"
-                checks.append(check("math:"+answer["part_id"],[pair["question_id"],answer["part_id"]],"symbolic",
-                    "not_applicable" if qualitative else "not_checked",
-                    "No quantitative symbolic claim supplied; semantic proof review remains mandatory." if qualitative else "No supported mathematical check was supplied.",
-                    required=not qualitative))
-            for spec in answer["checks"]:
-                output=check_math(spec)
-                checks.append(check("math:"+spec["id"],[pair["question_id"],answer["part_id"]],"sympy_subprocess",
-                                    output["result"],output["rationale"]))
+    with MathWorker() as worker:
+        for pair in pairs:
+            types={p["part_id"]:p["response_type"] for p in pair["parts"]}
+            for answer in pair["answers"]:
+                if not answer["checks"]:
+                    qualitative=types[answer["part_id"]]=="explanation_proof"
+                    checks.append(check("math:"+answer["part_id"],[pair["question_id"],answer["part_id"]],"symbolic",
+                        "not_applicable" if qualitative else "not_checked",
+                        "No quantitative symbolic claim supplied; semantic proof review remains mandatory." if qualitative else "No supported mathematical check was supplied.",
+                        required=not qualitative))
+                for spec in answer["checks"]:
+                    output=worker.check(spec)
+                    checks.append(check("math:"+spec["id"],[pair["question_id"],answer["part_id"]],"sympy_subprocess",
+                                        output["result"],output["rationale"]))
     return checks
 
 

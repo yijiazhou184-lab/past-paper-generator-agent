@@ -59,3 +59,12 @@ def test_graph_is_bounded_and_escapes_labels():
     assert "<script>" not in result["svg"]
     assert "&lt;script&gt;" in result["svg"]
     assert result["sha256"] and "<path" in result["svg"]
+
+
+def test_nested_powers_cannot_bypass_complexity_limit():
+    def power(base):
+        return {"op":"pow","value":None,"args":[base,{"op":"number","value":"12","args":[]}]}
+    with pytest.raises(ValueError, match="Combined power"):
+        expression(power(power({"op":"variable","value":"x","args":[]})))
+    with pytest.raises(ValueError, match="excessive numeric"):
+        expression(power(power({"op":"number","value":"99999999","args":[]})))

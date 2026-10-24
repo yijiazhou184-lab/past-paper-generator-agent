@@ -1,6 +1,6 @@
 # 批次 4：题答生成、分层核验与必要修复
 
-> 状态：**用户已确认，实施中**（2026-10-24）。依据：[首轮计划 Task 7–8](2026-10-19-round-1-qm.md)、[round-1 设计 §5.4–5.5、§6](../../round-1-design.md)、[AI 技术方案 §5](../../ai-technical-design-v0.1.md)，以及[批次三记录](../../batch-3-validation.md)末尾已确认的“合并确认后出题”。不改写 PRD 或首轮原计划。
+> 状态：**本地实施及验收完成，真实验证待精确范围授权**（2026-10-25）。依据：[首轮计划 Task 7–8](2026-10-19-round-1-qm.md)、[round-1 设计 §5.4–5.5、§6](../../round-1-design.md)、[AI 技术方案 §5](../../ai-technical-design-v0.1.md)，以及[批次三记录](../../batch-3-validation.md)末尾已确认的“合并确认后出题”。不改写 PRD 或首轮原计划。
 
 ## 1. 目标与边界
 
@@ -93,7 +93,7 @@
 
 ## 9. 真实调用（实施完成后，需要你授权）
 
-在当前已确认的结构上点 Generate practice，此时会冻结或复用快照 `7e2a758e`。我先把预检的精确输入给你看，内容包括：每道大题发送的页、知识、方法和偏好，调用上限，模型。你授权后才提交。完成后记录实际耗时、tokens、检查结果和门槛结论，并对照原页抽查题答，标注为“Claude 抽查”，不作为认证。
+在当前已确认的结构上点 Generate practice，此时会冻结或复用快照 `7e2a758e`。我先把预检的精确输入给你看，内容包括：每道大题发送的页、知识、方法和偏好，调用上限，模型。你授权后才提交。完成后记录实际耗时、tokens、检查结果和门槛结论，并对照原页抽查题答，标注为“执行工具抽查（本次为 Codex）”，不作为认证。
 
 ## 10. 完成标准
 
@@ -110,8 +110,11 @@
 - [x] 3. math_checks.py、checks.py、duplicates.py、reviewer.py、blind_solver.md / semantic_review.md：分层检查和门槛；test_generation_checks.py 验证定义域、端点、洛必达、盲解隔离和非通过状态。
 - [x] 4. repair.md、generator.py / reviewer.py：一轮修复、候选链和重检；测试限制修复目标、拒绝第二轮、复用已完成分组。
 - [x] 5. CandidatePreview.tsx、TaskPage.tsx、content API：题目与答案分离请求、主动打开答案、报告与来源；前端和浏览器测试覆盖恢复、长内容和错误。
-- [ ] 6. 全量后端 / 前端、fixture 浏览器流程、OpenAPI、README、batch-4-validation.md、handoff.md；精确列出实际运行及未运行项，提交并推送。
+- [x] 6. 全量后端 / 前端、fixture 浏览器流程、OpenAPI、README、batch-4-validation.md、handoff.md；精确列出实际运行及未运行项，提交并推送。
 
 所有步骤沿用现有租约、锁、幂等和不可变数据库触发器；只在独立测试库和 fixture 课程验证。未取得新的精确生成授权前不发送真实材料。命令均待执行，结果记录在验证文档。
 
 数学检查资料核对（2026-10-24）：SymPy 官方 [calculus](https://docs.sympy.org/latest/modules/calculus/index.html) 与 [solveset 使用指南](https://docs.sympy.org/latest/guides/solving/solve-equation-algebraically.html)。采用显式实数定义域和完整有限解集检查；不支持或无法判定时保留非通过状态。隔离子进程限制每次检查 8 秒，不将超时作为正确性证据。
+
+
+执行结果（2026-10-25）：本地六步完成，详见 [第四批验证记录](../../batch-4-validation.md)。第9节的一次真实运行尚待新增范围授权，不能称为本批真实验收完成。符号检查启动与计算现分别限20秒和8秒，同轮复用隔离进程；真实模型/任务限额不变。

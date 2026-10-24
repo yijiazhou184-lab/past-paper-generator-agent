@@ -58,3 +58,39 @@ def test_number_swaps_are_duplicate_candidates():
     result=duplicate_candidates([pair],[source],[])
     assert result["compared_source_ids"]==["e1"]
     assert result["findings"][0]["code"]=="NUMBER_SWAP_DUPLICATE"
+
+
+def test_blind_solver_cannot_see_answer_only_graphs():
+    from app.generation.reviewer import blind_input
+    pair={"question_id":"q","stem":[{"type":"asset_ref","asset_id":"question-graph"}],
+          "parts":[{"part_id":"a","prompt":[{"type":"text","text":"Find the derivative."}]}],
+          "asset_ids":["question-graph","answer-graph"],"answers":[{"worked_solution":"secret"}]}
+    context={"input":{"course":{"method_rules":[],"scope_claims":[]},"statements":[]}}
+    data=blind_input(context,pair,[{"id":"question-graph","alt":"Question","svg":"<svg/>"},
+                                   {"id":"answer-graph","alt":"SECRET ANSWER GRAPH","svg":"<svg/>"}])
+    assert [a["id"] for a in data["assets"]]==["question-graph"]
+    assert "SECRET" not in str(data) and "answers" not in data["question"]
+
+def test_symbolic_process_reused_with_separate_calculation_deadline():
+    from app.generation.math_checks import MathWorker
+    with MathWorker() as worker:
+        assert worker.check(spec())["result"]=="pass"
+        process=worker.process
+        assert worker.check(spec())["result"]=="pass"
+        assert worker.process is process
+    assert process.poll() is not None
+
+
+def test_timed_out_symbolic_process_is_killed_and_blocks_release(monkeypatch):
+    import subprocess,sys
+    from app.generation import math_checks
+    original=subprocess.Popen
+    script="import sys,json,time; print(json.dumps({'ready':True}),flush=True); sys.stdin.readline(); time.sleep(60)"
+    def stalled(_command,**kwargs):
+        return original([sys.executable,"-c",script],**kwargs)
+    monkeypatch.setattr(math_checks.subprocess,"Popen",stalled)
+    with math_checks.MathWorker(timeout_seconds=0.1) as worker:
+        result=worker.check(spec())
+        assert result["result"]=="not_checked"
+        assert "calculation" in result["rationale"]
+        assert worker.process is None

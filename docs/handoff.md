@@ -1,42 +1,33 @@
-# 交接：批次 4 计划待确认
+# 交接：批次 4 本地完成，真实生成待精确范围授权
 
-更新：2026-10-24，Claude Code 交出。按 [AGENTS.md](../AGENTS.md) 第 6 节，接手方先执行 `git status`、`git pull --ff-only`，并阅读 README「当前实现」和本文件。
+更新：2026-10-25，Codex。工作目录仅为 `C:\Users\Yijia\dev\past_paper_generator`；OneDrive 副本停用。接手按 AGENTS.md 第 6 节执行 status、pull --ff-only、README、log 和本文件。用户已经明确批准批次四正式开发，不要再要求确认实施计划。
 
-## 目标
+## 已完成
 
-开始首轮批次 4：AI③ 题答生成、AI④ 分层核验与一轮修复，并合并“确认后出题”入口。计划见 [2026-10-24-batch-4-question-generation.md](superpowers/plans/2026-10-24-batch-4-question-generation.md)，状态为**等待用户确认**。用户确认前不要开始编码。
+首轮 Task 7–8 本地功能：独立生成预检授权、按大题成对生成、受限素材、程序/数学/盲解/语义/重复检查、一轮定向修复、候选及报告不可变历史、显式打开答案、固定来源、刷新与幂等恢复。迁移 generation.0003 / 0004 已应用；没有增加依赖。详细文件和检查结果见 [batch-4-validation.md](batch-4-validation.md)。
 
-## 已完成（均已提交并推送）
+- 后端初次全量 179 passed；新增预检/execution/pairs 21 passed；修复数学冷启动后 checks/execution/repair 23 passed。数字有重叠，不是独立用例数之和。
+- 前端 15 passed，类型检查、生产构建通过；Django check、迁移一致性、OpenAPI 类型通过。
+- Playwright Chromium 本机实际可用；已跑独立 B4-FIXTURE 的本地 API + worker 完整页面验收，8 组断言通过、无浏览器 JS 错误，包括丢失响应恢复同一任务、显式答案请求、来源和 390px 布局。
+- 早期任务轮询竞争已修复。原符号检查把冷启动算进 8 秒，繁忙时误超时；已改成 20 秒启动上限 + 每项计算 8 秒、同轮复用隔离进程。超时仍 not_checked 并阻止放行，失败记录未删除。
+- 未将题卷发布为 Paper，未开发两个 PDF，也未进入第五/六批。
 
-- 视觉证据路径：页级分流（`pdf-route-1`）、页图转写任务（授权、缓存、并行，竖版页缩图）、转写接入课程分析，以及页面展示。记录见 [visual-evidence-validation.md](visual-evidence-validation.md)。
-- 课程分析：准入改为官方 token 计数（上限 60k）；单次调用时限 300 秒，其他阶段仍为 150 秒；澄清问题改为选项式作答；已回答的问题不重复询问；用户回答附带原问题（迁移 `courses.0004`）。
-- 真实 QM 课程：用户已确认 **version 2**（0 阻塞，8 个知识组 supported，含两条练习偏好：局部极值按邻域定义、critical point 只指 f′=0 的点；有争议的原文按标准解释并注明差异）。
-- 批次 3 真实验证完成：blueprint-v2（小问标签只写字母，另有 focus 字段），真实规划得到 3 道大题、13 个小问、60 分；用户已确认结构并冻结快照 `7e2a758e-7e7e-4a03-b618-e7c12d56b708`。记录见 [batch-3-validation.md](batch-3-validation.md)。
-- 已确认的设计决定：
-  - 批次 4 去掉单独的 Prepare generation，改为点 Generate practice 时自动冻结，经预检授权后出题。
-  - “有争议时一律用标准解释”**不**设为全产品默认规则；仍逐个由用户澄清。
+## 下一步：只剩本批真实验证
 
-## 下一步
+用户已收到本次精确范围授权问题，尚未收到允许。没有新增真实 generation 任务、GenerationGrant 或本批 provider 请求。不要把前批分析/规划授权当成出题授权，也不要重新询问已确认的开发计划或模型时限。
 
-1. 请用户确认批次 4 计划，包括建议的生成、盲解、核验单次时限 240 秒；如需调整，先改计划。
-2. 确认后按计划第 8 节分 6 步实施，全部使用 fixture。每步测试后单独提交。
-3. 实施完成后，先把出题预检的精确输入给用户看，取得授权后再在真实快照上运行一次。
+1. 让用户查看已生成的本地清单 `var/batch4-generation-preflight.md` 和完整 `.json`。context hash 为 `9992277e6ca50e4556da7587f075afadd2ca869c97348af46e19957374b9e294`。若输入/提示词/schema变化，重新生成预检并只就变化后的实际范围确认。
+2. 获得该范围授权后，按现有网页/API提交一次真实生成及检查；不得自动重复未知付费请求。流程使用真实 QM 已确认 version 2、快照 `7e2a758e-7e7e-4a03-b618-e7c12d56b708`，3 大题/13 小问/60 分、建议 95 分钟。
+3. 预检包含 30 页文字或保存转写：M05 mock p1,3,5；M06 additional p2,6；M34 Lecture 2 p14,28–33,41,46–49；M35 summary p4–6,8–10,13,14,17；M48 seminar p19–22。其中9页进入比较集合；另有冻结课程/方法/蓝图/配置/用户声明偏好和派生题答核验内容。无新页图。
+4. 官方 OpenAI Responses API，当前模型 gpt-6.1-sol，store:false；最多16次模型调用及对应计数请求、单次240秒、任务600秒、并发最多2、修复1轮。密钥留在 .env.local，不读出或打印。
+5. 无论通过、needs_info、失败或超时，如实记录真实耗时/tokens/检查门槛和可找回结果；对照固定材料抽查题答，标记“Codex 抽查”，不当认证。更新 README/验证记录，提交并push。用户只要求批次四，暂不自动进入批次五。
 
-## 约定与注意事项
+若授权未到，代码和本地验收已经可交付，不应为等待许可重复开发或继续生成 fixture。
 
-- 每次真实外发（页图转写、分析、规划、出题）都要用户在对话中按**精确的 scope 或 context hash** 授权；授权不能跨用途沿用。
-- 测试 `conftest.py` 会删除 `OPENAI_API_KEY`，防止测试使用 `.env.local` 中的真实 key。此前曾因漏补 mock 向计数接口误发 4 次合成请求，不含课程数据。新增调用路径时，测试必须替换对应的适配器函数。
-- 修改数据库结构时，先确认没有排队或执行中的任务，再按 README 执行 stop → setup → migrate → start。只改 API 代码时用 `restart-api`。
-- 本机 shell 没有 `pnpm`。前端用 `node node_modules/<tool>/...` 直接运行 tsc、vitest、vite、openapi-typescript。
+## 服务与数据
 
-## 未验证事项
+`scripts/local.py start` 已复核能复用当前服务，网站 http://127.0.0.1:5173，API8000，PostgreSQL54330，worker/dispatcher运行。真实课程 11 个导入 blob 哈希一致；真实课程内容和历史原型未改写。最后页面记录在 `var/batch4-browser-check.json`，截图在 `var/screenshots/batch4-*.png`；精确输入、截图、数据、原材料和 .env.local 被 Git 忽略。
 
-- 所有真实调用的实际扣费，均未查询。
-- 页图转写只抽查了 7 页（M35 p4、p7、p14，M05 p3，M46 p3，M34 p47、p49），其余为模型候选，未逐页核对。
-- AI② 规划只有 3 次真实样本，其中 1 次 needs_info，不能说明稳定性。
-- 课程分析耗时 135–169 秒，超过两分钟目标。出卷耗时尚未测量。
-- Python Playwright 回归脚本：本机当前用户没有 Chromium，未运行；安装前需要用户同意。
+原有真实课程情况沿用批次三交接：45页分析、32页有视觉结果、8知识组supported、0目标阻塞；现有两条用户练习偏好只用于这门课程，不提升为官方事实或全产品默认。未授权的其他页仍未发送。
 
-## 服务状态
-
-本项目的 PostgreSQL（54330）、API（8000）、worker、dispatcher 和前端（5173）仍在运行，由 `scripts/local.py start` 启动。没有排队或执行中的任务。开发库迁移到 `materials.0005` 和 `courses.0004`。
+尚未验证真实题答质量/难度、实际扣费、两分钟完整出卷、PDF及六次验收。旧“本机无Chromium、批次四未开始”的交接描述已过时。

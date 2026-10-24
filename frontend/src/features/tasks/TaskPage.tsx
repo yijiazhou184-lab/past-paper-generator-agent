@@ -81,6 +81,7 @@ export function TaskPage() {
           {savedBlueprint.data?.result.payload.questions.map(q=><details key={q.id}><summary>Q{q.number}: {q.title}</summary><p>{q.objective}</p><ul>{q.parts.map(p=><li key={p.id}>({p.label}) {p.response_type.replaceAll("_"," ")} · {p.marks} marks</li>)}</ul></details>)}
           <details><summary>Inspect saved blueprint</summary><pre className="model-output">{JSON.stringify(savedBlueprint.data?.result.payload,null,2)}</pre></details>
         </>}</section>}
+      {generation && !!task.result.explanation && <section className="review-note"><strong>Generation needs more information</strong><p>{String(task.result.explanation)}</p></section>}
       {generation && <Suspense fallback={<section className="panel">Opening practice content…</section>}><CandidatePreview taskId={task.id} courseId={task.course_id} running={["queued","processing"].includes(task.state)}/></Suspense>}
       <section className="task-panel panel">
         <div className="task-clock">

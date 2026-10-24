@@ -1,6 +1,6 @@
 # AI Past Paper Generator
 
-当前实现：第一轮 **批次 1–3（Task 1–6）材料工作区、课程分析、编辑确认、练习配置和结构规划**，以及**视觉证据路径**（页级分流、页图转写、转写接入分析）。支持版本化来源、持久任务、选项式课程澄清与确认、独立练习配置、blueprint-v2 蓝图校验与编辑、结构确认和不可变生成输入。尚不生成题答或两个输出 PDF；批次四（AI③ 题答生成、AI④ 核验）的[实施计划](docs/superpowers/plans/2026-10-24-batch-4-question-generation.md)已写好，**等待用户确认**，尚未开始编码。
+当前实现：第一轮 **批次 1–4（Task 1–8）的本地功能**，包括材料工作区、课程分析/确认、练习配置/结构规划，以及 AI③ 成对题答生成、AI④ 分层核验和最多一轮定向修复。批次四已进入实现，提供真实任务持久化、候选历史、题答分离读取、固定来源定位和合成流程验收。**批次四真实课程调用尚未执行，等待精确外发范围授权**；不能用合成结果证明题目质量或耗时达标。Papers 发布、两个 PDF 属于批次五，六次真实验收属于批次六。详情见[第四批验证记录](docs/batch-4-validation.md)。
 
 真实 QM 课程现状（2026-10-24）：用户已确认课程 **version 2**（45 页分析，32 页用页图转写，0 阻塞，8 个知识组全部 supported，含用户的两条练习偏好）；在其上完成真实 AI② 规划（blueprint-v2：3 道大题、13 个小问、60 分、95 分钟）、结构确认和输入冻结（快照 `7e2a758e-7e7e-4a03-b618-e7c12d56b708`），批次三真实验证完成。页图转写共 27 页（新格式，均经用户逐次授权），另有 5 页沿用第一批的页面核对结果；状态汇总中其余 138 页显示待授权（含那 5 页），未发送。
 
@@ -49,9 +49,11 @@
 6. **Course profile** 查看真实 Topic 2 草稿：Knowledge、Scope & methods、Exam reference。来源按钮在同页打开原材料版本和物理页，刷新可恢复。
 7. 修改字段后 800ms 串行自动保存，也可点 **Save changes**。失败保留输入；冲突必须比较后选择服务器版本或保留本地修改。浏览器当前标签的未提交编辑用 sessionStorage 恢复；服务器已保存草稿可跨会话找回。
 8. 澄清问题有建议答案时显示为选项，另可 **Write my own answer**；**Save answer** 会记录 UserStatement，并保存当时所问的问题原文。需解释的新回答由新分析任务处理，不自动付费调用；分析已标为 answered 的问题不再重复询问。读取缺口显示现有页图入口；不是要求再次上传已存在的材料。
-9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 工作区。真实 QM 已有确认版本 1、2（当前使用 version 2）；fixture 课程标记为 `B2-TEST` / `B3-FIXTURE` / `B4-VISUAL-FIXTURE`。
+9. **Review & confirm** 只确认服务器已保存且无目标阻塞问题的 revision。确认后进入读取该冻结版本的 Generate 工作区。真实 QM 已有确认版本 1、2（当前使用 version 2）；fixture 课程标记为 `B2-TEST` / `B3-FIXTURE` / `B4-VISUAL-FIXTURE` / `B4-FIXTURE`。
 10. **Generate** 可选择知识、三档难度、2–4 大题及三类题型；先 **Save configuration**，再 **Review structure** 查看精确输入并提交规划。修改本次配置不改课程默认；改回原值也需要重新规划和确认。
-11. 结构中可编辑小问、分值、时长、选答和小问数量锁定。**Save structure** 后由服务端重新汇总并检查；有效结构经 **Confirm structure** 后可 **Prepare generation** 保存不可变输入，旧快照可再次打开。**Generate practice** 暂不可用，不会创建假出卷任务。已确认：批次四会去掉单独的 Prepare generation，改为点 Generate practice 时自动冻结并经预检授权后出题。
+11. 结构中可编辑小问、分值、时长、选答和小问数量锁定。**Save structure** 后由服务端重新汇总并检查；经 **Confirm structure** 后，**Generate practice** 自动冻结或复用输入并打开精确预检。合成课程显示 **Generate with local fixture**；真实课程必须对本次用途及 context hash 授权，才可 **Start generation and checks**。不再有单独的 Prepare generation 按钮。
+12. Task detail 显示生成、数学检查、盲解、语义检查和修复的实际阶段。完整候选保存后可读题；点击 **Show answers** 才请求答案、评分说明及可能透露答案的详细报告。刷新默认回到只看题目。**Source references** 打开固定材料版本和物理页；修复前后候选均可找回。
+13. 必需检查为 fail / not_checked / inconclusive 时不会放行；候选和错误记录保留。模型拒答、截断、超时、未知结果如实记录，不自动重放未知付费请求。返回 Generate 可复核输入后发起新尝试，相同输入可复用完整且已通过结构校验的大题组。当前候选尚未发布为 Paper。
 
 `Parsed` 只表示本地解析结束。Docling 当前关闭 OCR 和公式增强；数学页可能漏抽公式、丢失根号或读序错误，所有页面保持 `needs_review`。应查看原页图。后续 AI 分析必须选择相关页图或经验证的公式解析路径，不能把当前文本作为完整数学内容。
 
@@ -191,3 +193,17 @@ pnpm --dir frontend test --run
 每次重跑应先创建新的测试课程；脚本会保存配置、规划、确认和快照，覆盖其 `var/batch3-browser-fixture.json` 指针，不删除旧测试课程。当前完整后端回归 152 项、前端 12 项通过（2026-10-24）；浏览器覆盖范围与未验证项详见各批记录。2026-10-24 的 Claude Code 会话中，本机当前用户没有 Playwright Chromium（`ms-playwright` 目录不存在），Python Playwright 脚本未能运行，改用内置浏览器检查；安装前需用户同意。
 
 Vitest 覆盖串行保存、迟到响应、未知保存结果的同 key 重试、冲突和标签刷新恢复。Python Playwright 覆盖实际浏览器；仍未建立 Node Playwright 测试集，不把 `test:e2e` 脚本视为已验收入口。
+
+
+## 第四批本地验证与查看
+
+工作目录为 `C:\Users\Yijia\dev\past_paper_generator`；原 OneDrive 副本停用。第四批未新增依赖，迁移 `generation.0003` / `generation.0004` 已应用。检查结果、浏览器记录、限制和真实预检入口见 [batch-4-validation.md](docs/batch-4-validation.md)；尚未完成的真实调用步骤见 [handoff.md](docs/handoff.md)。
+
+本地合成验收使用专用 `B4-FIXTURE` 课程，实际运行 API、数据库、任务队列、数学检查和网页；题答与语义判断来自合成适配器，模型调用为零。以下命令创建新的独立夹具并验证页面，不改真实课程：
+
+```powershell
+& .\.venv\Scripts\python.exe scripts/prepare_generation_content_fixture.py
+& .\.venv\Scripts\python.exe scripts/test_generation_content.py
+```
+
+测试需服务正在运行，并有 Playwright Chromium；本机已确认可用。记录在被忽略的 `var/batch4-browser-check.json` 和 `var/screenshots/batch4-*.png`。浏览器验收与密集符号回归宜串行运行；符号检查超时会如实保留 not_checked 并阻止放行。

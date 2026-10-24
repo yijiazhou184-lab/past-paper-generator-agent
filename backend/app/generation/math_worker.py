@@ -143,10 +143,12 @@ def evaluate(raw):
 
 
 if __name__=="__main__":
-    try:
-        output=evaluate(json.load(sys.stdin))
-    except (ValueError,TypeError,KeyError):
-        output=result("not_checked","The mathematical specification is invalid or unsupported.")
-    except Exception:
-        output=result("inconclusive","The symbolic system could not decide this check.")
-    print(json.dumps(output))
+    print(json.dumps({"ready":True}),flush=True)
+    for line in sys.stdin:
+        try:
+            output=evaluate(json.loads(line))
+        except (ValueError,TypeError,KeyError):
+            output=result("not_checked","The mathematical specification is invalid or unsupported.")
+        except Exception:
+            output=result("inconclusive","The symbolic system could not decide this check.")
+        print(json.dumps(output),flush=True)

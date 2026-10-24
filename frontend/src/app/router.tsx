@@ -95,7 +95,7 @@ function Workspace() {
     );
   if (requestedTask && taskContext.isPending)
     return <div className="welcome"><h1>Loading task workspace…</h1></div>;
-  if (requestedTask && taskContext.isError)
+  if (requestedTask && taskContext.isError && !taskContext.data)
     return <div className="welcome"><h1>Could not load this task</h1><p>{taskContext.error.message}</p><button onClick={() => taskContext.refetch()}>Retry</button><Link to="/">Return to workspace</Link></div>;
   const requestedCourse = location.pathname.match(/^\/courses\/([^/]+)/)?.[1] ?? taskContext.data?.course_id;
   const course = requestedCourse ? courses.data?.courses.find(c => c.id === requestedCourse) : courses.data?.courses[0];

@@ -114,3 +114,37 @@ def test_new_attempt_reuses_only_validated_complete_groups(course,planned):
         groups=generate_groups(claim_task(retry.id),context)
         assert adapter.call_count==2
     assert retry.parent_id==task.id and len(groups)==3
+
+
+def test_unknown_call_is_not_automatically_replayed(course, planned):
+    from app.core.models import ModelInvocation
+    from app.generation.runtime import stage_output
+    from app.generation.content_schemas import PairOutput
+    task, context, token = start(course, planned)
+    task.snapshot["mode"] = "live"
+    task.save(update_fields=["snapshot"])
+    ModelInvocation.objects.create(task=task, call_key="unknown", epoch=token.epoch,
+                                   request_hash="x"*64, state="reserved")
+    with patch("app.generation.runtime.verify_generation_sources"), patch("app.generation.runtime.count_call") as count, patch("app.generation.runtime.run_call") as call:
+        with pytest.raises(DomainError, match="MODEL_OUTCOME_UNKNOWN"):
+            stage_output(token, "unknown", "question_pairs", {}, PairOutput, lambda:None)
+        count.assert_not_called()
+        call.assert_not_called()
+    assert not GenerationArtifact.objects.exists()
+
+
+def test_candidate_and_report_cannot_be_overwritten(course, planned):
+    from django.db import DatabaseError, transaction
+    from app.core.idempotency import digest
+    from app.generation.models import CheckReport
+    task, context, token = start(course, planned)
+    candidate = persist_candidate(token, context, generate_groups(token, context))
+    report = CheckReport.objects.create(candidate=candidate, payload={"checks":[]},
+        payload_hash=digest({"checks":[]}), gate={"allowed":False})
+    for model, pk in [(CandidateVersion,candidate.id),(CheckReport,report.id)]:
+        with pytest.raises(DatabaseError), transaction.atomic():
+            model.objects.filter(pk=pk).update(payload={"tampered":True})
+    candidate.refresh_from_db()
+    report.refresh_from_db()
+    assert candidate.payload_hash == digest(candidate.payload)
+    assert report.gate["allowed"] is False

@@ -39,6 +39,8 @@ def expression(node):
                 raise ValueError("Powers require a bounded numeric exponent.")
             if op == "div" and b == 0:
                 raise ValueError("Division by zero.")
+            if op == "pow" and a.is_Rational and b.is_Rational and max(abs(int(a.p)).bit_length(), int(a.q).bit_length()) * max(1, abs(float(b))) > 512:
+                raise ValueError("Power produces an excessive numeric constant.")
             result = binary[op](a,b)
         elif op in unary and len(args)==1:
             a = visit(args[0],depth+1)
@@ -49,5 +51,9 @@ def expression(node):
             raise ValueError("Unsupported operator or arity.")
         if result.has(sp.zoo, sp.nan, sp.oo, -sp.oo) or sp.count_ops(result)>100:
             raise ValueError("Invalid or excessive expression.")
+        if result.is_Rational and max(abs(int(result.p)).bit_length(), int(result.q).bit_length()) > 512:
+            raise ValueError("Numeric constant too large.")
+        if any(p.exp.is_number and p.exp.is_real is True and abs(p.exp)>24 for p in result.atoms(sp.Pow)):
+            raise ValueError("Combined power is too large.")
         return result
     return visit(node,0)

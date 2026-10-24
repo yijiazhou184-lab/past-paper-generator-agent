@@ -13,8 +13,10 @@ from .duplicates import duplicate_candidates
 
 
 def blind_input(context,pair,assets):
+    question_blocks=pair["stem"]+[b for p in pair["parts"] for b in p["prompt"]]
+    visible_asset_ids={b["asset_id"] for b in question_blocks if b["type"]=="asset_ref"}
     return {"question":{"question_id":pair["question_id"],"stem":pair["stem"],"parts":pair["parts"]},
-        "assets":[{k:v for k,v in a.items() if k!="svg"} for a in assets if a["id"] in pair["asset_ids"]],
+        "assets":[{k:v for k,v in a.items() if k!="svg"} for a in assets if a["id"] in visible_asset_ids],
         "course_methods":context["input"]["course"]["method_rules"],
         "scope":context["input"]["course"]["scope_claims"],"user_preferences":context["input"]["statements"]}
 
