@@ -7,7 +7,7 @@ from app.core.models import Task, TaskAttempt, TaskEvent
 from app.core.idempotency import digest
 from app.core.errors import DomainError
 from .models import CandidateVersion, GenerationArtifact
-from .runtime import stage_output, verify_context, verify_generation_sources
+from .runtime import stage_output, verify_context, verify_generation_sources, save_artifact
 from .content_schemas import PairOutput
 from .content_validation import validate_group
 from .content_fixtures import fixture_pair
@@ -28,8 +28,19 @@ def generate_group(token,context,q,earlier,round_number=0,repair_request=None):
     if repair_request is not None:
         data["repair_request"]=repair_request
     key=f"r{round_number}:pair:{q['blueprint']['id']}"
+    validated_key="validated:"+key
+    input_hash=digest({"context_hash":context["context_hash"],"stage":stage,"input":data})
+    task=Task.objects.get(pk=token.task_id)
+    for previous_task in (task.id,task.parent_id):
+        if previous_task is None:
+            continue
+        previous=GenerationArtifact.objects.filter(task_id=previous_task,key=validated_key,input_hash=input_hash).first()
+        if previous and previous.payload_hash==digest(previous.payload):
+            return save_artifact(token,validated_key,input_hash,previous.payload,previous.call_ids)
     output=stage_output(token,key,stage,data,PairOutput,lambda:fixture_pair(q["blueprint"]))
-    return validate_group(q["blueprint"],output,context)
+    validated=validate_group(q["blueprint"],output,context)
+    raw=GenerationArtifact.objects.get(task_id=token.task_id,key=key)
+    return save_artifact(token,validated_key,input_hash,validated,raw.call_ids)
 
 
 def generate_groups(token,context,questions=None,round_number=0,repair_requests=None):
@@ -76,7 +87,7 @@ def persist_candidate(token,context,groups,revision=1,parent=None):
         raise DomainError("CANDIDATE_STRUCTURE_INVALID")
     if len({a["id"] for a in payload["assets"]})!=len(payload["assets"]):
         raise DomainError("DUPLICATE_ASSET_ID")
-    artifacts=GenerationArtifact.objects.filter(task=task,key__startswith=f"r{revision-1}:pair:")
+    artifacts=GenerationArtifact.objects.filter(task=task,key__startswith=f"validated:r{revision-1}:pair:")
     return CandidateVersion.objects.create(task=task,snapshot_id=context["input"]["snapshot_id"],parent=parent,
         revision=revision,payload=payload,payload_hash=digest(payload),mode=context["mode"],stage="repair" if parent else "generated",
         call_ids=[cid for a in artifacts for cid in a.call_ids])
@@ -110,4 +121,11 @@ def run_generation(token):
     checkpoint(token,"Program checks",{"candidate_id":str(candidate.id),"revision":candidate.revision})
     from .reviewer import check_candidate, finish_candidate
     report=check_candidate(token,context,candidate)
+    if not report.gate["allowed"]:
+        from .repair import repair_candidate
+        repaired=repair_candidate(token,context,candidate,report)
+        if repaired is not None:
+            candidate=repaired
+            checkpoint(token,"Final checks",{"candidate_id":str(candidate.id),"revision":candidate.revision})
+            report=check_candidate(token,context,candidate)
     finish_candidate(token,candidate,report)

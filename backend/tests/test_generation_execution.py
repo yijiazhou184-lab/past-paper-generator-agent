@@ -28,7 +28,7 @@ def test_completed_groups_are_reused_after_interruption(course,planned):
     with patch("app.generation.generator.fixture_pair",side_effect=interrupted):
         with pytest.raises(DomainError,match="WORKER_INTERRUPTED"):
             generate_groups(token,context)
-    assert GenerationArtifact.objects.count()==1
+    assert GenerationArtifact.objects.filter(key__startswith="validated:").count()==1
     with patch("app.generation.generator.fixture_pair",wraps=fixture_pair) as adapter:
         groups=generate_groups(token,context)
         assert adapter.call_count==2
@@ -98,3 +98,19 @@ def test_unusable_model_response_preserves_no_completed_artifact(course,planned,
         with pytest.raises(DomainError,match="GENERATION_MODEL_FAILED"):
             stage_output(token,"test-failure","question_pairs",{},PairOutput,lambda:None)
     assert not GenerationArtifact.objects.exists()
+
+def test_new_attempt_reuses_only_validated_complete_groups(course,planned):
+    task,context,token=start(course,planned)
+    from app.core.tasks import fail_task
+    from app.generation.models import GenerationDraft
+    from app.generation.content_fixtures import fixture_pair
+    from app.generation.generator import generate_group
+    generate_group(token,context,context["input"]["questions"][0],[])
+    fail_task(token,"TEST_INTERRUPTION","Synthetic known failure",True)
+    saved=GenerationDraft.objects.get(course=course)
+    retry=submit_generation(course.owner,course.id,saved.confirmation_id,saved.revision,
+                            saved.config_hash,context["context_hash"],"new-attempt")
+    with patch("app.generation.generator.fixture_pair",wraps=fixture_pair) as adapter:
+        groups=generate_groups(claim_task(retry.id),context)
+        assert adapter.call_count==2
+    assert retry.parent_id==task.id and len(groups)==3
