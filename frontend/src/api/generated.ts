@@ -468,6 +468,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{task_id}/generation-content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_tasks_generation_content_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/generation-content/{candidate_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_tasks_generation_content_answers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/{task_id}/retries": {
         parameters: {
             query?: never;
@@ -538,6 +570,18 @@ export interface components {
             context_hash: string;
             /** @default false */
             authorize_upload: boolean;
+        };
+        GenerationAnswerSchema: {
+            /** Format: uuid */
+            candidate_id: string;
+            answers: unknown[];
+            report: unknown;
+            assets: unknown[];
+            model_outputs: unknown[];
+        };
+        GenerationContentSchema: {
+            mode: string;
+            candidates: unknown[];
         };
         IssueSchema: {
             code: string;
@@ -1600,6 +1644,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskSchema"];
+                };
+            };
+        };
+    };
+    v1_tasks_generation_content_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationContentSchema"];
+                };
+            };
+        };
+    };
+    v1_tasks_generation_content_answers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAnswerSchema"];
                 };
             };
         };

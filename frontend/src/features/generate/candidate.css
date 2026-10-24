@@ -1,0 +1,32 @@
+.candidate-preview { margin-block: 24px; }
+.candidate-heading,.candidate-question header,.answer-toggle,.part-heading { display:flex; justify-content:space-between; align-items:center; gap:20px; }
+.candidate-heading label { display:grid; gap:6px; }
+.candidate-status { padding:18px 0; border-bottom:1px solid var(--border,#e3e5ec); }
+.candidate-status p { max-width:75ch; }
+.candidate-questions { max-width:850px; margin-inline:auto; }
+.candidate-question { padding:28px 0; border-bottom:1px solid var(--border,#e3e5ec); }
+.candidate-question header span,.part-heading span { white-space:nowrap; color:var(--muted,#626879); }
+.candidate-part { padding:16px 0 4px 18px; }
+.content-text { white-space:pre-wrap; max-width:76ch; line-height:1.75; }
+.content-math { overflow-x:auto; padding-block:8px; max-width:100%; }
+.content-table { overflow-x:auto; margin-block:16px; }
+.content-table table { border-collapse:collapse; }
+.content-table th,.content-table td { border:1px solid #dfe2eb; padding:10px 16px; text-align:left; }
+.content-table caption { padding:8px; color:#626879; }
+.candidate-preview figure { margin:18px 0; }
+.candidate-preview figure img { max-width:100%; width:600px; display:block; }
+.candidate-preview figcaption,.assumptions { font-size:.9rem; color:#626879; }
+.candidate-sources { margin-top:16px; }
+.candidate-sources a { display:inline-block; padding:8px 16px 8px 0; }
+.candidate-answers { margin-top:28px; padding:24px; background:#f6f5fc; border-radius:14px; }
+.answer-question { border-top:1px solid #dcd8ee; margin-top:24px; padding-top:20px; }
+.answer-part { padding-bottom:22px; }
+.check-counts { display:flex; flex-wrap:wrap; gap:24px; margin:18px 0; }
+.check-counts dd { margin:4px 0; font-size:1.3rem; font-weight:600; }
+.detailed-check { padding:12px 0; border-top:1px solid #dddbea; }
+.math-error { color:#934115; overflow-wrap:anywhere; }
+@media (max-width:700px) {
+  .candidate-heading,.answer-toggle { align-items:stretch; flex-direction:column; }
+  .candidate-part { padding-left:0; }
+  .candidate-answers { padding:16px; }
+}

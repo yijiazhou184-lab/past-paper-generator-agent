@@ -45,7 +45,7 @@ def draft_view(draft):
 def snapshot_view(snapshot):
     return {"id": str(snapshot.id), "mode": snapshot.mode, "payload_hash": snapshot.payload_hash,
         "confirmation_id": str(snapshot.confirmation_id), "created_at": snapshot.created_at,
-        "payload": snapshot.payload, "generation_available": False}
+        "payload": snapshot.payload, "generation_available": True}
 
 
 @transaction.atomic

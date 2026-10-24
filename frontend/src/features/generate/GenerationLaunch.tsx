@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Dialog } from "../../components/Dialog";
 import { useAction } from "./useAction";
 import type { ConfigDraft } from "./types";
@@ -29,6 +29,7 @@ export function GenerationLaunch({courseId, draft, disabled, refresh}: {
     </section>
     {(action.error || action.pending && !action.running) && <div className="error-box" role="alert">
       <p>{action.error || "An earlier action may have completed. Recover the same request safely."}</p>
+      {action.taskId && <Link to={"/tasks/"+action.taskId}>View the running task</Link>}
       {action.pending && !action.running && <button onClick={action.retry}>Recover generation action</button>}
     </div>}
     {preflight && <Dialog labelledBy="generation-scope-title" onClose={()=>{if(!action.running)setPreflight(null);}}>

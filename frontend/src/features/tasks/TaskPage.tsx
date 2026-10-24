@@ -2,9 +2,10 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock, CheckCircle2, ArrowLeft } from "lucide-react";
 import { api, requestKey } from "../../api/client";
-import { useMemo } from "react";
+import { useMemo, lazy, Suspense } from "react";
 import type { Task } from "../../api/types";
 import type { Blueprint } from "../generate/types";
+const CandidatePreview = lazy(() => import("../generate/CandidatePreview").then(module => ({ default: module.CandidatePreview })));
 export function TaskPage() {
   const { taskId } = useParams();
   const retryKey = useMemo(() => requestKey(), [taskId]);
@@ -47,18 +48,19 @@ export function TaskPage() {
   const liveValidation = task.kind === "ai_validation";
   const analysis = task.kind === "analysis";
   const planning = task.kind === "planning";
+  const generation = task.kind === "generation";
   return (
     <>
-      <Link className="back-link" to={`/courses/${task.course_id}/${planning ? "generate" : "materials"}`}>
+      <Link className="back-link" to={`/courses/${task.course_id}/${(planning || generation) ? "generate" : "materials"}`}>
         <ArrowLeft size={16} />
-        {planning ? "Back to Generate" : "Back to materials"}
+        {(planning || generation) ? "Back to Generate" : "Back to materials"}
       </Link>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">{planning ? "Practice planning" : analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
+          <p className="breadcrumb">{generation ? "Practice generation" : planning ? "Practice planning" : analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
           <h1>{task.state === "failed" ? "Processing failed" : task.stage}</h1>
           <p>
-            {planning ? "This task plans a structure from a frozen course version and configuration. Refreshing restores the same task. No questions or answers are generated at this stage."
+            {generation ? "This task uses frozen inputs to generate paired questions and answers, check them, and repair at most once. Refreshing restores this task. Open answers only when you are ready." : planning ? "This task plans a structure from a frozen course version and configuration. Refreshing restores the same task. No questions or answers are generated at this stage."
               : analysis ? "Your analysis uses a frozen selection of sources and statements. Refreshing this page restores the same task. Review the resulting draft before confirming your course."
               : liveValidation ? "A bounded integration check. The saved call records show exactly what ran; page observations remain separate from original evidence."
               : task.state === "succeeded" ? "Processing is complete. Your sources are saved in the materials workspace."
@@ -79,6 +81,7 @@ export function TaskPage() {
           {savedBlueprint.data?.result.payload.questions.map(q=><details key={q.id}><summary>Q{q.number}: {q.title}</summary><p>{q.objective}</p><ul>{q.parts.map(p=><li key={p.id}>({p.label}) {p.response_type.replaceAll("_"," ")} · {p.marks} marks</li>)}</ul></details>)}
           <details><summary>Inspect saved blueprint</summary><pre className="model-output">{JSON.stringify(savedBlueprint.data?.result.payload,null,2)}</pre></details>
         </>}</section>}
+      {generation && <Suspense fallback={<section className="panel">Opening practice content…</section>}><CandidatePreview taskId={task.id} courseId={task.course_id} running={["queued","processing"].includes(task.state)}/></Suspense>}
       <section className="task-panel panel">
         <div className="task-clock">
           <Clock size={22} />
@@ -122,7 +125,7 @@ export function TaskPage() {
               {cancel.isPending ? "Cancellation requested…" : "Cancel task"}
             </button>
           )}
-          {!liveValidation && !planning && ["failed", "cancelled"].includes(task.state) && (
+          {!liveValidation && !planning && !generation && ["failed", "cancelled"].includes(task.state) && (
             <button
               className="primary"
               onClick={() => retry.mutate()}
@@ -134,20 +137,20 @@ export function TaskPage() {
           {["succeeded", "needs_info"].includes(task.state) && (
             <Link
               className="button primary"
-              to={`/courses/${task.course_id}/${planning ? "generate" : analysis ? "profile" : "materials"}`}
+              to={`/courses/${task.course_id}/${(planning || generation) ? "generate" : analysis ? "profile" : "materials"}`}
             >
-              {planning ? "Review practice structure" : analysis ? "Review course profile" : "Review material"}
+              {generation ? "Return to Generate" : planning ? "Review practice structure" : analysis ? "Review course profile" : "Review material"}
             </Link>
           )}
         </div>
-        {planning && ["failed", "cancelled"].includes(task.state) && <Link className="button primary" to={`/courses/${task.course_id}/generate`}>Review configuration before a new plan</Link>}
+        {(planning || generation) && ["failed", "cancelled"].includes(task.state) && <Link className="button primary" to={`/courses/${task.course_id}/generate`}>Review inputs before a new attempt</Link>}
         {liveValidation && ["failed", "cancelled"].includes(task.state) && (
           <p className="review-note">Review the saved calls before a new paid validation run. This page does not automatically retry model requests.</p>
         )}
         {task.model_calls?.length > 0 && (
           <section aria-label="Model call records">
             <h2>Model call records</h2>
-            <p>{planning ? "Saved planning calls. Parsed output still needs programmatic validation and your structure confirmation." : analysis ? "Saved calls for this course draft. A parsed response is not a confirmed course version." : "These are live integration checks. Page interpretations are model candidates, not verified course facts."}</p>
+            <p>{generation ? "Saved generation and review calls. Candidate checks are shown above; answer-bearing outputs are available after you open answers." : planning ? "Saved planning calls. Parsed output still needs programmatic validation and your structure confirmation." : analysis ? "Saved calls for this course draft. A parsed response is not a confirmed course version." : "These are live integration checks. Page interpretations are model candidates, not verified course facts."}</p>
             {task.model_calls.map((call) => (
               <article className="model-call" key={call.id}>
                 <h3>{call.key} · {call.status.replaceAll("_", " ")}</h3>

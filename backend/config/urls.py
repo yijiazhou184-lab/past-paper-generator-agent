@@ -7,7 +7,11 @@ from app.courses.api import (ProfileView, AnalysisPreflightView, AnalyseView, Dr
 from app.generation.api import (GenerationWorkspaceView, GenerationConfigView, PlanningPreflightView, PlansView,
     BlueprintView, StructureConfirmView, GenerationSnapshotView, SnapshotDetailView, GenerationsView, GenerationPreflightView)
 
+from app.generation.content_api import GenerationContentView, GenerationAnswersView
+
 urlpatterns = [
+    path("api/v1/tasks/<uuid:task_id>/generation-content", GenerationContentView.as_view()),
+    path("api/v1/tasks/<uuid:task_id>/generation-content/<uuid:candidate_id>/answers", GenerationAnswersView.as_view()),
     path("api/v1/session", SessionView.as_view()),
     path("api/v1/courses", CoursesView.as_view()),
     path("api/v1/courses/<uuid:course_id>/profile", ProfileView.as_view()),

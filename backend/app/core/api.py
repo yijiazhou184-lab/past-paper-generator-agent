@@ -30,7 +30,7 @@ def task_view(task, include_calls=False):
                 "mode": result.get("mode", call.metadata.get("mode", "unknown")),
                 "model": result.get("model") or call.metadata.get("model"),
                 "elapsed_seconds": result.get("elapsed_seconds"), "usage": result.get("usage", {}),
-                "error_code": result.get("error_code"), "payload": result.get("payload"),
+                "error_code": result.get("error_code"), "payload": None if task.kind == "generation" else result.get("payload"),
                 "source_url": f'/courses/{task.course_id}/materials?source={source["evidence_id"]}' if source else None})
     return {"id": str(task.id), "course_id": str(task.course_id), "kind": task.kind,
             "state": task.state, "stage": task.stage, "elapsed_seconds": round(elapsed, 1),

@@ -17,7 +17,7 @@ import {
   Activity,
 } from "lucide-react";
 import { api } from "../api/client";
-import type { Course, Session } from "../api/types";
+import type { Course, Session, Task } from "../api/types";
 import { MaterialsPage } from "../features/materials/MaterialsPage";
 import { TaskPage } from "../features/tasks/TaskPage";
 import { ProfilePage } from "../features/profile/ProfilePage";
@@ -39,6 +39,12 @@ function Workspace() {
     queryKey: ["courses"],
     queryFn: () => api<{ courses: Course[] }>("/courses"),
     enabled: session.data?.authenticated === true,
+  });
+  const requestedTask = location.pathname.match(/^\/tasks\/([^/]+)/)?.[1];
+  const taskContext = useQuery({
+    queryKey: ["task", requestedTask],
+    queryFn: () => api<Task>(`/tasks/${requestedTask}`),
+    enabled: !!requestedTask && session.data?.authenticated === true,
   });
   if (session.isPending)
     return (
@@ -87,7 +93,11 @@ function Workspace() {
         <button onClick={() => courses.refetch()}>Retry</button>
       </div>
     );
-  const requestedCourse = location.pathname.match(/^\/courses\/([^/]+)/)?.[1];
+  if (requestedTask && taskContext.isPending)
+    return <div className="welcome"><h1>Loading task workspace…</h1></div>;
+  if (requestedTask && taskContext.isError)
+    return <div className="welcome"><h1>Could not load this task</h1><p>{taskContext.error.message}</p><button onClick={() => taskContext.refetch()}>Retry</button><Link to="/">Return to workspace</Link></div>;
+  const requestedCourse = location.pathname.match(/^\/courses\/([^/]+)/)?.[1] ?? taskContext.data?.course_id;
   const course = requestedCourse ? courses.data?.courses.find(c => c.id === requestedCourse) : courses.data?.courses[0];
   if (!course)
     return (
@@ -140,13 +150,13 @@ function Workspace() {
         </nav>
         <div className="sidebar-footer">
           <span className="online-dot" /> Local workspace
-          <small>Materials, course profile and practice planning</small>
+          <small>Materials, course profile and practice</small>
         </div>
       </aside>
       <div className="workspace-body">
         <header className="topbar">
           <span>
-            {course.code} <span className="slash">/</span> Quantitative Methods
+            {course.code} <span className="slash">/</span> {course.title}
           </span>
           <span className="local-chip">
             <Activity size={14} />
