@@ -2,7 +2,6 @@
 from typing import Literal
 from pydantic import Field
 from .schemas import Strict, ResponseType
-from app.core.idempotency import digest
 
 CheckStatus = Literal["pass", "fail", "not_checked", "inconclusive", "not_applicable"]
 
@@ -155,5 +154,6 @@ class SemanticOutput(Strict):
 
 
 def schema_hashes():
+    from app.core.idempotency import digest
     return {name: digest(schema.model_json_schema()) for name, schema in
             (("pair", PairOutput), ("blind", BlindOutput), ("semantic", SemanticOutput))}

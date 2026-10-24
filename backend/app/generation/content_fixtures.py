@@ -14,11 +14,16 @@ def fixture_pair(q):
     power=q["number"]+1
     expr=op("pow",var(),num(power))
     derivative=op("mul",num(power),op("pow",var(),num(power-1)))
+    expressions=[(op("pow",var(),num(2)),op("mul",num(2),var()),"x^2","2x",None),
+        (op("exp",var()),op("exp",var()),"e^x","e^x",None),
+        (op("log",var()),op("div",num(1),var()),"\\ln(x)","1/x","0"),
+        (op("sin",var()),op("cos",var()),"\\sin(x)","\\cos(x)",None)]
+    expr,derivative,formula,answer_formula,lower=expressions[q["number"]-1]
     stem=[text("Synthetic fixture question. This validates software behaviour, not course difficulty."),
-          math(f"f(x)=x^{{{power}}}")]
+          math(f"f(x)={formula}")]
     parts=[]; answers=[]; assets=[]
     for index,p in enumerate(q["parts"]):
-        prompt=[text(f"Part {p['label']}: find the derivative and explain the power rule.")]
+        prompt=[text(f"Part {p['label']}: find the derivative and justify the differentiation rule.")]
         if "function_graph" in p["asset_needs"]:
             aid=q["id"]+"-graph-"+str(index)
             assets.append({"id":aid,"kind":"function_graph","expression":expr,"x_min":-2,"x_max":2,
@@ -28,13 +33,13 @@ def fixture_pair(q):
             prompt.append({"type":"table","columns":["x","f(x)"],"rows":[["0","0"],["1","1"]],"caption":"Synthetic sample values"})
         parts.append({"part_id":p["id"],"prompt":prompt,"marks":p["marks"],"assumptions":["x is real"],
                       "response_type":p["response_type"],"knowledge_ids":p["knowledge_ids"]})
-        answers.append({"part_id":p["id"],"worked_solution":[text("Apply the power rule: multiply by the exponent, then reduce the exponent by one.")],
-            "final_answer":[math(f"{power}x^{{{power-1}}}")],
+        answers.append({"part_id":p["id"],"worked_solution":[text("Apply the standard differentiation rule for the displayed function on its domain. This is synthetic test content.")],
+            "final_answer":[math(answer_formula)],
             "marking_points":[{"id":p["id"]+"-method","text":"Apply the rule and obtain the stated derivative.",
                                "marks":p["marks"],"alternative_group":None}],
             "acceptable_alternatives":["Use the limit definition with a complete derivation."],"units":None,"precision":"Exact",
             "checks":[{"id":p["id"]+"-derivative","part_id":p["id"],"kind":"derivative","expression":expr,"expected":derivative,
-                "denominator":None,"variable":"x","domain":{"lower":None,"upper":None,"left_open":True,"right_open":True},
+                "denominator":None,"variable":"x","domain":{"lower":lower,"upper":None,"left_open":True,"right_open":True},
                 "at":None,"direction":"+-","points":[],"optimum":None,"rationale":"Check the synthetic polynomial derivative."}]})
     return {"status":"complete","explanation":"Synthetic fixture only.",
         "pair":{"question_id":q["id"],"stem":stem,"parts":parts,"answers":answers,"asset_ids":[a["id"] for a in assets],

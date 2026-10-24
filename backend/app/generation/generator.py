@@ -108,5 +108,6 @@ def run_generation(token):
         raise
     candidate=persist_candidate(token,context,groups)
     checkpoint(token,"Program checks",{"candidate_id":str(candidate.id),"revision":candidate.revision})
-    # The review coordinator is connected in implementation step 3.
-    raise DomainError("GENERATION_REVIEW_IN_PROGRESS","Candidate saved. Layered review is being implemented.")
+    from .reviewer import check_candidate, finish_candidate
+    report=check_candidate(token,context,candidate)
+    finish_candidate(token,candidate,report)

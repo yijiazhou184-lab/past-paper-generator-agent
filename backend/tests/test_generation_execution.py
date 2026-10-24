@@ -45,3 +45,56 @@ def test_cancelled_execution_cannot_save_candidate(course,planned):
     with pytest.raises(DomainError,match="STALE_EXECUTION"):
         persist_candidate(token,context,groups)
     assert not CandidateVersion.objects.exists()
+
+def test_fixture_pipeline_and_blind_answer_isolation(course,planned):
+    task,context,token=start(course,planned)
+    from app.generation.generator import run_generation
+    from app.generation import reviewer
+    actual=reviewer.stage_output
+    blind_requests=[]
+    def capture(token,key,stage,data,output_type,fixture):
+        if stage=="blind_solver":
+            blind_requests.append(data)
+            assert "answers" not in data["question"]
+            assert "checks" not in str(data["question"])
+            assert "worked_solution" not in str(data)
+        return actual(token,key,stage,data,output_type,fixture)
+    with patch("app.generation.reviewer.stage_output",side_effect=capture):
+        run_generation(token)
+    task.refresh_from_db()
+    assert task.state=="succeeded", task.result
+    assert task.result["allowed"]
+    assert len(blind_requests)==3
+    assert task.call_count==0
+    assert CandidateVersion.objects.get(task=task).check_report.payload["coverage_summary"]["failed"]==0
+
+
+def test_missing_semantic_category_cannot_pass(course,planned):
+    task,context,token=start(course,planned)
+    from app.generation.generator import run_generation
+    from app.generation.content_fixtures import fixture_review
+    def missing(pairs):
+        output=fixture_review(pairs)
+        output["checks"].pop()
+        return output
+    with patch("app.generation.reviewer.fixture_review",side_effect=missing):
+        run_generation(token)
+    task.refresh_from_db()
+    assert task.state=="failed"
+    assert not task.result["allowed"]
+    assert any("math_relevance" in i for i in task.result["blocking_check_ids"])
+
+
+@pytest.mark.parametrize("status",["refusal","truncated","provider_error","invalid_output"])
+def test_unusable_model_response_preserves_no_completed_artifact(course,planned,status):
+    task,context,token=start(course,planned)
+    from app.ai.contracts import ModelCallResult
+    from app.generation.runtime import stage_output
+    from app.generation.content_schemas import PairOutput
+    task.snapshot["mode"]="live"
+    task.save(update_fields=["snapshot"])
+    with patch("app.generation.runtime.verify_generation_sources"), patch("app.generation.runtime.count_call",return_value=100), patch(
+        "app.generation.runtime.run_call",return_value=ModelCallResult(mode="fixture",status=status)):
+        with pytest.raises(DomainError,match="GENERATION_MODEL_FAILED"):
+            stage_output(token,"test-failure","question_pairs",{},PairOutput,lambda:None)
+    assert not GenerationArtifact.objects.exists()

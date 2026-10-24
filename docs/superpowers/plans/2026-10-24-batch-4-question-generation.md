@@ -107,9 +107,11 @@
 
 - [x] 1. execution_context.py、models.py、api.py、queue.py 与 Generate 页：预检、冻结、独立授权、任务骨架；test_generation_preflight.py 验证幂等、过期、忙碌和跨课程拒绝。
 - [x] 2. content_schemas.py、generator.py、assets.py、question_pairs.md：成对题答、受限素材与分组持久化；test_question_pairs.py / test_generation_execution.py 验证缺答案、评分、恢复与取消。
-- [ ] 3. math_checks.py、checks.py、duplicates.py、reviewer.py、blind_solver.md / semantic_review.md：分层检查和门槛；test_generation_checks.py 验证定义域、端点、洛必达、盲解隔离和非通过状态。
+- [x] 3. math_checks.py、checks.py、duplicates.py、reviewer.py、blind_solver.md / semantic_review.md：分层检查和门槛；test_generation_checks.py 验证定义域、端点、洛必达、盲解隔离和非通过状态。
 - [ ] 4. repair.md、generator.py / reviewer.py：一轮修复、候选链和重检；测试限制修复目标、拒绝第二轮、复用已完成分组。
 - [ ] 5. CandidatePreview.tsx、TaskPage.tsx、content API：题目与答案分离请求、主动打开答案、报告与来源；前端和浏览器测试覆盖恢复、长内容和错误。
 - [ ] 6. 全量后端 / 前端、fixture 浏览器流程、OpenAPI、README、batch-4-validation.md、handoff.md；精确列出实际运行及未运行项，提交并推送。
 
 所有步骤沿用现有租约、锁、幂等和不可变数据库触发器；只在独立测试库和 fixture 课程验证。未取得新的精确生成授权前不发送真实材料。命令均待执行，结果记录在验证文档。
+
+数学检查资料核对（2026-10-24）：SymPy 官方 [calculus](https://docs.sympy.org/latest/modules/calculus/index.html) 与 [solveset 使用指南](https://docs.sympy.org/latest/guides/solving/solve-equation-algebraically.html)。采用显式实数定义域和完整有限解集检查；不支持或无法判定时保留非通过状态。隔离子进程限制每次检查 8 秒，不将超时作为正确性证据。
