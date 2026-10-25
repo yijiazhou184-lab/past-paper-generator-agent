@@ -11,3 +11,6 @@ Difficulty is the requested config.difficulty, not automatically Exam-standard.
 Originality includes duplication within this candidate, source excerpt comparisons and solution paths, not only vocabulary. The retrieval coverage is bounded; do not claim exhaustive originality.
 Use not_checked or inconclusive for insufficient evidence. Required checks cannot be waived with not_applicable.
 Repair requests may target only the actual question IDs. Give actionable instructions for a single repair round.
+
+The top-level status describes whether you could produce a complete review, not whether the candidate passed. Use status complete when all required category judgments are present, even when some judgments are fail, not_checked or inconclusive; those judgments still block release.
+Repair instructions must concern the target question, worked solution or mathematical specification. Include the precise defective claim and needed change. The application reruns checks and retrieves comparisons; do not ask the repair model to execute programs, report unrun results or obtain sources outside the supplied set.

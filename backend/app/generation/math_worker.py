@@ -12,8 +12,8 @@ def result(status,reason): return {"result":status,"rationale":reason}
 def interval(d):
     if d is None:
         return None
-    lo=number(d["lower"]) if d["lower"] is not None else -sp.oo
-    hi=number(d["upper"]) if d["upper"] is not None else sp.oo
+    lo=-sp.oo if d["lower"] in (None,"-inf") else number(d["lower"])
+    hi=sp.oo if d["upper"] in (None,"inf") else number(d["upper"])
     if lo>=hi:
         raise ValueError("Empty domain")
     return sp.Interval(lo,hi,left_open=d["left_open"],right_open=d["right_open"])

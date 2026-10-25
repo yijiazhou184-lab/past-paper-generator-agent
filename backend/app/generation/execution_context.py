@@ -10,6 +10,7 @@ from app.core.models import Task
 from app.core.tasks import submit_task
 from .models import GenerationDraft, GenerationSnapshot, GenerationGrant
 from .snapshots import owned_course, require_confirmation, freeze_generation
+from .expressions import CHECKER_CONTRACT
 
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "ai/prompts"
 PROMPTS = ("question_pairs", "blind_solver", "semantic_review", "repair")
@@ -59,7 +60,8 @@ def build_generation_context(snapshot):
         "course": frozen["course"], "statements": frozen["statements"], "questions": questions,
         "sources": sources, "comparison_source_ids": comparison_ids, "history_content_ids": frozen["history_content_ids"],
         "history_cutoff": frozen["history_cutoff"], "history_status": frozen["history_status"]}
-    context = {"pipeline_version": "generation-v1", "mode": snapshot.mode, "input": data,
+    context = {"pipeline_version": "generation-v2", "mode": snapshot.mode, "input": data,
+        "checker_contract": copy.deepcopy(CHECKER_CONTRACT),
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses",
         "store": False, "max_calls": frozen["generation_limits"]["calls"], "task_seconds": 600,
         "call_seconds": 240, "max_parallel_calls": 2, "max_input_tokens": 60000, "max_output_tokens": 12000,

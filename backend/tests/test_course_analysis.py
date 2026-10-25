@@ -8,9 +8,9 @@ from app.courses.clarifications import classify_gaps
 @pytest.fixture
 def analysis_context():
     return {"target_ids": ["K1"], "statements": [{"id": "s1", "text": "All lecture content", "kind": "exam_scope"}],
-            "evidence": [{"id": "e1", "roles": ["lecture"], "material_code": "M35"},
-                         {"id": "e2", "roles": ["assessment"], "material_code": "M46"},
-                         {"id": "e3", "roles": ["past_paper"], "material_code": "M05"}]}
+            "evidence": [{"id": "e1", "roles": ["lecture"], "material_code": "M35", "text": "Synthetic teaching: derivatives and their domains."},
+                         {"id": "e2", "roles": ["assessment"], "material_code": "M46", "text": "Synthetic assessment instructions: justify all conclusions."},
+                         {"id": "e3", "roles": ["past_paper"], "material_code": "M05", "text": "Synthetic historical example: interpret a decreasing marginal rate."}]}
 
 
 @pytest.fixture

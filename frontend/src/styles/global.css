@@ -814,6 +814,7 @@ pre {
 }
 .task-panel {
   max-width: 760px;
+  overflow-wrap: anywhere;
 }
 .task-clock {
   display: flex;
@@ -840,7 +841,11 @@ pre {
   gap: 14px;
   padding: 12px 0;
 }
+.timeline li > div {
+  min-width: 0;
+}
 .timeline svg {
+  flex-shrink: 0;
   margin-top: 2px;
   color: #7687b3;
 }

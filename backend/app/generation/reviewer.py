@@ -73,9 +73,13 @@ def check_candidate(token,context,candidate):
     checkpoint(token,"Retrieving comparison questions")
     sources=[s for s in context["input"]["sources"] if s["id"] in context["input"]["comparison_source_ids"]]
     duplicates=duplicate_candidates(candidate.payload["pairs"],sources,context["input"]["history_content_ids"])
+    retrieval_missing=bool(duplicates["available_source_ids"]) and not duplicates["candidates"]
+    duplicate_status="fail" if duplicates["findings"] else "not_checked" if retrieval_missing else "pass"
+    duplicate_reason=("Potential substantive duplicates need repair." if duplicates["findings"] else
+                      "Supplied comparison pages have no usable excerpts; originality has not been checked." if retrieval_missing else
+                      "No exact or number-only match in the supplied comparison and within this candidate; semantic review is still required.")
     checks.append(check("local_duplicates",[p["question_id"] for p in candidate.payload["pairs"]],"normalised_retrieval",
-        "fail" if duplicates["findings"] else "pass",
-        "Potential substantive duplicates need repair." if duplicates["findings"] else "No exact or number-only match in the bounded comparison; semantic review is still required."))
+                        duplicate_status,duplicate_reason))
     checkpoint(token,"Semantic review",{"candidate_id":str(candidate.id)})
     semantic=review_semantics(token,context,candidate,checks,blind,duplicates)
     ids={p["question_id"] for p in candidate.payload["pairs"]}

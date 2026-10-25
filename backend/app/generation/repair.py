@@ -17,17 +17,17 @@ def repair_candidate(token,context,candidate,report):
     for r in report.payload["repair_requests"]:
         for qid in r["target_ids"]:
             if qid in blocked_ids:
-                requests.setdefault(qid,[]).append(r)
+                requests.setdefault(qid,[]).append({**r,"target_ids":[qid]})
     # Deterministic failures can request a targeted repair even if the review omitted one.
     for c in blocked:
         if c["method"] in ("sympy_subprocess","program") and c["result"]=="fail":
             for qid in c["target_ids"]:
                 if qid in ids:
-                    requests.setdefault(qid,[]).append({"issue_codes":[c["check_id"]],"instructions":c["rationale"]})
+                    requests.setdefault(qid,[]).append({"target_ids":[qid],"issue_codes":[c["check_id"]],"instructions":c["rationale"]})
     for finding in report.payload["duplicate_review"]["findings"]:
         for qid in finding["target_ids"]:
             if qid in ids:
-                requests.setdefault(qid,[]).append({"issue_codes":[finding["code"]],"instructions":finding["explanation"]})
+                requests.setdefault(qid,[]).append({"target_ids":[qid],"issue_codes":[finding["code"]],"instructions":finding["explanation"]})
     if not requests:
         checkpoint(token,"No justified repair available",{"candidate_id":str(candidate.id)})
         return None
@@ -41,7 +41,14 @@ def repair_candidate(token,context,candidate,report):
     pairs={p["question_id"]:p for p in candidate.payload["pairs"]}
     targeted={}
     for qid,issues in requests.items():
+        duplicate_review=report.payload["duplicate_review"]
         targeted[qid]={"issues":issues,"previous_pair":pairs[qid],
+            "local_checks":[c for c in blocked if qid in c["target_ids"]],
+            "checker_contract":context["checker_contract"],
+            "duplicate_comparison":{**duplicate_review,
+                "candidates":[c for c in duplicate_review["candidates"] if qid in c.get("target_ids",[])],
+                "findings":[f for f in duplicate_review["findings"] if qid in f["target_ids"]]},
+
             "other_question_summaries":[{"question_id":p["question_id"],"stem":p["stem"],
                                          "parts":[part["prompt"] for part in p["parts"]]}
                                         for p in candidate.payload["pairs"] if p["question_id"]!=qid]}

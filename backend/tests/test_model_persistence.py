@@ -90,3 +90,21 @@ def test_synthetic_snapshot_has_no_course_text_or_page_images(course, monkeypatc
     monkeypatch.setattr(validation.MaterialVersion.objects, "get", lambda **kw: pytest.fail("Material read in synthetic scope"))
     snapshot = validation.build_snapshot(course, "gpt-6.1-sol", smoke_only=True)
     assert snapshot["pages"] == [] and snapshot["authorization"] == "explicit_cli_synthetic_only"
+
+
+@pytest.mark.parametrize("unknown_model_usage",[False,True])
+def test_count_requests_do_not_erase_model_usage_but_unknown_usage_does(course,monkeypatch,unknown_model_usage):
+    task=submit_task(course,"ai_validation",{},"usage")
+    token=claim_task(task.id)
+    ModelInvocation.objects.create(task=task,call_key="count:smoke",epoch=token.epoch,
+        request_hash="a"*64,state="completed",metadata={"purpose":"input_token_count"},
+        result=ModelCallResult(mode="fixture",status="parsed",payload={"input_tokens":10}).model_dump(mode="json"))
+    if unknown_model_usage:
+        ModelInvocation.objects.create(task=task,call_key="unknown-usage",epoch=token.epoch,
+            request_hash="b"*64,state="completed",metadata={},
+            result=ModelCallResult(mode="fixture",status="provider_error").model_dump(mode="json"))
+    monkeypatch.setattr(invocations,"invoke_official",lambda *a,**k:fixture_result())
+    run(token)
+    usage=task.attempts.get(epoch=token.epoch).usage
+    assert usage==({"input_tokens":None,"output_tokens":None,"total_tokens":None} if unknown_model_usage else
+                   {"input_tokens":10,"output_tokens":20,"total_tokens":30})

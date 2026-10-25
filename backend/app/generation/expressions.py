@@ -2,13 +2,27 @@
 import re
 import sympy as sp
 
+CHECKER_CONTRACT = {
+    "literals":"Numbers: signed decimals up to 8 digits on either side, or signed integer fractions with 1-8 digit numerator and positive nonzero 1-8 digit denominator. No executable strings.",
+    "arity":"add/mul: 2-4 arguments; sub/div/pow: exactly 2; sin/cos/exp/log/sqrt/abs: exactly 1; number/variable: no arguments.",
+    "bounds":"Domain lower null or -inf means negative infinity; upper null or inf means positive infinity. Other bounds are numeric literals. Infinity is not an expression number.",
+    "limits":"At most 80 AST nodes and depth 12; powers numeric with absolute exponent <=12. Single real variable x,y,t,q per check. No implicit multi-variable constraint solver.",
+    "responsibility":"Return math specifications and sound worked reasoning, never fabricated execution results. The application executes checks and retrieval after generation/repair. Unsupported checks remain blocking; do not omit or weaken them to pass.",
+}
+
 VARIABLES = {name: sp.Symbol(name, real=True) for name in ("x", "y", "t", "q")}
 
 
 def number(value):
-    if not isinstance(value, str) or not re.fullmatch(r"-?(?:\d{1,8})(?:\.\d{1,8})?", value):
-        raise ValueError("Only bounded decimal literals are supported.")
-    return sp.Rational(value)
+    if not isinstance(value, str):
+        raise ValueError("Only bounded decimal or fractional literals are supported.")
+    if re.fullmatch(r"-?[0-9]{1,8}(?:\.[0-9]{1,8})?", value):
+        return sp.Rational(value)
+    if re.fullmatch(r"-?[0-9]{1,8}/[0-9]{1,8}", value):
+        numerator,denominator=(int(part) for part in value.split("/"))
+        if denominator:
+            return sp.Rational(numerator,denominator)
+    raise ValueError("Only bounded decimal or nonzero-denominator fractional literals are supported.")
 
 
 def expression(node):
@@ -30,10 +44,12 @@ def expression(node):
             return VARIABLES[val]
         if val is not None:
             raise ValueError("Only leaf nodes can have values.")
-        binary = {"add": lambda a,b:a+b, "sub":lambda a,b:a-b, "mul":lambda a,b:a*b,
-                  "div":lambda a,b:a/b, "pow":lambda a,b:a**b}
+        binary = {"sub":lambda a,b:a-b, "div":lambda a,b:a/b, "pow":lambda a,b:a**b}
         unary = {"sin":sp.sin,"cos":sp.cos,"exp":sp.exp,"log":sp.log,"sqrt":sp.sqrt,"abs":sp.Abs}
-        if op in binary and len(args)==2:
+        if op in ("add","mul") and 2<=len(args)<=4:
+            terms=[visit(v,depth+1) for v in args]
+            result=(sp.Add if op=="add" else sp.Mul)(*terms)
+        elif op in binary and len(args)==2:
             a,b = [visit(v,depth+1) for v in args]
             if op == "pow" and (not b.is_number or b.is_real is not True or abs(b)>12):
                 raise ValueError("Powers require a bounded numeric exponent.")

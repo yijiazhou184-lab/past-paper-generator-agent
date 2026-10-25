@@ -50,8 +50,10 @@ def run_call(token, call_key, spec, *, instructions, output_type, api_key, model
         state="completed", result=result.model_dump(mode="json"), finished_at=timezone.now())
     with transaction.atomic():
         locked_task(token)
-        values = [r["usage"] for r in ModelInvocation.objects.filter(task_id=token.task_id, state="completed")
-                  .values_list("result", flat=True)]
+        # Input-token counts report request size, not billed generation usage.
+        # Filter in Python: SQL JSON-key exclusion also drops records whose purpose key is absent.
+        values = [r.get("usage",{}) for metadata,r in ModelInvocation.objects.filter(task_id=token.task_id, state="completed")
+                  .values_list("metadata","result") if metadata.get("purpose")!="input_token_count"]
         usage = {key: sum(v[key] for v in values) if all(v.get(key) is not None for v in values) else None
                  for key in ("input_tokens", "output_tokens", "total_tokens")}
         TaskAttempt.objects.filter(task_id=token.task_id, epoch=token.epoch).update(usage=usage)

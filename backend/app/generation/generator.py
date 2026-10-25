@@ -19,7 +19,8 @@ def question_input(context,q,earlier):
         "statements":context["input"]["statements"],"scope":context["input"]["course"]["scope_claims"],
         "sources":[s for s in context["input"]["sources"] if s["id"] in ids],
         "earlier_question_summaries":earlier,
-        "allowed_assets":["function_graph","data_table"],"software_answers":False}
+        "allowed_assets":["function_graph","data_table"],"software_answers":False,
+        "checker_contract":context["checker_contract"]}
 
 
 def generate_group(token,context,q,earlier,round_number=0,repair_request=None):
@@ -94,10 +95,14 @@ def persist_candidate(token,context,groups,revision=1,parent=None):
 
 
 @transaction.atomic
-def needs_information(token,explanation):
+def needs_information(token,explanation,candidate=None,report=None):
     task=locked_task(token)
     task.state,task.stage="needs_info","Generation needs information"
     task.result={"mode":task.snapshot["mode"],"explanation":explanation,"allowed":False}
+    if candidate is not None and report is not None:
+        task.result.update(candidate_id=str(candidate.id),report_id=str(report.id),
+                           candidate_revision=candidate.revision,
+                           blocking_check_ids=report.gate["blocking_check_ids"])
     task.finished_at=timezone.now()
     task.save()
     TaskAttempt.objects.filter(task=task,epoch=token.epoch).update(outcome="needs_info",finished_at=task.finished_at)
@@ -123,7 +128,13 @@ def run_generation(token):
     report=check_candidate(token,context,candidate)
     if not report.gate["allowed"]:
         from .repair import repair_candidate
-        repaired=repair_candidate(token,context,candidate,report)
+        try:
+            repaired=repair_candidate(token,context,candidate,report)
+        except DomainError as exc:
+            if exc.payload["code"]=="GENERATION_NEEDS_INFO":
+                needs_information(token,exc.payload["message"],candidate,report)
+                return
+            raise
         if repaired is not None:
             candidate=repaired
             checkpoint(token,"Final checks",{"candidate_id":str(candidate.id),"revision":candidate.revision})
