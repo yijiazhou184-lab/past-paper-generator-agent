@@ -218,3 +218,22 @@
 运行：服务在 http://127.0.0.1:5173；API/worker 在无活动任务时重启以加载修复。内置浏览器打开演示请求返回 queued，实际 UI 由 Playwright 验证。
 
 限制：新提示词与相邻扩展判定尚未跑真实模型；新语义输入使用已授权正文的有界摘要（每源 1200 字符，明确标记截断），若不足需如实 inconclusive。原输出截断问题、部分符号计算覆盖、两分钟目标、专项语义/原创性校准仍未解决。本次不增加 token/调用限额，不进入第五/六批，不执行额外付费尝试。
+
+
+## 2026-10-28 23:26 交接核查：用户网页运行 generation-v3
+
+本段是用户完成源码修复后自行在网页提交的真实运行。交接时仅只读核查，无新模型调用、代码修改、服务重启或全量测试；覆盖前文“v3尚未真实运行”的时间点描述。
+
+- Task：32bb6d9c-2121-4f4a-9a6a-b89c585b7b32；父任务8f2e167c。课程68caa35d，课程确认version2，四大题/15小问/60分，快照68a09ab1。
+- context hash：79117bb6541823bb75df986888e89fceb54968f6dc5aaf481d55be0428c1f954；generation-v3，gpt-6.1-sol，store:false。
+- 时间：2026-10-28 23:12:33.503–23:17:13.901（Asia/Shanghai）；提交至结束280.397882秒，执行279.754596秒。
+- 终态 failed / TOKEN_BUDGET_EXCEEDED；count:r0:semantic 保存的官方计数为67,531，超过应用冻结的60,000输入token上限。
+- 8次模型调用（4题答+4盲解）均completed/parsed，payload.status均complete；另9次计数均完成。输入94,099、输出41,424、总计135,523 tokens，与TaskAttempt汇总一致，未查询账单。
+- 四组题答原始及validated成果、四组blind成果保存。完整候选revision1：b255c962-b0fa-43c8-bace-fe53c6ecf6e6，payload hash已核对；Q3有1条独立背景引用，未再触发旧PAIR_SOURCE_INVALID。
+- **没有发送语义模型请求**，仅发送该阶段的输入计数。错误文案“No analysis request was sent”不能解读为整个任务零调用。
+- 程序/数学阶段已执行，但尚未save_report；无持久化完整CheckReport，不能断言数学检查通过。语义/原创性/来源范围最终判断未完成，未进入修复、发布或PDF；task.result为空但候选可读取。
+- 此次是应用自身输入限额拒绝，不是API额度不足、网络失败、输出截断或模型服务端上下文窗口错误的证据。
+
+本地证据 var/handoff-2026-10-28-latest-task.json，包含安全调用概要、用量、候选哈希核对、服务与活动任务数量，不含密钥，未提交Git。核查时Web/API/worker/dispatcher身份均符合本项目；前端5173、API8000及代理session均HTTP200；数据库可读，0活动业务任务；保留服务运行。
+
+下一步建议在本地检查review_semantics聚合的candidate/course/local_checks/blind_solutions/duplicate_comparison/source_review体积，评估在已有预算内保留全部必需检查的调用组织方式。当前代码在语义完成后才保存检查报告，异常前的局部检查结果缺少持久化也需评估。本次仅交接，不执行修复或增加限额。速度/用量与专项质量优化的原后置排期保留；不能因此跳过必要检查。完整最新上下文见 docs/handoff.md。

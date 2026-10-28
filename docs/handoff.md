@@ -1,109 +1,123 @@
-# 交接：批次 4 来源分层修复已完成，真实 v3 验证尚未运行
+# Codex → Claude Code 交接
 
-更新：2026-10-28，Codex。最新状态见末尾的来源分层段。工作目录仅为 `C:\Users\Yijia\dev\past_paper_generator`；OneDrive 副本停用。接手遵循 AGENTS.md 第 6 节。用户已批准批次四开发，常规修复无需逐批再确认；下一次真实模型运行须区分此前“一次运行”的授权。
+更新：2026-10-28 23:26，Asia/Shanghai。**当前代码基线为 84ac319；本次仅完成交接文档和只读状态核查，没有开发、模型重跑或服务重启。** 以本文为最新状态，历史明细见 [第四批验证记录](batch-4-validation.md)。
 
-## 本次目标与结果
+## 1. 工作区与接手步骤
 
-用户要求“核查原任务及调用记录，排查错误，无错误后继续任务”。中断提交经核查没有创建任务、授权或调用记录，随后使用原幂等 key 创建唯一真实任务：
+唯一活动仓库：C:/Users/Yijia/dev/past_paper_generator。main 分支，origin 为既有 GitHub 私有仓库。C:/Users/Yijia/OneDrive/past_paper_generator 已停用，不在旧副本修改。
 
-- 任务 `344da144-1127-46b2-b137-4707f98a6a04`，页面 http://127.0.0.1:5173/tasks/344da144-1127-46b2-b137-4707f98a6a04 。
-- 原 context hash `9992277e6ca50e4556da7587f075afadd2ca869c97348af46e19957374b9e294`；用户已明确允许此范围运行一次，现已执行完毕。
-- 终态 failed / GENERATION_NEEDS_INFO，保存了 revision 1 的 3 大题、13 小问、60 分题答和检查报告，没有 revision 2，没有发布。
-- 9 次模型调用和 9 次官方输入计数均 completed；9 个模型响应 parsed。修复 q1/q2 返回 needs_info，不是 API 超时或未知结果。
-- 提交至结束 385.842 秒，执行 385.064 秒；输入 164,364、输出 38,472、合计 202,836 tokens。实际账单未查询。
-- 原报告 54 个必需项：15 pass、39 not_checked。不能称为题答通过或两分钟达标。原结果与错误保留，不改历史状态。
+在活动仓库内按 AGENTS.md：
 
-## 本地修复和验证
+    git status
+    git pull --ff-only
+    git log --oneline -10
 
-已修复：受限 AST 的分数/无穷区间/2–4 项加乘兼容；比较片段因阈值全部丢失；修复缺少实际检查诊断、比较片段及职责说明；跨题修复 target_ids 未缩小；修复 needs_info 未保存候选/报告入口；计数请求令用量汇总变成 unknown；手机任务页长调用标识溢出。
+然后读 AGENTS.md、README「当前实现」、本文，以及：
+- docs/round-1-design.md
+- docs/superpowers/plans/2026-10-19-round-1-qm.md（六批次、12 个任务）
+- docs/superpowers/plans/2026-10-24-batch-4-question-generation.md
+- docs/superpowers/plans/2026-10-28-source-reference-policy.md
+- docs/round-1-optimization-backlog.md
 
-检查器契约现进入冻结 context，pipeline 为 generation-v2；旧 hash 不授权新上下文。语义提示词区分“完整报告”与“所有检查通过”；代码仍阻断每个必需非 pass 项。修复提示词不能要求模型假装运行检查、放宽定义域或删掉必要检查。
+本次交接后 Codex 停止修改，由 Claude Code 单独接手。原材料、历史原型、用户课程配置、历史任务和不可变候选均应保留。
 
-- 全量后端：195 passed（139.79 秒）；此前针对性 47 passed（95.48 秒），与全量重叠。
-- 前端：15 passed；类型检查、生产构建通过。
-- Django check、迁移一致性和 git diff --check 通过；没有新增依赖/迁移。
-- 真实历史任务只读浏览器：5 组断言通过；题答分离、原报告、固定来源、刷新、390px 和无 JS 错误；阻止写请求，0 新模型调用。
-- generation-v2 独立合成课程 `593b0b6e-7768-4140-b71d-a81edabf7aa7`；任务 `f252278c-ac9c-417e-bcce-3f0a6baa9811` succeeded；完整本地 worker/网页 8 组断言通过，模型调用 0。
+## 2. 目前完成与用户最新决定
 
-只读离线回放：原候选程序/数学必需项 23，21 pass、1 not_checked、1 inconclusive。剩余 q1-d 全域绝对值可微性、q1-e 隐式关系定义域不能由当前检查器完整判定。比较池 9 页，实际返回来自 8 页的 9 个去重片段，各大题有 6 个候选。未做新语义审阅，未覆盖或提升原报告。
+批次 1–4 / Task 1–8 的本地功能已实现：材料/证据、课程分析与确认、组卷蓝图与结构确认、题答、数学/盲解/语义核验和一轮定向修复。**尚无通过全部门槛的完整真实题卷。** 第五批 Paper/双 PDF/结果保存及第六批六次真实验收尚未实施，暂不进入第二轮。
 
-## 下一步与真实调用边界
+最近功能提交 84ac319 实现 generation-v3 / source-policy-v1：
+- evidence_ids 是学术/教学依据，支撑题目主要知识点；不再因超出本题原白名单直接中断。
+- background_references 是独立背景参考，可来自其他课程资料、通用情境或外部参考，不限课程白名单；不能自动成为官方事实或课程范围依据。
+- 小幅相邻知识扩展可以接受，由 source_alignment 判断实际知识和方法是否仍服务于主要目标；不设未经确认的“允许超纲百分比”。
+- 额外、背景或未解析的引用保留为非阻断提示；核心依据缺失、实质偏离等才进入必需检查和单题修复，最多一轮。
+- 数学、盲解、原创性等必需门槛不变；失败、未检查、无法判断不能冒充通过。
+- 页面来源分组，未知 ID 不生成坏链接。背景详细说明随 Show answers 打开；已知来源仍定位固定版本和物理页。
+- 策略/schema/提示词绑定 context hash。旧结果不改写，修改上下文不能冒充同一个验证版本。
 
-本批计划要求的一次真实运行已完成并如实记录失败；修复后的真实 AI③/④ 验证尚未执行。用户没有授权无限重试。**不要用原“一次运行”授权自动再开付费任务，也不要恢复旧 context 到新代码后当作同一次未完成运行。**
+用户将速度/用量优化、专项真实语义/原创性校准及修复效果验证后置到第一轮完整流程跑完后。见优化清单；不要误读为允许省略每次生成的必需检查。
 
-修复版预检已准备：
+## 3. 最新真实任务：已到语义核验输入准入，但超出限额
 
-- `var/batch4-generation-preflight-v2.md` / `.json`。
-- hash `2c01982cb2c17aab36141f4dee249e4a8a6a1f06fb4a872849c796fdcdd52114`。
-- 与原任务的完整 input 结构相等：同一课程 version 2、快照 `7e2a758e-7e7e-4a03-b618-e7c12d56b708`、30 个物理页；没有新增材料或页图。
-- 变化为冻结检查器契约、pipeline 和修复/语义提示词。若再修改提示词或契约，重新生成预检，不沿用此 hash。
-- 若用户授权再运行一次：官方 OpenAI Responses、gpt-6.1-sol、store:false；最多 16 次模型调用及对应计数，单次 240 秒、任务 600 秒、最多一轮修复，未知结果不自动重试。未创建新 GenerationGrant 或真实任务。
-- 运行后如实保留任何失败、无法判断或耗时超标；不能保证更换输入后必定通过，不通过时不得发布。
+这是用户在网页自行新提交的运行，不能继续沿用此前“generation-v3 尚未真实运行”的旧描述。
 
-可独立推进：检查器对分段/隐式约束的设计和本地单元验证、检索质量和性能分析。是否继续这类扩展按用户指令；不要静默扩到第五批/PDF/六次验收。本次未进入第五批。
+| 项目 | 当前实测 |
+|---|---|
+| Task | 32bb6d9c-2121-4f4a-9a6a-b89c585b7b32 |
+| 页面 | http://127.0.0.1:5173/tasks/32bb6d9c-2121-4f4a-9a6a-b89c585b7b32 |
+| 课程 | 68caa35d-6e08-42d7-84bd-70a23e369b1f；已确认 version 2 |
+| 冻结快照 | 68a09ab1-6059-4b59-a4af-6d3b880f1b2d；4 大题、15 小问、60 分 |
+| pipeline / 模型 | generation-v3；gpt-6.1-sol；官方 Responses API，store:false |
+| context hash | 79117bb6541823bb75df986888e89fceb54968f6dc5aaf481d55be0428c1f954 |
+| 时间 | 2026-10-28 23:12:33–23:17:13；提交至结束 280.398 秒 |
+| 终态 | failed / TOKEN_BUDGET_EXCEEDED |
+| 直接原因 | count:r0:semantic 官方计数 67,531 tokens，超过项目冻结上限 60,000 |
+| 已发生调用 | 8 次模型调用 + 9 次计数，全部 completed；8 个模型结果 parsed / complete |
+| 用量 | 输入 94,099；输出 41,424；合计 135,523 tokens；未查询账单 |
 
-## 服务、证据与复查命令
+已保留：
+- 四道题的 r0:pair 与 validated:r0:pair 成果。
+- 完整 CandidateVersion revision 1：b255c962-b0fa-43c8-bace-fe53c6ecf6e6；payload hash 校验通过。
+- 四次 blind:* 盲解成果。
+- Q3 有 1 条独立 background_reference；这次没有复现 PAIR_SOURCE_INVALID。
+- task.result 为 {}；候选仍能由 generation-content 接口读取。
 
-服务仍运行：http://127.0.0.1:5173，API8000，PostgreSQL54330，worker/dispatcher；API 已重启加载修复。复用/补起用 `scripts/local.py start`。
+未完成或不能声称通过：
+- **语义模型请求没有发送**；只有它的输入计数请求执行了。页面错误中“No analysis request was sent”仅指该阶段，不表示前面 8 次模型调用未发生。
+- CheckReport 尚不存在，来源范围/原创性/盲解一致性等最终判定未形成；未进入修复、发布或 PDF。
+- 程序/数学阶段已执行，但当前实现直到语义返回后才 save_report，本任务没有持久化它们的完整检查列表；不能把阶段经过当作检查全部通过。
+- 本次不是 API 额度不足、网络超时、输出截断或服务端模型上下文限制的证据；是应用自身 60k 输入准入上限被触发。
 
-```powershell
-# 两项均不调用模型，不改原任务、候选和报告
-& .\.venv\Scripts\python.exe scripts/audit_generation_task.py 344da144-1127-46b2-b137-4707f98a6a04
-& .\.venv\Scripts\python.exe scripts/test_retained_generation.py 344da144-1127-46b2-b137-4707f98a6a04
-```
+交接证据（本机忽略目录，不进 Git）：var/handoff-2026-10-28-latest-task.json。只读核对任务/调用/候选哈希，没有更改任务或新建授权、调用。
 
-审计 `var/generation-audit-344da144-1127-46b2-b137-4707f98a6a04.json`；真实浏览器 `var/batch4-live-browser-audit.json`；合成浏览器 `var/batch4-browser-check.json`；截图 `var/screenshots/`。敏感数据、预检全文、原材料、环境和 var 均不进 Git。详细结论见 [batch-4-validation.md](batch-4-validation.md)。内置浏览器 open 请求返回 queued；实际页面由 Playwright 验证，不能把 queued 称为用户已看到。
+## 4. 下一步建议与代码入口
 
-尚未完成：修复后真实运行、真实原创性/难度校准、账单、两分钟完整出卷、Papers/两个 PDF、六次验收。课程材料和原型未改写。
+下一项应先评估语义核验聚合输入为什么达到 67,531 tokens，选择满足现有输入限额并保留必需检查的组织方式。这是阻断完整流程的问题；本次没有实施，也没有静默提高限额。
 
+优先入口：
+- backend/app/generation/reviewer.py：review_semantics 拼接 candidate/course/local_checks/blind_solutions/duplicate_comparison/source_review；save_report 在语义调用之后。
+- backend/app/generation/source_policy.py：背景/学术分类、来源提示和有界证据摘录（每源1200字符，明确截断）。
+- backend/app/generation/runtime.py 与 backend/app/ai/invocations.py：阶段持久化、官方计数、调用预算/未知结果处理。
+- backend/app/generation/generator.py：成对成果复用，仅当前任务或直接父任务、相同 input_hash；完整候选保存。
+- backend/app/generation/repair.py：保留原候选、只修复阻断目标、最多一轮。
+- backend/app/generation/execution_context.py：预检、冻结策略、授权和版本绑定。
 
-## 2026-10-28 用户排期更新
+可先独立做本地输入构成分析、单元/模拟测试；确定改动范围后再按用户后续指令实施。若拆分语义检查，需要保留整卷重复/结构等跨题判断，重新评估调用总数和600秒任务上限。不要盲目重跑全部生成，也不要跳过检查以推进发布。新上下文不能强行复用旧 hash 或付费授权；当前历史候选/盲解可作为分析证据，能否跨版本复用必须显式校验。
 
-用户要求将“速度与模型用量优化”和“真实语义／原创性专项复核、定向修复效果验证”加入后续清单，待第一轮完整流程跑完后再集中处理，见 [第一轮后待优化与待验证清单](round-1-optimization-backlog.md)。此更新覆盖前文对这两项工作的即时推进建议；仅登记排期，不触发模型调用，不改变原失败结果，也不取消每次生成的必需检查和发布门槛。
+在用户安排下再进入批次5 Task 9（阅读/历史）、Task 10（两个PDF/唯一发布/恢复）及批次6 Task 11–12。交接本身没有授权自动启动新一轮真实模型任务。
 
+## 5. 验证基线与服务
 
-## 2026-10-28 修复版一次真实运行已获授权并启动
+最近实际代码验证（2026-10-28，84ac319）：
+- 后端207 passed（218.08秒），前端16 passed。
+- 类型检查、生产构建、Django check、迁移一致性、OpenAPI及生成类型通过。
+- Playwright 7组通过：来源分组、固定物理页/刷新、答案/背景主动打开、390px、旧结果兼容；0 JS错误。
+- 这些测试在上次开发阶段运行。本次交接只核查状态与文档，不重复声称跑过全量测试。
 
-用户在本会话明确允许按修复版精确预检再运行一次。已核对当前生成上下文与 var/batch4-generation-preflight-v2.json 完全一致，hash 为 2c01982cb2c17aab36141f4dee249e4a8a6a1f06fb4a872849c796fdcdd52114。原任务没有未完成调用，提交前本课程没有活动任务。
+2026-10-28 23:25:59 检查：
+- Web/API/worker/dispatcher 均为本仓库活动进程。
+- 前端5173、API8000及前端代理 session GET 均200。
+- PostgreSQL54330可读；0 queued/processing业务任务。
+- 没有重启、停止服务，保留运行供接手。必要时复用：
 
-新任务：bda61a74-c5e9-4639-adc3-08b4d35655b5。幂等 key：batch4-live-v2-approved-20261028-2c01982c。回执 var/batch4-live-run-v2.json；页面 http://127.0.0.1:5173/tasks/bda61a74-c5e9-4639-adc3-08b4d35655b5 。仅运行这一次，不另开任务或重放未知调用；后续专项优化排期保持。
+    & .\.venv\Scripts\python.exe .\scripts\local.py start
 
-此段记录提交时状态，终态需读取原任务及其调用后补充。前文“尚未授权/未提交”是此前时间点的记录，不再适用于这一次运行。
+实际数据目录 var/postgres-20261023/；var/postgres/ 是旧保留副本。材料与解析 var/data/，离线模型 var/models/，日志 var/logs/。环境文件、var/与原材料未提交；同机接手可直接使用，不能认为 git clone 自带这些数据。不要输出 .env.local 或 var/local.json 的密钥/口令。
 
+## 6. 历史证据与工具注意事项
 
-## 2026-10-28 本次终态与下一步（以此段为当前状态）
+| Task | 结果 |
+|---|---|
+| 344da144-1127-46b2-b137-4707f98a6a04 | 首次真实完整候选保留，原检查未放行、修复 needs_info；历史不改 |
+| bda61a74-c5e9-4639-adc3-08b4d35655b5 | Q1输出截断；仅Q2完整保留；无完整候选 |
+| 9033ae45-be67-4136-a67c-4ac3589181c1 | 用户取消；两次模型请求仍为started，远端结果与用量未知，不按零费用处理 |
+| 8f2e167c-6d30-4dcf-9bcb-70caacd7c59e | Q3额外背景引用触发旧规则；四题新策略离线结构通过，原失败保留 |
+| 00dd1359-f7ae-4907-b48f-cf6de8a224ff | 独立 B4-SOURCE-FIXTURE 合成演示，0模型调用，不是实测题卷 |
 
-上述修复版任务现已结束：`bda61a74-c5e9-4639-adc3-08b4d35655b5`，failed / MODEL_INCOMPLETE。**本次“一次运行”授权已经执行完毕，不再自动提交第三次。**
+脚本：
+- scripts/audit_source_policy.py <terminal-task-id>：读取原始题答，按当前代码在内存中检查结构/来源，写var报告；不调用模型，不改原任务，不做数学或语义核验。
+- scripts/audit_generation_task.py：目前要求 candidate.check_report 存在，**不能直接用于最新无报告任务**；不要把该脚本异常误判为数据库损坏。
+- scripts/test_retained_generation.py：针对首个历史任务的固定断言，不是最新任务通用测试。
+- scripts/prepare_source_policy_fixture.py：会新建独立合成课程/任务；scripts/test_source_policy_view.py 读取已保存fixture检查UI。
+- 原API授权是按用途/范围/版本及明确运行提交处理；密钥存在、历史Grant或本次交接不代表无限付费重试。
 
-第一题返回 truncated，输出 12,000 tokens 恰好达到冻结上限；第二题完整返回并通过配对/结构校验，保留两个 GenerationArtifact。无完整候选，第三题/数学/盲解/语义/原创性/修复均未执行。没有未知远端结果，不应当作断线任务重放。现有适配器未保存 incomplete_details.reason；输出预算耗尽是有依据的推断，不能说已获得明确服务端原因。
-
-实测：2 次模型调用 + 2 次计数，输入 36,411、输出 20,870、总计 57,281 tokens；提交至结束 158.914 秒，执行 158.487 秒。TaskAttempt 用量与逐条结果一致，实际账单未查询。原任务及原候选保持不变；修复版此次没有产出完整 CheckReport，不能宣称旧问题已通过真实核验。
-
-真实页面只读验收 5 组断言通过，含刷新、父任务、四条调用、无错误 JS、390px 和返回 Generate 不触发提交；0 新模型调用。本次未改应用代码，未重复全量测试。服务继续运行。
-
-本地证据：
-- `var/batch4-live-v2-outcome.json`：本次完整调用概要与明确未执行阶段。
-- `var/batch4-v2-browser-check.json` 与 `var/screenshots/batch4-v2-incomplete-*.png`。
-- `var/batch4-v2-partial/q2-questions.md` / `q2-answers.md`：从已保存成果导出的第二题，明确 partial / unverified，不能当作已核验试卷。
-- 可操作页面：http://127.0.0.1:5173/tasks/bda61a74-c5e9-4639-adc3-08b4d35655b5 。
-
-后续需解决单道大题输出容量与分组粒度、保留具体截断原因，才能有依据地选择恢复方式；不能盲目用同样输入重复整轮，也不能静默提高已授权限额。已完成第二题可在输入身份一致的后续新尝试中按原机制复用；输入/提示词/契约改变时不能冒充同一验证版本。既有专项优化后置排期保持，未进入第五/六批。详见 [本批验证记录](batch-4-validation.md) 的 2026-10-28 节。
-
-
-## 2026-10-28 来源分层修复已完成（最新状态）
-
-用户明确允许背景不限课程白名单、知识依据允许小幅相邻扩展，并要求修复最新网页失败。generation-v3 已实现，来源策略和 schema/提示词进入 hash。背景引用独立字段，额外学术引用变提示并继续候选核验；核心依据缺失/实质越界走报告和一轮单题修复。不要恢复旧严格白名单，也不要把“允许边际扩展”理解为省略数学/语义等必需检查。
-
-最新真实网页任务 8f2e167c-6d30-4dcf-9bcb-70caacd7c59e 仍是 failed / PAIR_SOURCE_INVALID；其 Q3 额外引用来自课程背景 M33 p22。新策略的离线回放四题结构通过，历史 fingerprint 不变，不是全卷质量通过。用户另有取消任务 9033ae45，两次远端结果/用量未回收，不能按零费用处理。
-
-实际验证：后端207 passed、前端16 passed、类型/构建、Django check、迁移一致性、OpenAPI 通过；浏览器7组通过。新独立演示任务 00dd1359-f7ae-4907-b48f-cf6de8a224ff，课程 2137edce-85a1-4f62-b97a-bbdb7e20e3ec，明确 Synthetic fixture，0真实模型请求。页面 http://127.0.0.1:5173/tasks/00dd1359-f7ae-4907-b48f-cf6de8a224ff 。API/worker已重启，本地服务继续运行。
-
-新增脚本：
-
-- scripts/audit_source_policy.py <terminal-task-id>：只读历史+本地结构/来源回放，写 var 报告，不改任务、不调用模型。
-- scripts/prepare_source_policy_fixture.py：新建独立合成课程及结果，0模型调用。
-- scripts/test_source_policy_view.py：读取 var/source-policy-fixture.json，浏览器检查演示与历史任务，登录后阻止写请求。
-
-实施计划 docs/superpowers/plans/2026-10-28-source-reference-policy.md；详细验证 docs/batch-4-validation.md；本地证据 var/source-policy-audit-8f2e167c-6d30-4dcf-9bcb-70caacd7c59e.json 与 var/source-policy-browser-check.json。
-
-下一步若用户要求真实验证，先看新的预检并按新 hash 提交；本次未获新的真实调用指令，也没有执行。最新真实课程使用 4 大题、15 小问、60 分快照 68a09ab1-6059-4b59-a4af-6d3b880f1b2d。已有的原“一次运行”授权均已消费，不据此追加。source_alignment 真模型效果、有界来源摘录容量、输出截断、符号覆盖和真实完整流程仍未验证；既定速度/用量与专项语义复核后置排期保持。第五/六批尚未开始。
+已知未解决：最新语义输入准入阻塞、阶段检查结果在语义前失败时的持久化不足、历史输出截断具体原因未保存、部分符号检查覆盖、两分钟完整出卷目标、真实专项质量校准、两个PDF和六次验收。不要将合成通过或部分真实调用成功写成完整验收成功。
