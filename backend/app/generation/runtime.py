@@ -13,6 +13,7 @@ from app.ai.visual import legacy_to_visual
 from .models import GenerationArtifact, GenerationSnapshot, GenerationGrant
 from .content_schemas import schema_hashes
 from .expressions import CHECKER_CONTRACT
+from .source_policy import SOURCE_POLICY
 
 
 def verify_context(task):
@@ -21,6 +22,8 @@ def verify_context(task):
         raise DomainError("GENERATION_CONTEXT_HASH_MISMATCH")
     if context.get("checker_contract") != CHECKER_CONTRACT:
         raise DomainError("GENERATION_CHECKER_CHANGED", "Start a new preflight using the current mathematical checker contract.")
+    if context.get("source_policy") != SOURCE_POLICY or context.get("pipeline_version") != "generation-v3":
+        raise DomainError("GENERATION_SOURCE_POLICY_CHANGED", "Review a new preflight using the current academic and background reference policy.")
     if schema_hashes() != context["schema_hashes"]:
         raise DomainError("GENERATION_SCHEMA_CHANGED", "Start a new preflight using the current generation schema.")
     if context["mode"]=="live" and not GenerationGrant.objects.filter(course=task.course,context_hash=context["context_hash"]).exists():
@@ -88,7 +91,7 @@ def stage_output(token,key,stage,input_data,output_type,fixture):
         if existing and (existing.state!="completed" or existing.result.get("error_code") in
                          ("PROVIDER_TIMEOUT","PROVIDER_CONNECTION_FAILED")):
             raise DomainError("MODEL_OUTCOME_UNKNOWN", "Review the interrupted model call before another paid request.")
-        spec=ModelCallSpec(stage=stage,prompt_version=context["pipeline_version"],schema_version="generation-v1",
+        spec=ModelCallSpec(stage=stage,prompt_version=context["pipeline_version"],schema_version="generation-v3",
                            context_hash=input_hash,input=input_data)
         kwargs={"instructions":context["prompts"][stage],"output_type":output_type,
                 "api_key":os.environ.get("OPENAI_API_KEY",""),"model":context["model"]}

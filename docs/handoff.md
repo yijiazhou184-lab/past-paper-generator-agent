@@ -1,6 +1,6 @@
-# 交接：批次 4 第二次真实运行已结束，第一题输出截断
+# 交接：批次 4 来源分层修复已完成，真实 v3 验证尚未运行
 
-更新：2026-10-26，Codex。工作目录仅为 `C:\Users\Yijia\dev\past_paper_generator`；OneDrive 副本停用。接手遵循 AGENTS.md 第 6 节。用户已批准批次四开发，常规修复无需逐批再确认；下一次真实模型运行须区分此前“一次运行”的授权。
+更新：2026-10-28，Codex。最新状态见末尾的来源分层段。工作目录仅为 `C:\Users\Yijia\dev\past_paper_generator`；OneDrive 副本停用。接手遵循 AGENTS.md 第 6 节。用户已批准批次四开发，常规修复无需逐批再确认；下一次真实模型运行须区分此前“一次运行”的授权。
 
 ## 本次目标与结果
 
@@ -88,3 +88,22 @@
 - 可操作页面：http://127.0.0.1:5173/tasks/bda61a74-c5e9-4639-adc3-08b4d35655b5 。
 
 后续需解决单道大题输出容量与分组粒度、保留具体截断原因，才能有依据地选择恢复方式；不能盲目用同样输入重复整轮，也不能静默提高已授权限额。已完成第二题可在输入身份一致的后续新尝试中按原机制复用；输入/提示词/契约改变时不能冒充同一验证版本。既有专项优化后置排期保持，未进入第五/六批。详见 [本批验证记录](batch-4-validation.md) 的 2026-10-28 节。
+
+
+## 2026-10-28 来源分层修复已完成（最新状态）
+
+用户明确允许背景不限课程白名单、知识依据允许小幅相邻扩展，并要求修复最新网页失败。generation-v3 已实现，来源策略和 schema/提示词进入 hash。背景引用独立字段，额外学术引用变提示并继续候选核验；核心依据缺失/实质越界走报告和一轮单题修复。不要恢复旧严格白名单，也不要把“允许边际扩展”理解为省略数学/语义等必需检查。
+
+最新真实网页任务 8f2e167c-6d30-4dcf-9bcb-70caacd7c59e 仍是 failed / PAIR_SOURCE_INVALID；其 Q3 额外引用来自课程背景 M33 p22。新策略的离线回放四题结构通过，历史 fingerprint 不变，不是全卷质量通过。用户另有取消任务 9033ae45，两次远端结果/用量未回收，不能按零费用处理。
+
+实际验证：后端207 passed、前端16 passed、类型/构建、Django check、迁移一致性、OpenAPI 通过；浏览器7组通过。新独立演示任务 00dd1359-f7ae-4907-b48f-cf6de8a224ff，课程 2137edce-85a1-4f62-b97a-bbdb7e20e3ec，明确 Synthetic fixture，0真实模型请求。页面 http://127.0.0.1:5173/tasks/00dd1359-f7ae-4907-b48f-cf6de8a224ff 。API/worker已重启，本地服务继续运行。
+
+新增脚本：
+
+- scripts/audit_source_policy.py <terminal-task-id>：只读历史+本地结构/来源回放，写 var 报告，不改任务、不调用模型。
+- scripts/prepare_source_policy_fixture.py：新建独立合成课程及结果，0模型调用。
+- scripts/test_source_policy_view.py：读取 var/source-policy-fixture.json，浏览器检查演示与历史任务，登录后阻止写请求。
+
+实施计划 docs/superpowers/plans/2026-10-28-source-reference-policy.md；详细验证 docs/batch-4-validation.md；本地证据 var/source-policy-audit-8f2e167c-6d30-4dcf-9bcb-70caacd7c59e.json 与 var/source-policy-browser-check.json。
+
+下一步若用户要求真实验证，先看新的预检并按新 hash 提交；本次未获新的真实调用指令，也没有执行。最新真实课程使用 4 大题、15 小问、60 分快照 68a09ab1-6059-4b59-a4af-6d3b880f1b2d。已有的原“一次运行”授权均已消费，不据此追加。source_alignment 真模型效果、有界来源摘录容量、输出截断、符号覆盖和真实完整流程仍未验证；既定速度/用量与专项语义复核后置排期保持。第五/六批尚未开始。

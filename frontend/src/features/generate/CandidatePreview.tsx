@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { AcademicReferences, BackgroundReferences, type Source, type SourceSummary, type BackgroundReference } from "./SourceReferences";
 import { api } from "../../api/client";
 import { ContentBlocks, type Block, type Asset } from "./ContentBlocks";
 import "./candidate.css";
@@ -9,10 +9,10 @@ type Check={check_id:string;result:string;method:string;required_for_release:boo
 type Answer={part_id:string;worked_solution:Block[];final_answer:Block[];marking_points:{id:string;text:string;marks:number;alternative_group:string|null}[];
   acceptable_alternatives:string[];units:string|null;precision:string|null};
 type Candidate={id:string;revision:number;mode:string;stage:string;parent_id:string|null;assets:Asset[];
-  pairs:{question_id:string;stem:Block[];parts:{part_id:string;prompt:Block[];marks:number;assumptions:string[]}[];evidence_ids:string[]}[];
-  sources:{id:string;material_code?:string;physical_page?:number}[];
+  pairs:{question_id:string;stem:Block[];parts:{part_id:string;prompt:Block[];marks:number;assumptions:string[]}[];evidence_ids:string[];source_summary?:SourceSummary}[];
+  sources:Source[];
   report:{gate:{allowed:boolean;blocking_check_ids:string[]};coverage_summary:Record<string,number>;checks:Check[]}|null};
-type Answers={assets:Asset[];answers:{question_id:string;marking_basis:string;answers:Answer[]}[];
+type Answers={assets:Asset[];reference_sources?:Source[];answers:{question_id:string;marking_basis:string;answers:Answer[];background_references?:BackgroundReference[]}[];
   report:{checks:Check[];duplicate_review:{retrieval_coverage:string;compared_source_ids:string[];compared_paper_ids:string[]}}|null;model_outputs:unknown[]};
 
 function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candidate;taskId:string;courseId:string;running:boolean}) {
@@ -32,10 +32,7 @@ function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candida
       {q.parts.map((part,i)=><section className="candidate-part" key={part.part_id}><div className="part-heading"><strong>({String.fromCharCode(97+i)})</strong><span>{part.marks} marks</span></div>
         <ContentBlocks blocks={part.prompt} assets={candidate.assets}/>
         {part.assumptions.length>0 && <p className="assumptions">{part.assumptions.join("; ")}</p>}</section>)}
-      <details className="candidate-sources"><summary>Source references</summary>{q.evidence_ids.map(id=>{
-        const s=candidate.sources.find(source=>source.id===id);
-        return <Link key={id} to={`/courses/${courseId}/materials?source=${id}`}>{s?.material_code || "Source"} · physical page {s?.physical_page || "—"}</Link>;
-      })}</details>
+      <AcademicReferences courseId={courseId} ids={q.evidence_ids} summary={q.source_summary} sources={candidate.sources}/>
     </article>)}</div>
     <section className="candidate-answers"><div className="answer-toggle"><div><h3>Answers and suggested marking guidance</h3><p>Open the worked solutions when you are ready.</p></div>
       <button className="primary" aria-expanded={show} onClick={()=>setShow(!show)}>{show ? "Hide answers" : "Show answers"}</button></div>
@@ -48,7 +45,7 @@ function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candida
             <h4>Marking points</h4><ul>{a.marking_points.map(p=><li key={p.id}>{p.text} <strong>{p.marks} marks</strong>{p.alternative_group && <span> · alternative group: {p.alternative_group} (count once)</span>}</li>)}</ul>
             {a.acceptable_alternatives.length>0 && <p>Acceptable alternatives: {a.acceptable_alternatives.join("; ")}</p>}
             {(a.units || a.precision) && <p>{a.units && "Units: "+a.units+". "}{a.precision && "Precision: "+a.precision}</p>}
-          </section>)}</article>)}
+          </section>)}<BackgroundReferences references={q.background_references || []} sources={answers.data?.reference_sources || []} courseId={courseId}/></article>)}
         {answers.data?.report && <details><summary>Detailed check report</summary>
           {answers.data.report.checks.map((c,i)=><div className="detailed-check" key={c.check_id+":"+i}><strong>{c.check_id} · {c.result.replaceAll("_"," ")}</strong><p>{c.rationale}</p><small>{c.method}</small></div>)}
           <p>{answers.data.report.duplicate_review.retrieval_coverage}</p>

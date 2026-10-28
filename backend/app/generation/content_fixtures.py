@@ -43,7 +43,7 @@ def fixture_pair(q):
                 "at":None,"direction":"+-","points":[],"optimum":None,"rationale":"Check the synthetic polynomial derivative."}]})
     return {"status":"complete","explanation":"Synthetic fixture only.",
         "pair":{"question_id":q["id"],"stem":stem,"parts":parts,"answers":answers,"asset_ids":[a["id"] for a in assets],
-        "evidence_ids":q["evidence_ids"],"originality_notes":"Synthetic fixture; originality is not calibrated.","marking_basis":"suggested"},
+        "evidence_ids":copy.deepcopy(q["evidence_ids"]),"background_references":[],"originality_notes":"Synthetic fixture; originality is not calibrated.","marking_basis":"suggested"},
         "assets":assets}
 
 
@@ -55,7 +55,7 @@ def fixture_blind(q):
                         "final_answer":copy.deepcopy(a["final_answer"])} for a in generated["answers"]]}
 
 
-CATEGORIES=("clarity","conditions","methods","reasoning","difficulty","preferences","originality","blind_agreement","math_relevance")
+CATEGORIES=("clarity","conditions","methods","reasoning","difficulty","preferences","originality","blind_agreement","source_alignment","math_relevance")
 
 
 def fixture_review(pairs):

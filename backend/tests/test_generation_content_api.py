@@ -31,3 +31,25 @@ def test_answers_are_separate_and_cross_course_is_denied(course,planned,client,d
     client.force_login(django_user_model.objects.create_user(username="other"))
     assert client.get(url).status_code==404
     assert client.get(url+f"/{candidate.id}/answers").status_code==404
+
+
+def test_references_are_separate_and_unknown_ids_do_not_break_preview(course, planned, client):
+    task, context, token = start(course, planned)
+    groups = generate_groups(token, context)
+    pair = groups[0]["pair"]
+    pair["evidence_ids"] += ["unknown", "unknown"]
+    pair["background_references"] = [{"label":"ANSWER-ONLY-BACKGROUND", "evidence_id":pair["evidence_ids"][0],
+                                      "url":"https://example.com/context", "note":"ANSWER-ONLY-SECRET"}]
+    candidate = persist_candidate(token, context, groups)
+    client.force_login(course.owner)
+    url = f"/api/v1/tasks/{task.id}/generation-content"
+    preview = client.get(url)
+    assert preview.status_code == 200
+    assert "ANSWER-ONLY" not in str(preview.json())
+    summary = preview.json()["candidates"][0]["pairs"][0]["source_summary"]
+    assert summary["background_count"] == 1
+    assert summary["duplicate_count"] == 1
+    assert summary["academic"][-1] == {"id":"unknown","status":"unresolved"}
+    details = client.get(url+f"/{candidate.id}/answers").json()
+    assert details["answers"][0]["background_references"][0]["note"] == "ANSWER-ONLY-SECRET"
+    assert details["reference_sources"][0]["id"] == pair["evidence_ids"][0]

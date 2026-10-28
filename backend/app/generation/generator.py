@@ -11,12 +11,18 @@ from .runtime import stage_output, verify_context, verify_generation_sources, sa
 from .content_schemas import PairOutput
 from .content_validation import validate_group
 from .content_fixtures import fixture_pair
+from .source_policy import SOURCE_POLICY
 
 
 def question_input(context,q,earlier):
     ids=set(q["blueprint"]["evidence_ids"])
-    return {**copy.deepcopy(q),"config":context["input"]["config"],
-        "statements":context["input"]["statements"],"scope":context["input"]["course"]["scope_claims"],
+    academic={k:copy.deepcopy(v) for k,v in q.items() if k!="issues"}
+    return {**academic,"config":context["input"]["config"],
+        "statements":context["input"]["statements"],
+        "background_context":{"issues":copy.deepcopy(q.get("issues",[])),
+                              "scope":context["input"]["course"]["scope_claims"]},
+        "academic_source_ids":q["blueprint"]["evidence_ids"],
+        "source_policy":context.get("source_policy",SOURCE_POLICY),
         "sources":[s for s in context["input"]["sources"] if s["id"] in ids],
         "earlier_question_summaries":earlier,
         "allowed_assets":["function_graph","data_table"],"software_answers":False,

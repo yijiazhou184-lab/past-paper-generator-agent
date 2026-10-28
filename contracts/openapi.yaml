@@ -1071,11 +1071,15 @@ components:
         model_outputs:
           type: array
           items: {}
+        reference_sources:
+          type: array
+          items: {}
       required:
       - answers
       - assets
       - candidate_id
       - model_outputs
+      - reference_sources
       - report
     GenerationContentSchema:
       type: object

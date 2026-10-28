@@ -61,3 +61,34 @@ it("fetches the final report when task polling finishes before content polling",
   await screen.findByText("Checks passed for this candidate · publication arrives in batch 5");
   expect(vi.mocked(api).mock.calls.some(([p])=>p.endsWith("/answers"))).toBe(false);
 });
+
+
+it("separates teaching evidence from background and keeps reference details behind answers",async()=>{
+  const scoped={...candidate,sources:[{id:"teaching",material_code:"M35",physical_page:14}],
+    pairs:[{...candidate.pairs[0],evidence_ids:["teaching","unknown"],
+      source_summary:{academic:[{id:"teaching",status:"planned"},{id:"unknown",status:"unresolved"}],
+        duplicate_count:0,background_count:2}}]};
+  vi.mocked(api).mockImplementation(async path=>{
+    if(path.endsWith("/answers")) return {assets:[],reference_sources:[],report:null,model_outputs:[],
+      answers:[{question_id:"q",marking_basis:"suggested",answers:[],background_references:[
+        {label:"External context",evidence_id:null,url:"https://example.com/context",note:"BACKGROUND-SOLUTION-DETAIL"},
+        {label:"Unsafe link",evidence_id:null,url:"javascript:alert(1)",note:"Not fetched"}
+      ]}]};
+    return {mode:"fixture",candidates:[scoped]};
+  });
+  mount();
+  await screen.findByText("Practice stem");
+  await userEvent.click(screen.getByText("Source references"));
+  expect(screen.getByText("Academic / teaching evidence")).not.toBeNull();
+  expect(screen.getByText("Unresolved reference · not verified")).not.toBeNull();
+  expect(screen.getByRole("link",{name:"M35 · physical page 14"}).getAttribute("href")).toContain("source=teaching");
+  expect(document.querySelector('a[href*="source=unknown"]')).toBeNull();
+  expect(screen.queryByText("BACKGROUND-SOLUTION-DETAIL")).toBeNull();
+  expect(vi.mocked(api).mock.calls.some(([p])=>p.endsWith("/answers"))).toBe(false);
+  await userEvent.click(screen.getByRole("button",{name:"Show answers"}));
+  await screen.findByText("BACKGROUND-SOLUTION-DETAIL");
+  expect(screen.getByRole("link",{name:"Open external reference (unverified)"}).getAttribute("href")).toBe("https://example.com/context");
+  expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
+  await userEvent.click(screen.getByRole("button",{name:"Hide answers"}));
+  expect(screen.queryByText("BACKGROUND-SOLUTION-DETAIL")).toBeNull();
+});

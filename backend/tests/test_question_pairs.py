@@ -18,13 +18,12 @@ def test_pair_contract_and_marking(course, planned):
     payload = fixture_pair(q)
     PairOutput.model_validate(payload)
     assert validate_group(q, payload, context)["pair"]["question_id"] == q["id"]
-    for mutate in ("missing", "duplicate", "marks", "score", "source"):
+    for mutate in ("missing", "duplicate", "marks", "score"):
         bad = copy.deepcopy(payload)
         if mutate == "missing": bad["pair"]["answers"].pop()
         if mutate == "duplicate": bad["pair"]["parts"].append(bad["pair"]["parts"][0])
         if mutate == "marks": bad["pair"]["parts"][0]["marks"] += 1
         if mutate == "score": bad["pair"]["answers"][0]["marking_points"].append(bad["pair"]["answers"][0]["marking_points"][0])
-        if mutate == "source": bad["pair"]["evidence_ids"] = ["outside"]
         with pytest.raises(DomainError):
             validate_group(q, bad, context)
 

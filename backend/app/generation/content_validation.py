@@ -1,3 +1,4 @@
+import copy
 from collections import Counter
 from pydantic import ValidationError
 from app.core.errors import DomainError
@@ -11,6 +12,9 @@ def unique(items):
 
 
 def validate_group(question, output, context):
+    output=copy.deepcopy(output)
+    if isinstance(output.get("pair"),dict):
+        output["pair"].setdefault("background_references",[])  # Read old artifacts without rewriting them.
     try:
         data=PairOutput.model_validate(output).model_dump(mode="json")
     except ValidationError:
@@ -25,7 +29,8 @@ def validate_group(question, output, context):
     ids=[p["id"] for p in question["parts"]]
     require([p["part_id"] for p in pair["parts"]] == ids, "QUESTION_PARTS_MISMATCH")
     require(Counter(a["part_id"] for a in pair["answers"]) == Counter(ids), "ANSWER_PAIRING_INVALID")
-    require(unique(pair["evidence_ids"]) and set(pair["evidence_ids"]) <= set(question["evidence_ids"]), "PAIR_SOURCE_INVALID")
+    # Source scope is assessed in the saved report, not an early structural abort.
+    # Preserve unresolved/extra references for diagnosis and the bounded repair round.
     # This round has no official part-by-part rubric attached to the confirmed blueprint.
     require(pair["marking_basis"] == "suggested", "OFFICIAL_MARKING_UNSUPPORTED")
     answers={a["part_id"]:a for a in pair["answers"]}

@@ -30,3 +30,8 @@
   .candidate-part { padding-left:0; }
   .candidate-answers { padding:16px; }
 }
+
+.candidate-sources li,.background-references li { margin-block:12px; overflow-wrap:anywhere; }
+.candidate-sources small { display:block; color:var(--muted,#626879); }
+.background-references a { display:block; padding-block:6px; }
+.unresolved-reference { overflow-wrap:anywhere; }

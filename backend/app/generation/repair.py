@@ -3,6 +3,7 @@ from app.core.errors import DomainError
 from app.core.models import Task
 from app.core.tasks import checkpoint
 from .generator import generate_groups, persist_candidate
+from .source_policy import source_review_input
 
 
 def repair_candidate(token,context,candidate,report):
@@ -20,7 +21,7 @@ def repair_candidate(token,context,candidate,report):
                 requests.setdefault(qid,[]).append({**r,"target_ids":[qid]})
     # Deterministic failures can request a targeted repair even if the review omitted one.
     for c in blocked:
-        if c["method"] in ("sympy_subprocess","program") and c["result"]=="fail":
+        if (c["method"] in ("sympy_subprocess","program","source_policy") and c["result"]=="fail") or c["check_id"].endswith(":source_alignment"):
             for qid in c["target_ids"]:
                 if qid in ids:
                     requests.setdefault(qid,[]).append({"target_ids":[qid],"issue_codes":[c["check_id"]],"instructions":c["rationale"]})
@@ -45,6 +46,7 @@ def repair_candidate(token,context,candidate,report):
         targeted[qid]={"issues":issues,"previous_pair":pairs[qid],
             "local_checks":[c for c in blocked if qid in c["target_ids"]],
             "checker_contract":context["checker_contract"],
+            "source_review":source_review_input(context,[pairs[qid]]),
             "duplicate_comparison":{**duplicate_review,
                 "candidates":[c for c in duplicate_review["candidates"] if qid in c.get("target_ids",[])],
                 "findings":[f for f in duplicate_review["findings"] if qid in f["target_ids"]]},

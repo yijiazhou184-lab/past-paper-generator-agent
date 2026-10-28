@@ -578,6 +578,7 @@ export interface components {
             report: unknown;
             assets: unknown[];
             model_outputs: unknown[];
+            reference_sources: unknown[];
         };
         GenerationContentSchema: {
             mode: string;

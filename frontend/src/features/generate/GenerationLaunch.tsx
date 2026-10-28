@@ -40,6 +40,8 @@ export function GenerationLaunch({courseId, draft, disabled, refresh}: {
         <p>At most {preflight.scope.max_calls} model calls within {preflight.scope.task_seconds} seconds; each up to {preflight.scope.call_seconds} seconds. Official input-token counts run before new model calls. Unknown outcomes are not automatically replayed. store:false does not mean zero retention.</p>
         {!preflight.api_key_configured && <p role="alert">Add OPENAI_API_KEY to .env.local before live generation.</p>}
         <label className="check-line"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>I allow these inputs and derived candidate content to be sent for this generation and checking task, and accept my account's region and retention conditions.</label></>}
+      <p>Academic references should ground the main course knowledge. Small adjacent extensions can be accepted after review; an extra citation alone will not stop generation.</p>
+      <p>Background references may come from outside this course. They remain separate from teaching evidence and are not automatically verified or fetched.</p>
       <details><summary>Inspect exact generation scope</summary><pre>{JSON.stringify(preflight.scope,null,2)}</pre></details>
       <div className="actions"><button disabled={action.running} onClick={()=>setPreflight(null)}>Keep reviewing</button>
         <button className="primary" disabled={disabled || action.running || !!action.pending || live && (!preflight.api_key_configured || !preflight.authorized && !consent)}

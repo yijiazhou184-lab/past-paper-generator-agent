@@ -10,6 +10,7 @@ from .content_schemas import BlindOutput, SemanticOutput
 from .content_fixtures import fixture_blind, fixture_review, CATEGORIES
 from .checks import check, program_checks, mathematical_checks, release_gate, coverage_summary
 from .duplicates import duplicate_candidates
+from .source_policy import source_review_input, source_catalog
 
 
 def blind_input(context,pair,assets):
@@ -25,7 +26,7 @@ def review_semantics(token,context,candidate,local,blind,duplicates):
     data={"candidate":candidate.payload,"blueprint":context["input"]["blueprint"],
           "course":context["input"]["course"],"user_preferences":context["input"]["statements"],
           "config":context["input"]["config"],"local_checks":local,"blind_solutions":blind,
-          "duplicate_comparison":duplicates}
+          "duplicate_comparison":duplicates,"source_review":source_review_input(context,candidate.payload["pairs"])}
     output=stage_output(token,f"r{candidate.revision-1}:semantic","semantic_review",data,SemanticOutput,
                         lambda:fixture_review(candidate.payload["pairs"]))
     return output
@@ -85,22 +86,33 @@ def check_candidate(token,context,candidate):
     ids={p["question_id"] for p in candidate.payload["pairs"]}
     evidence_ids={s["id"] for s in context["input"]["sources"]}
     returned={}
-    invalid=False
+    invalid_keys=set()
+    catalog=source_catalog(context)
     for c in semantic["checks"]:
         key=(c["question_id"],c["category"])
-        if key in returned or c["question_id"] not in ids or not set(c["evidence_ids"])<=evidence_ids:
-            invalid=True
+        if c["question_id"] not in ids:
+            checks.append(check("review_target_notice:"+c["question_id"],[],"source_policy","inconclusive",
+                                "Review returned an unknown question ID; it cannot satisfy required coverage.",required=False))
+            continue
+        if key in returned:
+            invalid_keys.add(key)
+        unknown=sorted(set(c["evidence_ids"])-set(catalog))
+        if unknown:
+            checks.append(check(f"review_reference_notice:{key[0]}:{key[1]}",[key[0]],"source_policy","inconclusive",
+                                f"Review references cannot be resolved: {unknown}. No source content was invented.",unknown,required=False))
         returned[key]=c
     for qid in sorted(ids):
         for category in CATEGORIES:
             item=returned.get((qid,category))
-            if semantic["status"]!="complete" or invalid or item is None:
+            if semantic["status"]!="complete" or (qid,category) in invalid_keys or item is None:
                 checks.append(check(f"semantic:{qid}:{category}",[qid],"semantic_review","not_checked",
                                     semantic["explanation"] or "Required semantic judgement missing or invalid."))
             else:
                 # Requiredness and coverage are code-owned, never chosen by the model.
-                checks.append(check(f"semantic:{qid}:{category}",[qid],"semantic_review",item["result"],
-                                    item["rationale"],item["evidence_ids"]))
+                result,reason=item["result"],item["rationale"]
+                if category=="source_alignment" and result=="pass" and not (set(item["evidence_ids"]) & evidence_ids):
+                    result,reason="inconclusive","Teaching alignment was claimed without citing any supplied academic evidence. "+reason
+                checks.append(check(f"semantic:{qid}:{category}",[qid],"semantic_review",result,reason,item["evidence_ids"]))
     repairs=[r for r in semantic["repair_requests"] if set(r["target_ids"])<=ids]
     return save_report(token,candidate,checks,duplicates,repairs,blind)
 

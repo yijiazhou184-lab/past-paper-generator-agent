@@ -102,13 +102,21 @@ class Answer(Strict):
     checks: list[MathCheckSpec] = Field(max_length=20)
 
 
+class BackgroundReference(Strict):
+    label: str = Field(min_length=1, max_length=400)
+    evidence_id: str | None
+    url: str | None = Field(max_length=2000)
+    note: str = Field(max_length=2000)
+
+
 class QuestionPair(Strict):
     question_id: str
     stem: list[ContentBlock] = Field(min_length=1, max_length=30)
     parts: list[QuestionPart] = Field(min_length=1, max_length=12)
     answers: list[Answer] = Field(min_length=1, max_length=12)
     asset_ids: list[str] = Field(max_length=12)
-    evidence_ids: list[str] = Field(min_length=1, max_length=40)
+    evidence_ids: list[str] = Field(max_length=40)
+    background_references: list[BackgroundReference] = Field(max_length=40)
     originality_notes: str = Field(min_length=1, max_length=3000)
     marking_basis: Literal["suggested", "source_supported"]
 
@@ -134,7 +142,7 @@ class BlindOutput(Strict):
 
 class ReviewCheck(Strict):
     question_id: str
-    category: Literal["clarity", "conditions", "methods", "reasoning", "difficulty", "preferences", "originality", "blind_agreement", "math_relevance"]
+    category: Literal["clarity", "conditions", "methods", "reasoning", "difficulty", "preferences", "originality", "blind_agreement", "math_relevance", "source_alignment"]
     result: CheckStatus
     rationale: str = Field(min_length=1, max_length=4000)
     evidence_ids: list[str] = Field(max_length=40)
