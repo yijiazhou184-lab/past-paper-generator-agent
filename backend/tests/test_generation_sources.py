@@ -121,7 +121,7 @@ def test_reference_policy_is_frozen_and_old_policy_cannot_resume(course, planned
     from app.core.errors import DomainError
     from app.generation.runtime import verify_context
     task, context, _ = start(course, planned)
-    assert context["pipeline_version"] == "generation-v3"
+    assert context["pipeline_version"] == "generation-v4"
     assert context["source_policy"]["background_scope"] == "unrestricted"
     task.snapshot = copy.deepcopy(context)
     task.snapshot["source_policy"]["background_scope"] = "restricted"
@@ -150,7 +150,7 @@ def test_unrelated_duplicate_review_category_only_invalidates_that_category(cour
     task, context, token = start(course, planned)
     def review(pairs):
         output = fixture_review(pairs)
-        output["checks"].append(copy.deepcopy(output["checks"][0]))
+        output["checks"].append(copy.deepcopy(next(c for c in output["checks"] if c["category"]=="clarity")))
         return output
     with patch("app.generation.reviewer.fixture_review", side_effect=review):
         run_generation(token)

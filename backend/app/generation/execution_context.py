@@ -12,6 +12,7 @@ from .models import GenerationDraft, GenerationSnapshot, GenerationGrant
 from .snapshots import owned_course, require_confirmation, freeze_generation
 from .expressions import CHECKER_CONTRACT
 from .source_policy import SOURCE_POLICY
+from .review_policy import REVIEW_POLICY, PIPELINE_VERSION
 
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "ai/prompts"
 PROMPTS = ("question_pairs", "blind_solver", "semantic_review", "repair")
@@ -65,7 +66,7 @@ def build_generation_context(snapshot):
             for e in evidence.values()],
         "comparison_source_ids": comparison_ids, "history_content_ids": frozen["history_content_ids"],
         "history_cutoff": frozen["history_cutoff"], "history_status": frozen["history_status"]}
-    context = {"pipeline_version": "generation-v3", "source_policy": copy.deepcopy(SOURCE_POLICY), "mode": snapshot.mode, "input": data,
+    context = {"pipeline_version": PIPELINE_VERSION, "review_policy": copy.deepcopy(REVIEW_POLICY), "source_policy": copy.deepcopy(SOURCE_POLICY), "mode": snapshot.mode, "input": data,
         "checker_contract": copy.deepcopy(CHECKER_CONTRACT),
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses",
         "store": False, "max_calls": frozen["generation_limits"]["calls"], "task_seconds": 600,
@@ -85,7 +86,7 @@ def inspect_generation_scope(context):
         "purpose": "Paired questions and answers, blind solving, semantic and duplicate checks, and at most one repair round",
         "derived_inputs": ["Previously generated question summaries", "Candidate questions and answers",
                            "Blind solutions", "Local check results", "Retrieved excerpts from the listed sources"],
-        "count_requests": "One official input-token count before each new generation or review request; no new page images."}
+        "count_requests": "One official count before each new model request. Oversized required reviews may add bounded split counts (at most seven tree nodes for four questions, then one paper check). Optional checks can be skipped; no new page images."}
 
 
 def require_idle(course):

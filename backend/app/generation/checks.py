@@ -71,5 +71,7 @@ def release_gate(checks):
 def coverage_summary(checks):
     required=[c for c in checks if c["required_for_release"]]
     counts=Counter(c["result"] for c in required)
+    optional=[c for c in checks if not c["required_for_release"]]
     return {"required":len(required),"passed":counts["pass"],"failed":counts["fail"],
-            "not_checked":counts["not_checked"],"inconclusive":counts["inconclusive"]}
+            "not_checked":counts["not_checked"],"inconclusive":counts["inconclusive"],
+            "optional":len(optional),"optional_not_checked":sum(c["result"]=="not_checked" for c in optional)}

@@ -62,16 +62,21 @@ def run_call(token, call_key, spec, *, instructions, output_type, api_key, model
     return result
 
 
-def count_call(token, call_key, spec, *, instructions, output_type, api_key, model):
+def count_call(token, call_key, spec, *, instructions, output_type, api_key, model, timeout_seconds=60):
     """Count the exact request's input tokens with the official endpoint before any generation request.
 
     The count generates nothing, so an interrupted count may be repeated. The generation call must be
     started with the returned count; above TOKEN_LIMIT no generation request is made.
     """
     body = request_body(spec, instructions, output_type, model, byte_admission=False)
+    limit = min(TOKEN_LIMIT, spec.max_input_tokens)
     request_hash = digest(body)
     with transaction.atomic():
         task = locked_task(token)
+        remaining = max(0, (task.deadline_at - timezone.now()).total_seconds() - 5)
+        if remaining < 1:
+            raise DomainError("RUN_LIMIT_EXCEEDED")
+        timeout_seconds = min(timeout_seconds, remaining)
         previous = ModelInvocation.objects.filter(task=task, call_key=call_key).first()
         if previous and previous.request_hash != request_hash:
             raise DomainError("MODEL_CALL_CONTEXT_CHANGED")
@@ -83,20 +88,20 @@ def count_call(token, call_key, spec, *, instructions, output_type, api_key, mod
                     "purpose": "input_token_count", "prompt_version": spec.prompt_version,
                     "schema_version": spec.schema_version, "context_hash": spec.context_hash,
                     "endpoint": "https://api.openai.com/v1/responses/input_tokens", "store": None,
-                    "token_limit": TOKEN_LIMIT, "timeout_seconds": 60, "sdk_max_retries": 0})
+                    "token_limit": limit, "timeout_seconds": timeout_seconds, "sdk_max_retries": 0})
             result = None
     if result is None:
         checkpoint(token, f"Counting input tokens: {call_key}", {"call_id": str(invocation.id)})
-        result = count_official(body, api_key=api_key)
+        result = count_official(body, api_key=api_key, timeout_seconds=timeout_seconds)
         ModelInvocation.objects.filter(pk=invocation.id).update(
             state="completed", result=result.model_dump(mode="json"), finished_at=timezone.now())
     if result.status != "parsed":
         raise DomainError(result.error_code or "TOKEN_COUNT_FAILED",
                           "The official token count did not complete. No analysis request was sent.")
     counted = result.payload["input_tokens"]
-    checkpoint(token, f"Input tokens counted: {call_key}", {"input_tokens": counted, "limit": TOKEN_LIMIT})
-    if counted > TOKEN_LIMIT:
+    checkpoint(token, f"Input tokens counted: {call_key}", {"input_tokens": counted, "limit": limit})
+    if counted > limit:
         raise DomainError("TOKEN_BUDGET_EXCEEDED",
-                          f"The input is {counted} tokens, above the {TOKEN_LIMIT} limit. No analysis request was sent.",
+                          f"The input is {counted} tokens, above the {limit} limit. No analysis request was sent.",
                           retryable=False)
     return counted

@@ -1,16 +1,16 @@
-import copy
+"""Generate checks with durable partial progress and bounded model reviews."""
 from django.db import transaction
-from app.core.models import Task
 from app.core.idempotency import digest
 from app.core.tasks import checkpoint, locked_task, finish_task, fail_task
 from app.core.errors import DomainError
 from .models import CheckReport
 from .runtime import stage_output
-from .content_schemas import BlindOutput, SemanticOutput
-from .content_fixtures import fixture_blind, fixture_review, CATEGORIES
+from .content_schemas import BlindOutput
+from .content_fixtures import fixture_blind, fixture_review
 from .checks import check, program_checks, mathematical_checks, release_gate, coverage_summary
 from .duplicates import duplicate_candidates
-from .source_policy import source_review_input, source_catalog
+from .check_progress import save_check_stage, progress_report
+from .semantic_review import run_semantic_review, run_optional_review
 
 
 def blind_input(context,pair,assets):
@@ -22,55 +22,64 @@ def blind_input(context,pair,assets):
         "scope":context["input"]["course"]["scope_claims"],"user_preferences":context["input"]["statements"]}
 
 
-def review_semantics(token,context,candidate,local,blind,duplicates):
-    data={"candidate":candidate.payload,"blueprint":context["input"]["blueprint"],
-          "course":context["input"]["course"],"user_preferences":context["input"]["statements"],
-          "config":context["input"]["config"],"local_checks":local,"blind_solutions":blind,
-          "duplicate_comparison":duplicates,"source_review":source_review_input(context,candidate.payload["pairs"])}
-    output=stage_output(token,f"r{candidate.revision-1}:semantic","semantic_review",data,SemanticOutput,
-                        lambda:fixture_review(candidate.payload["pairs"]))
-    return output
-
-
 @transaction.atomic
 def save_report(token,candidate,checks,duplicates,repair_requests,blind):
     locked_task(token)
     existing=CheckReport.objects.filter(candidate=candidate).first()
     if existing:
         return existing
-    payload={"candidate_version_id":str(candidate.id),"checks":checks,"duplicate_review":duplicates,
+    progress=progress_report(candidate)
+    # Include required pending coverage as a final defensive gate.
+    values={c["check_id"]:c for c in (progress or {}).get("checks",[])}
+    values.update({c["check_id"]:c for c in checks})
+    checks=list(values.values())
+    payload={"candidate_version_id":str(candidate.id),"complete":True,
+             "checks":checks,"duplicate_review":duplicates,"stages":(progress or {}).get("stages",[]),
              "repair_requests":repair_requests,"coverage_summary":coverage_summary(checks),"blind_comparison":blind}
+    payload["version"]=digest(payload)
     return CheckReport.objects.create(candidate=candidate,payload=payload,payload_hash=digest(payload),gate=release_gate(checks))
 
 
 def check_candidate(token,context,candidate):
+    try:
+        return _check_candidate(token,context,candidate)
+    except DomainError as exc:
+        if exc.payload["code"] not in ("STALE_EXECUTION","RUN_LIMIT_EXCEEDED"):
+            save_check_stage(token,candidate,"interrupted",[],status="blocked",error_code=exc.payload["code"])
+            exc.payload["message"]="Questions and answers saved. Required validation could not finish. "+exc.payload["message"]
+        raise
+
+
+def _check_candidate(token,context,candidate):
     existing=CheckReport.objects.filter(candidate=candidate).first()
     if existing:
         if digest(existing.payload)!=existing.payload_hash:
             raise DomainError("CHECK_REPORT_CHANGED")
         return existing
     checkpoint(token,"Program checks",{"candidate_id":str(candidate.id)})
-    checks=program_checks(context,candidate.payload)
+    checks=save_check_stage(token,candidate,"program",program_checks(context,candidate.payload))["checks"]
     checkpoint(token,"Mathematical checks",{"candidate_id":str(candidate.id)})
-    checks.extend(mathematical_checks(candidate.payload["pairs"]))
+    checks=checks+save_check_stage(token,candidate,"math",mathematical_checks(candidate.payload["pairs"]))["checks"]
     checkpoint(token,"Blind solving",{"candidate_id":str(candidate.id)})
     blind=[]
     question_map={q["blueprint"]["id"]:q["blueprint"] for q in context["input"]["questions"]}
     for pair in candidate.payload["pairs"]:
         data=blind_input(context,pair,candidate.payload["assets"])
-        # Unchanged questions across repair rounds reuse the same blind solve by input identity.
         key="blind:"+digest(data)[:48]
         output=stage_output(token,key,"blind_solver",data,BlindOutput,lambda q=question_map[pair["question_id"]]:fixture_blind(q))
         parts=[p["part_id"] for p in pair["parts"]]
         returned=[a["part_id"] for a in output["answers"]]
         complete=output["status"]=="complete" and sorted(parts)==sorted(returned)
-        checks.append(check("blind_available:"+pair["question_id"],[pair["question_id"]],"blind_solver",
-                            "pass" if complete else "inconclusive",
-                            "Independent solution returned for every part." if complete else output["explanation"] or "Blind solution missing parts."))
+        item=check("blind_available:"+pair["question_id"],[pair["question_id"]],"blind_solver",
+                   "pass" if complete else "inconclusive",
+                   "Independent solution returned for every part." if complete else output["explanation"] or "Blind solution missing parts.")
         generated={a["part_id"]:a["final_answer"] for a in pair["answers"]}
         comparison=[{"part_id":a["part_id"],"exact_match":digest(a["final_answer"])==digest(generated.get(a["part_id"]))}
                     for a in output["answers"]]
-        blind.append({"question_id":pair["question_id"],"output":output,"comparison":comparison})
+        saved=save_check_stage(token,candidate,"blind-"+pair["question_id"],[item],
+                               blind=[{"question_id":pair["question_id"],"output":output,"comparison":comparison}])
+        checks+=saved["checks"]
+        blind+=saved["blind"]
     checkpoint(token,"Retrieving comparison questions")
     sources=[s for s in context["input"]["sources"] if s["id"] in context["input"]["comparison_source_ids"]]
     duplicates=duplicate_candidates(candidate.payload["pairs"],sources,context["input"]["history_content_ids"])
@@ -79,41 +88,17 @@ def check_candidate(token,context,candidate):
     duplicate_reason=("Potential substantive duplicates need repair." if duplicates["findings"] else
                       "Supplied comparison pages have no usable excerpts; originality has not been checked." if retrieval_missing else
                       "No exact or number-only match in the supplied comparison and within this candidate; semantic review is still required.")
-    checks.append(check("local_duplicates",[p["question_id"] for p in candidate.payload["pairs"]],"normalised_retrieval",
-                        duplicate_status,duplicate_reason))
+    item=check("local_duplicates",[p["question_id"] for p in candidate.payload["pairs"]],"normalised_retrieval",
+               duplicate_status,duplicate_reason)
+    saved=save_check_stage(token,candidate,"retrieval",[item],duplicates=duplicates)
+    checks+=saved["checks"]
+    duplicates=saved["duplicates"]
     checkpoint(token,"Semantic review",{"candidate_id":str(candidate.id)})
-    semantic=review_semantics(token,context,candidate,checks,blind,duplicates)
-    ids={p["question_id"] for p in candidate.payload["pairs"]}
-    evidence_ids={s["id"] for s in context["input"]["sources"]}
-    returned={}
-    invalid_keys=set()
-    catalog=source_catalog(context)
-    for c in semantic["checks"]:
-        key=(c["question_id"],c["category"])
-        if c["question_id"] not in ids:
-            checks.append(check("review_target_notice:"+c["question_id"],[],"source_policy","inconclusive",
-                                "Review returned an unknown question ID; it cannot satisfy required coverage.",required=False))
-            continue
-        if key in returned:
-            invalid_keys.add(key)
-        unknown=sorted(set(c["evidence_ids"])-set(catalog))
-        if unknown:
-            checks.append(check(f"review_reference_notice:{key[0]}:{key[1]}",[key[0]],"source_policy","inconclusive",
-                                f"Review references cannot be resolved: {unknown}. No source content was invented.",unknown,required=False))
-        returned[key]=c
-    for qid in sorted(ids):
-        for category in CATEGORIES:
-            item=returned.get((qid,category))
-            if semantic["status"]!="complete" or (qid,category) in invalid_keys or item is None:
-                checks.append(check(f"semantic:{qid}:{category}",[qid],"semantic_review","not_checked",
-                                    semantic["explanation"] or "Required semantic judgement missing or invalid."))
-            else:
-                # Requiredness and coverage are code-owned, never chosen by the model.
-                result,reason=item["result"],item["rationale"]
-                if category=="source_alignment" and result=="pass" and not (set(item["evidence_ids"]) & evidence_ids):
-                    result,reason="inconclusive","Teaching alignment was claimed without citing any supplied academic evidence. "+reason
-                checks.append(check(f"semantic:{qid}:{category}",[qid],"semantic_review",result,reason,item["evidence_ids"]))
-    repairs=[r for r in semantic["repair_requests"] if set(r["target_ids"])<=ids]
+    semantic,repairs=run_semantic_review(token,context,candidate,checks,blind,duplicates,fixture_review)
+    checks+=semantic
+    checkpoint(token,"Optional checks",{"candidate_id":str(candidate.id)})
+    checks+=run_optional_review(token,context,candidate,checks,blind,duplicates,fixture_review,
+                                required_passed=release_gate(checks)["allowed"])
     return save_report(token,candidate,checks,duplicates,repairs,blind)
 
 

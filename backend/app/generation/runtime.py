@@ -14,6 +14,7 @@ from .models import GenerationArtifact, GenerationSnapshot, GenerationGrant
 from .content_schemas import schema_hashes
 from .expressions import CHECKER_CONTRACT
 from .source_policy import SOURCE_POLICY
+from .review_policy import REVIEW_POLICY, PIPELINE_VERSION
 
 
 def verify_context(task):
@@ -22,8 +23,10 @@ def verify_context(task):
         raise DomainError("GENERATION_CONTEXT_HASH_MISMATCH")
     if context.get("checker_contract") != CHECKER_CONTRACT:
         raise DomainError("GENERATION_CHECKER_CHANGED", "Start a new preflight using the current mathematical checker contract.")
-    if context.get("source_policy") != SOURCE_POLICY or context.get("pipeline_version") != "generation-v3":
+    if context.get("source_policy") != SOURCE_POLICY or context.get("pipeline_version") != PIPELINE_VERSION:
         raise DomainError("GENERATION_SOURCE_POLICY_CHANGED", "Review a new preflight using the current academic and background reference policy.")
+    if context.get("review_policy") != REVIEW_POLICY:
+        raise DomainError("GENERATION_REVIEW_POLICY_CHANGED", "Review a new preflight using the current validation policy.")
     if schema_hashes() != context["schema_hashes"]:
         raise DomainError("GENERATION_SCHEMA_CHANGED", "Start a new preflight using the current generation schema.")
     if context["mode"]=="live" and not GenerationGrant.objects.filter(course=task.course,context_hash=context["context_hash"]).exists():
@@ -91,12 +94,23 @@ def stage_output(token,key,stage,input_data,output_type,fixture):
         if existing and (existing.state!="completed" or existing.result.get("error_code") in
                          ("PROVIDER_TIMEOUT","PROVIDER_CONNECTION_FAILED")):
             raise DomainError("MODEL_OUTCOME_UNKNOWN", "Review the interrupted model call before another paid request.")
-        spec=ModelCallSpec(stage=stage,prompt_version=context["pipeline_version"],schema_version="generation-v3",
-                           context_hash=input_hash,input=input_data)
+        from django.utils import timezone
+        optional=stage=="semantic_review" and input_data.get("review_mode")=="optional"
+        if not existing and task.call_count >= context["max_calls"]:
+            raise DomainError("CALL_BUDGET_EXCEEDED")
+        remaining=(task.deadline_at-timezone.now()).total_seconds()
+        if optional and not existing and remaining < REVIEW_POLICY["optional_min_seconds"]:
+            raise DomainError("OPTIONAL_TIME_BUDGET")
+        spec=ModelCallSpec(stage=stage,prompt_version=context["pipeline_version"],schema_version=PIPELINE_VERSION,
+                           context_hash=input_hash,input=input_data,
+                           max_input_tokens=REVIEW_POLICY["optional_input_tokens"] if optional else context["max_input_tokens"],
+                           max_output_tokens=REVIEW_POLICY["optional_output_tokens"] if optional else context["max_output_tokens"])
         kwargs={"instructions":context["prompts"][stage],"output_type":output_type,
                 "api_key":os.environ.get("OPENAI_API_KEY",""),"model":context["model"]}
-        counted=count_call(token,"count:"+key,spec,**kwargs)
-        result=run_call(token,key,spec,**kwargs,counted_tokens=counted,call_seconds=context["call_seconds"])
+        count_options={"timeout_seconds":REVIEW_POLICY["optional_count_seconds"]} if optional else {}
+        counted=count_call(token,"count:"+key,spec,**kwargs,**count_options)
+        result=run_call(token,key,spec,**kwargs,counted_tokens=counted,
+                        call_seconds=REVIEW_POLICY["optional_call_seconds"] if optional else context["call_seconds"])
         if result.status!="parsed":
             raise DomainError(result.error_code or "GENERATION_MODEL_FAILED",
                               "The model did not return usable content. The call record is retained.")

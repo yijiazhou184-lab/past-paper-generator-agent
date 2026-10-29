@@ -55,11 +55,13 @@ def fixture_blind(q):
                         "final_answer":copy.deepcopy(a["final_answer"])} for a in generated["answers"]]}
 
 
-CATEGORIES=("clarity","conditions","methods","reasoning","difficulty","preferences","originality","blind_agreement","source_alignment","math_relevance")
+from .review_policy import REQUIRED_CATEGORIES
+CATEGORIES=REQUIRED_CATEGORIES
 
 
 def fixture_review(pairs):
     return {"status":"complete","explanation":"Synthetic review; does not certify real quality.",
-        "checks":[{"question_id":p["question_id"],"category":c,"result":"pass",
+        "checks":[{"question_id":"paper","category":"paper_consistency","result":"pass",
+                   "rationale":"Synthetic whole-paper judgement.", "evidence_ids":[]}]+[{"question_id":p["question_id"],"category":c,"result":"pass",
                    "rationale":"Deterministic fixture review, not a live judgement.","evidence_ids":p["evidence_ids"]}
                   for p in pairs for c in CATEGORIES],"repair_requests":[]}

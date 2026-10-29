@@ -4,6 +4,7 @@ from app.core.models import Task
 from app.core.tasks import checkpoint
 from .generator import generate_groups, persist_candidate
 from .source_policy import source_review_input
+from .review_policy import review_call_bound
 
 
 def repair_candidate(token,context,candidate,report):
@@ -34,7 +35,7 @@ def repair_candidate(token,context,candidate,report):
         return None
     task=Task.objects.get(pk=token.task_id)
     # Reserve enough of the frozen ceiling for repairs, independent re-solves and a whole-paper review.
-    worst_case=2*len(requests)+1
+    worst_case=2*len(requests)+review_call_bound(len(ids))
     if context["mode"]=="live" and task.call_count+worst_case>context["max_calls"]:
         checkpoint(token,"Repair budget insufficient",{"required_calls_upper_bound":worst_case,
                     "remaining_calls":context["max_calls"]-task.call_count})

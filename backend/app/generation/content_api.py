@@ -6,6 +6,7 @@ from rest_framework import serializers
 from drf_spectacular.utils import extend_schema
 from app.core.models import Task
 from .models import CandidateVersion,CheckReport
+from .check_progress import progress_report
 from .source_policy import source_catalog, public_source_summary
 
 
@@ -31,6 +32,8 @@ class GenerationContentView(APIView):
         candidates=[]
         for c in task.candidates.order_by("revision"):
             report=CheckReport.objects.filter(candidate=c).first()
+            detail=report.payload if report else progress_report(c)
+            gate=report.gate if report else (detail or {}).get("gate")
             pairs=[{k:p[k] for k in ("question_id","stem","parts","asset_ids","evidence_ids")} for p in c.payload["pairs"]]
             for original,projected in zip(c.payload["pairs"],pairs):
                 projected["source_summary"]=public_source_summary(task.snapshot,original)
@@ -40,9 +43,11 @@ class GenerationContentView(APIView):
                 "mode":c.mode,"stage":c.stage,"payload_hash":c.payload_hash,"pairs":pairs,
                 "assets":[{"id":a["id"],"svg":a["svg"],"alt":a["alt"]} for a in c.payload["assets"] if a["id"] in refs],
                 "sources":[{k:sources[e][k] for k in ("id","material_code","material_version_id","physical_page") if k in sources[e]} for e in sorted(evidence) if e in sources],
-                "report": {"gate":report.gate,"coverage_summary":report.payload["coverage_summary"],
-                           "checks":[{k:v for k,v in check.items() if k!="rationale"} for check in report.payload["checks"]]}
-                          if report else None})
+                "report": {"gate":gate,"complete":detail.get("complete",True),
+                           "version":detail.get("version",report.payload_hash if report else ""),
+                           "stages":detail.get("stages",[]),"coverage_summary":detail["coverage_summary"],
+                           "checks":[{k:v for k,v in check.items() if k!="rationale"} for check in detail["checks"]]}
+                          if detail else None})
         return Response({"mode":task.snapshot["mode"],"candidates":candidates})
 
 
@@ -58,6 +63,6 @@ class GenerationAnswersView(APIView):
                                  for e in sorted(e for e in referenced if e in catalog)],
             "answers":[{"question_id":p["question_id"],"marking_basis":p["marking_basis"],
                         "answers":p["answers"],"background_references":p.get("background_references",[])} for p in candidate.payload["pairs"]],
-            "report":report.payload if report else None,
+            "report":report.payload if report else progress_report(candidate),
             "assets":[{"id":a["id"],"svg":a["svg"],"alt":a["alt"]} for a in candidate.payload["assets"]],
             "model_outputs":[{"key":c.call_key,"state":c.state,"result":c.result} for c in candidate.task.model_calls.order_by("created_at")]})

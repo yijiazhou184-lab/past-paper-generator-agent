@@ -92,3 +92,53 @@ it("separates teaching evidence from background and keeps reference details behi
   await userEvent.click(screen.getByRole("button",{name:"Hide answers"}));
   expect(screen.queryByText("BACKGROUND-SOLUTION-DETAIL")).toBeNull();
 });
+
+
+it("shows partial checks without offering a separate validation flow",async()=>{
+  vi.mocked(api).mockResolvedValue({mode:"fixture",candidates:[{...candidate,report:{
+    complete:false,version:"partial-v1",gate:{allowed:false,blocking_check_ids:["semantic:q:conditions"]},
+    coverage_summary:{required:2,passed:1,not_checked:1},checks:[],
+    stages:[{name:"math",status:"complete"}]
+  }}]});
+  mount();
+  await screen.findByText("Questions and answers saved. Required checks did not finish. Completed stages are retained.");
+  await userEvent.click(screen.getByText("Check progress"));
+  expect(screen.getByText("Mathematical checks — complete")).not.toBeNull();
+  expect(screen.queryByRole("button",{name:/resume validation/i})).toBeNull();
+  expect(vi.mocked(api).mock.calls.some(([p])=>p.endsWith("/answers"))).toBe(false);
+});
+
+it("allows success with skipped optional checks and preserves explicit answer opening",async()=>{
+  vi.mocked(api).mockResolvedValue({mode:"fixture",candidates:[{...candidate,report:{
+    complete:true,version:"final-v1",gate:{allowed:true,blocking_check_ids:[]},
+    coverage_summary:{required:10,passed:10,optional_not_checked:4},checks:[],
+    stages:[{name:"optional",status:"skipped"}]
+  }}]});
+  mount();
+  await screen.findByText("Some optional checks were skipped. All required checks passed.");
+  expect(screen.getByText("Checks passed for this candidate · publication arrives in batch 5")).not.toBeNull();
+  expect(vi.mocked(api).mock.calls.some(([p])=>p.endsWith("/answers"))).toBe(false);
+});
+
+
+it("refreshes opened check details when the partial report version changes",async()=>{
+  let version=1;
+  vi.mocked(api).mockImplementation(async path=>{
+    if(path.endsWith("/answers")) return {assets:[],answers:[],model_outputs:[],report:{
+      checks:[{check_id:"math",result:"pass",method:"symbolic",required_for_release:true,rationale:"Saved stage "+version}],
+      duplicate_review:{retrieval_coverage:"Not yet retrieved",compared_source_ids:[],compared_paper_ids:[]}
+    }};
+    return {mode:"fixture",candidates:[{...candidate,report:{complete:false,version:"v1",gate:{allowed:false,blocking_check_ids:[]},coverage_summary:{},checks:[]}}]};
+  });
+  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+  render(<QueryClientProvider client={client}><MemoryRouter><CandidatePreview taskId="task" courseId="course" running={false}/></MemoryRouter></QueryClientProvider>);
+  await screen.findByText("Practice stem");
+  await userEvent.click(screen.getByRole("button",{name:"Show answers"}));
+  await screen.findByText("Saved stage 1");
+  version=2;
+  client.setQueryData(["generation-content","task",false],{mode:"fixture",candidates:[{...candidate,report:{
+    complete:false,version:"v2",gate:{allowed:false,blocking_check_ids:[]},coverage_summary:{},checks:[]
+  }}]});
+  await screen.findByText("Saved stage 2");
+  expect(vi.mocked(api).mock.calls.filter(([p])=>p.endsWith("/answers"))).toHaveLength(2);
+});

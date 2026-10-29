@@ -21,7 +21,11 @@ def request_body(spec: ModelCallSpec, instructions: str, output_type: Type[BaseM
                  model: str, image: bytes | None = None, *, byte_admission: bool = True):
     """byte_admission=False leaves the input bound to an official token count made before the call."""
     schema = output_type.model_json_schema()
-    content = [{"type": "input_text", "text": json.dumps(spec.input, ensure_ascii=False)}]
+    # Review payloads are deterministic across JSONB reloads and omit JSON whitespace.
+    # This changes representation only; no mathematical/source content is removed.
+    text = (json.dumps(spec.input, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            if spec.stage == "semantic_review" else json.dumps(spec.input, ensure_ascii=False))
+    content = [{"type": "input_text", "text": text}]
     # Conservative local admission bound, not billed token usage. One small page only.
     bound = len((instructions + content[0]["text"] + json.dumps(schema)).encode("utf-8")) + 512
     if image:
