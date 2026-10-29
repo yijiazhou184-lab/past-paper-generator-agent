@@ -1,6 +1,6 @@
 # Codex 与 Claude Code 开发交接
 
-更新：2026-10-29，Asia/Shanghai。**最新实现为 generation-v4 核验改进；用户要求的三项修改已实现并通过最终完整回归。** 本次开始前基线为4d8e906，最新提交以git log -1为准；历史细节保留在 [第四批验证记录](batch-4-validation.md)。
+更新：2026-10-29，Asia/Shanghai。**最新实现为 generation-v4（代码基线2a63343）；后续用户授权的一次真实运行已完成，最终因必要质量检查未通过而失败。** 本次只运行/评估并更新记录，没有产品代码修改。最新提交以git log -1为准；详见 [真实实测](batch-4-live-generation-v4-2026-10-29.md)。
 
 ## 工作区与协作
 
@@ -39,7 +39,7 @@
 - 前端19 passed、类型检查和生产构建通过。
 - Django check 0 issues；makemigrations --check --dry-run无差异；OpenAPI验证通过且无变化。
 - Playwright6组、0 JS错误、登录后0写请求：可选跳过可成功、阶段展示、必要中断保留成果、答案主动打开/刷新、390px、旧真实失败不改状态。截图已查看。
-- 后端测试阻断真实OpenAI传输；本次0新增真实模型/官方计数调用。
+- 上述属于实现阶段验证：后端测试阻断真实OpenAI传输。后续本次真实运行另有12次模型+12次计数，详见下文；没有重新运行上述全量回归。
 
 合成演示（课程a1d95d44，B4-REVIEW-FIXTURE，不代表模型质量）：
 - 成功且可选跳过：http://127.0.0.1:5173/tasks/ba5ca16b-99e9-4b79-b8fa-4e5329dc11fc
@@ -48,32 +48,37 @@
 本机证据：var/review-budget-fixture.json、var/review-budget-browser-check.json、var/screenshots/review-budget-*.png。
 内置浏览器打开请求返回queued；实际页面可用性已由Playwright验证。
 
-## 真实数据状态与离线回放
+## 最新真实数据状态
 
-真实QM课程68caa35d-6e08-42d7-84bd-70a23e369b1f，已确认version2；当前四大题/15小问/60分快照68a09ab1-6059-4b59-a4af-6d3b880f1b2d。
+真实QM课程68caa35d-6e08-42d7-84bd-70a23e369b1f，确认version2；快照68a09ab1-6059-4b59-a4af-6d3b880f1b2d（4大题/15小问/60分/90分钟建议作答时长）。
 
-最新真实生成仍为32bb6d9c-2121-4f4a-9a6a-b89c585b7b32，2026-10-28 23:12:33–23:17:13：
-- 原generation-v3，gpt-6.1-sol，store:false；4题答+4盲解完成，9次计数。
-- 语义输入67,531 > 应用60,000；没有语义模型请求、完整CheckReport、修复或发布。
-- 原候选b255c962-b0fa-43c8-bace-fe53c6ecf6e6保留，原失败/调用记录不改。
-- 原用量135,523 tokens、耗时280.398秒；不是本次新增调用。
+最新任务7496b3cb-8a75-46bf-9840-a1839f193f5d，2026-10-29 18:20:41–18:30:16，执行574.929秒。
+- 新context hash 99c7a804c9634108ee3253302c0262fb086849d4db7cb438cecdd90fa51da567。33页及整个input与上一真实任务32bb6d9c一致，无新页图。
+- 用户明确授权在新预检下运行一次，已通过网页新预检提交；该次运行结束，不据此自动再发起付费生成。
+- 官方gpt-6.1-sol，store:false；12次模型、12次计数，全部completed，模型全部parsed，无未知结果、超时或输出截断。
+- usage输入251,203、输出64,410、合计315,613。费用未查询；cached 8,282已含输入、reasoning 5,811已含输出。
+- 语义输入57,426/59,784，模型耗时58.653/59.715秒。均未超60k，真实拆分没有触发，拆分耗时仍待实测。最终只剩216-token输入余量。
+- 生成四题后首轮检查发现Q3原创性及定义域验证问题，系统完成一次Q3定向修复，再核验整卷；其余三题和独立解题复用。
+- 最终failed / REQUIRED_CHECKS_BLOCKED：87必要项78pass、3fail、5inconclusive、1not_checked。16可选语义项因必要项未过跳过，不是可选token超限。
+- 修复后Q3(d)重复Q1(d)的振荡函数与解题路径，构成题间提示；数学工具不能处理部分三角/对数定义域和绝对值辅助最值。这不是已证明极限答案错误。
+- 候选v1 d0e3f82f-50a7-4694-8e82-431dc99dfa1a；v2 94917b7c-f194-431c-90ba-01d5d7e821c8。两份完整CheckReport均保存；未发布。
+- 页面：http://127.0.0.1:5173/tasks/7496b3cb-8a75-46bf-9840-a1839f193f5d 。可切Saved candidate，Show answers后看Detailed check report。
+- 离线回放重现5个本地阻塞，候选/报告hash通过；真实页面6组检查通过、0 JS/KaTeX错误、登录后0写请求。原记录没有修改。
 
-本次scripts/audit_review_projection.py在只读事务中重建旧输入，hash一致；本地检查8项结构/引用、26项数学均通过，但未做新的盲解或语义判定。新输入从201,697字符降至174,982字符（13.25%）；单题74,293–82,804字符，整卷复核56,594字符。这些是字符，不是官方token计数，不能宣称新真实请求必定达标。
+本机忽略证据：var/generation-v4-live-preflight.{json,md}、generation-v4-live-receipt.json、generation-v4-live-observation.json、generation-audit-7496b3cb-8a75-46bf-9840-a1839f193f5d.json、generation-v4-live-browser-check.json、generation-v4-live-final-status.json。完整含时序报告见[真实实测](batch-4-live-generation-v4-2026-10-29.md)。
 
-结果：var/review-projection-32bb6d9c-2121-4f4a-9a6a-b89c585b7b32.json。
-复查命令：
-    & .\.venv\Scripts\python.exe -X utf8 scripts/audit_review_projection.py 32bb6d9c-2121-4f4a-9a6a-b89c585b7b32
+旧32bb6d9c保留：原generation-v3语义输入67,531超限，未调用语义模型且没有完整报告。本次没有恢复或改写它。此前离线同内容201,697→174,982字符（−13.25%）只代表字符变化，不能和本次不同候选的实际token直接作因果比较。
 
 ## 下一步与未验证事项
 
-本次实现不等于generation-v4真实质量验收。下一次真实运行需从QM Generate的新精确预检明确提交：
-http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/generate
+建议范围尚未实施：
+1. 增强修复时的全卷去重：输入已有其他题摘要，但模型仍重复了决定性表达式和证明步骤；需要更明确的避免重用约束及本地结构检查，不能把共享课程方法一律视为重复。
+2. 补数学定义域/界证明、分段处理和检查能力约定。当前每个模型提供的数学规格都作为必要项，新增辅助规格会额外阻塞；需按核心结论和辅助证据分别明确责任，不擅自将未知改pass。
+3. 容量仍紧，真实拆分与可选预算分支未覆盖；574.9秒也未达两分钟目标。先在本地用本次保留数据检查上述问题，再安排新的明确真实运行。
 
-密钥已配置、既有Grant或用户认可实现方案，不代表新增无限付费重试。没有获得本次新策略的独立真实运行提交，不自动发送。维持官方目的地、store:false和未知结果不自动重放。
+当前单次运行已结束，没有继续付费调用授权。不得把旧Grant或密钥存在理解为无限重跑。若用户明确提出下一次运行，沿用既定数据范围并核对新预检，无需重复询问已授权内容。
 
-后续应核查新版本实际token/分组/耗时、语义质量和一轮修复结果；不能把fixture通过当真实通过。不新增用户拒绝的专用核验恢复能力。
-
-批次5（阅读/历史、两个PDF、唯一发布/恢复）及批次6（六次真实验收）尚未开发，本次没有进入。两分钟目标、专项质量校准、数学覆盖及早期输出截断诊断仍有后续工作。
+核验仍属于Generate，不加Resume validation。批次5（阅读/PDF/发布）和6（六次验收）未进入；不要把本次失败实测计为六次验收通过。
 
 历史记录：
 - 344da144：第一次真实候选及未放行检查保留，修复needs_info。
@@ -82,9 +87,9 @@ http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/generate
 - 8f2e167c：旧引用白名单失败；原记录保留，之后已实现来源分层。
 - 00dd1359：来源分层合成演示，0模型调用。
 
-scripts/audit_generation_task.py仍要求完整check_report，不能用于原32bb无报告任务；使用本次audit_review_projection.py。测试/演示helper会新增独立fixture，不改真实课程。
+scripts/audit_generation_task.py适用于本次7496b3cb（已执行）；原32bb无完整报告，仍应使用audit_review_projection.py。测试/演示helper会新增独立fixture，不改真实课程。
 
 
 ## 最终运行状态
 
-2026-10-29 18:10:46：web/api/worker/dispatcher均为本项目活动进程；5173前端、8000/API session、前端代理session均200。0活动业务任务，旧真实失败状态/候选hash保持，从旧任务结束后没有新ModelInvocation。服务保留运行，证据var/review-budget-final-status.json。需要操作时直接访问上述链接；本次没有关闭服务。
+2026-10-29 18:34:23：web/api/worker/dispatcher均为本项目活动进程；5173、8000/API session、前端代理session均200。0活动任务，本次24条调用记录均有终态，结束后0新增调用。服务保留运行，证据var/generation-v4-live-final-status.json。页面可直接访问，无需重复启动。
