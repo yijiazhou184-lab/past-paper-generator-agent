@@ -20,7 +20,8 @@ class ModelCallSpec(BaseModel):
     context_hash: str
     input: dict[str, Any]
     max_input_tokens: int = Field(default=60000, gt=0, le=60000)
-    max_output_tokens: int = Field(default=12000, gt=0, le=12000)
+    # Global ceiling; each stage's actual limit is frozen in its own context.
+    max_output_tokens: int = Field(default=12000, gt=0, le=32000)
 
 
 class ModelCallResult(BaseModel):

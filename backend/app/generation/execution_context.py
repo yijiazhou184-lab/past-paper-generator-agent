@@ -70,8 +70,10 @@ def build_generation_context(snapshot):
     context = {"pipeline_version": PIPELINE_VERSION, "review_policy": copy.deepcopy(REVIEW_POLICY), "originality_policy": copy.deepcopy(ORIGINALITY_POLICY), "source_policy": copy.deepcopy(SOURCE_POLICY), "mode": snapshot.mode, "input": data,
         "checker_contract": copy.deepcopy(CHECKER_CONTRACT),
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses",
-        "store": False, "max_calls": frozen["generation_limits"]["calls"], "task_seconds": 600,
+        "store": False, "max_calls": frozen["generation_limits"]["calls"], "task_seconds": 900,
         "call_seconds": 240, "max_parallel_calls": 2, "max_input_tokens": 60000, "max_output_tokens": 12000,
+        # User decision 2026-10-30: only question generation and repair get the larger output and call limits.
+        "generation_output_tokens": 20000, "generation_call_seconds": 300,
         "repair_rounds": 1, "new_page_images": 0, "sdk_max_retries": 0,
         "count_endpoint": "https://api.openai.com/v1/responses/input_tokens",
         "prompts": {name: (PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8") for name in PROMPTS}}

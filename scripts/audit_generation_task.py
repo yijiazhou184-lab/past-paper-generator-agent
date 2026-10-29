@@ -64,6 +64,7 @@ def audit(task_id,candidate_id=None):
         # Facts about intra-paper overlaps come only from a new review; offline replay records the program hints.
         "offline_intra_paper_hints":overlap_hints(candidate.payload["pairs"]),
         "offline_auxiliary_unresolved":[c["check_id"] for c in local if c.get("limitation")],
+        "reused_groups":{a.key:a.payload for a in task.generation_artifacts.filter(key__startswith="reused:")},
         "new_model_calls":0,"new_semantic_review":False,"publication_allowed":False,
     }
     output={"summary":summary,"calls":[{"id":str(c.id),"key":c.call_key,"state":c.state,

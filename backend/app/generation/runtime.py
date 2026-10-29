@@ -17,6 +17,9 @@ from .source_policy import SOURCE_POLICY
 from .review_policy import REVIEW_POLICY, PIPELINE_VERSION
 
 
+GENERATION_STAGES=("question_pairs","repair")
+
+
 def verify_context(task):
     context=task.snapshot
     if digest({k:v for k,v in context.items() if k!="context_hash"}) != context["context_hash"]:
@@ -101,16 +104,20 @@ def stage_output(token,key,stage,input_data,output_type,fixture):
         remaining=(task.deadline_at-timezone.now()).total_seconds()
         if optional and not existing and remaining < REVIEW_POLICY["optional_min_seconds"]:
             raise DomainError("OPTIONAL_TIME_BUDGET")
+        generating=stage in GENERATION_STAGES
+        output_limit=(REVIEW_POLICY["optional_output_tokens"] if optional else
+                      context.get("generation_output_tokens",context["max_output_tokens"]) if generating else context["max_output_tokens"])
         spec=ModelCallSpec(stage=stage,prompt_version=context["pipeline_version"],schema_version=PIPELINE_VERSION,
                            context_hash=input_hash,input=input_data,
                            max_input_tokens=REVIEW_POLICY["optional_input_tokens"] if optional else context["max_input_tokens"],
-                           max_output_tokens=REVIEW_POLICY["optional_output_tokens"] if optional else context["max_output_tokens"])
+                           max_output_tokens=output_limit)
         kwargs={"instructions":context["prompts"][stage],"output_type":output_type,
                 "api_key":os.environ.get("OPENAI_API_KEY",""),"model":context["model"]}
         count_options={"timeout_seconds":REVIEW_POLICY["optional_count_seconds"]} if optional else {}
         counted=count_call(token,"count:"+key,spec,**kwargs,**count_options)
         result=run_call(token,key,spec,**kwargs,counted_tokens=counted,
-                        call_seconds=REVIEW_POLICY["optional_call_seconds"] if optional else context["call_seconds"])
+                        call_seconds=REVIEW_POLICY["optional_call_seconds"] if optional else
+                        context.get("generation_call_seconds",context["call_seconds"]) if generating else context["call_seconds"])
         if result.status!="parsed":
             raise DomainError(result.error_code or "GENERATION_MODEL_FAILED",
                               "The model did not return usable content. The call record is retained.")

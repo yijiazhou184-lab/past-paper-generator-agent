@@ -15,7 +15,7 @@ function checkLabel(c:Check) {
 type Answer={part_id:string;worked_solution:Block[];final_answer:Block[];marking_points:{id:string;text:string;marks:number;alternative_group:string|null}[];
   acceptable_alternatives:string[];units:string|null;precision:string|null};
 type Candidate={id:string;revision:number;mode:string;stage:string;parent_id:string|null;assets:Asset[];
-  pairs:{question_id:string;stem:Block[];parts:{part_id:string;prompt:Block[];marks:number;assumptions:string[]}[];evidence_ids:string[];source_summary?:SourceSummary}[];
+  pairs:{question_id:string;stem:Block[];parts:{part_id:string;prompt:Block[];marks:number;assumptions:string[]}[];evidence_ids:string[];source_summary?:SourceSummary;reused_from_task?:string}[];
   sources:Source[];
   report:{gate:{allowed:boolean;blocking_check_ids:string[]};coverage_summary:Record<string,number>;checks:Check[];complete?:boolean;version?:string;stages?:{name:string;status:string;question_ids?:string[]}[]}|null};
 type Answers={assets:Asset[];reference_sources?:Source[];answers:{question_id:string;marking_basis:string;answers:Answer[];background_references?:BackgroundReference[]}[];
@@ -55,6 +55,7 @@ function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candida
   </div>
     <div className="candidate-questions">{candidate.pairs.map((q,index)=><article className="candidate-question" key={q.question_id}>
       <header><h3>Question {index+1}</h3><span>{q.parts.reduce((sum,p)=>sum+p.marks,0)} marks</span></header>
+      {q.reused_from_task && <p className="assumptions">Reused from an earlier attempt (task {q.reused_from_task.slice(0,8)}) after revalidation; not generated again.</p>}
       <ContentBlocks blocks={q.stem} assets={candidate.assets}/>
       {q.parts.map((part,i)=><section className="candidate-part" key={part.part_id}><div className="part-heading"><strong>({String.fromCharCode(97+i)})</strong><span>{part.marks} marks</span></div>
         <ContentBlocks blocks={part.prompt} assets={candidate.assets}/>

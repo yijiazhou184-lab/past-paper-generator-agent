@@ -8,7 +8,7 @@ from .idempotency import intent
 from .types import ExecutionToken
 from .errors import DomainError
 
-LIMITS = {"parse": 900, "analysis": 900, "planning": 180, "generation": 600, "export": 120,
+LIMITS = {"parse": 900, "analysis": 900, "planning": 180, "generation": 900, "export": 120,
           "ai_validation": 900, "visual_transcription": 900}
 
 

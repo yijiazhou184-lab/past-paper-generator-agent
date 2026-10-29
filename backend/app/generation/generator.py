@@ -43,11 +43,58 @@ def generate_group(token,context,q,earlier,round_number=0,repair_request=None):
             continue
         previous=GenerationArtifact.objects.filter(task_id=previous_task,key=validated_key,input_hash=input_hash).first()
         if previous and previous.payload_hash==digest(previous.payload):
+            if previous_task!=task.id:
+                # Every reuse from another task records where the group came from.
+                save_artifact(token,"reused:"+validated_key,input_hash,
+                              {"from_task":str(previous_task),"from_artifact":str(previous.id),"call_ids":previous.call_ids},[])
             return save_artifact(token,validated_key,input_hash,previous.payload,previous.call_ids)
+    if round_number==0:
+        reused=reuse_from_earlier_task(token,context,q,stage,data,validated_key,input_hash)
+        if reused is not None:
+            return reused
     output=stage_output(token,key,stage,data,PairOutput,lambda:fixture_pair(q["blueprint"]))
     validated=validate_group(q["blueprint"],output,context)
     raw=GenerationArtifact.objects.get(task_id=token.task_id,key=key)
     return save_artifact(token,validated_key,input_hash,validated,raw.call_ids)
+
+
+def generation_basis(context):
+    """Everything that determines a generated group's content. Limits, timeouts and review policy are excluded."""
+    return {"mode":context["mode"],"model":context["model"],"prompt":context["prompts"]["question_pairs"],
+            "pair_schema":context["schema_hashes"]["pair"],"checker_contract":context["checker_contract"],
+            "source_policy":context.get("source_policy"),"input":context["input"]}
+
+
+def reuse_from_earlier_task(token,context,q,stage,data,validated_key,input_hash):
+    """Reuse a validated round-0 group from an earlier task on the same frozen snapshot (user decision 2026-10-30).
+
+    The earlier task's own context hash rebuilds its input hash, so the group's inputs, including the
+    summaries of earlier questions, must be identical. The group is revalidated under current rules.
+    """
+    task=Task.objects.get(pk=token.task_id)
+    basis=generation_basis(context)
+    earlier=Task.objects.filter(course_id=task.course_id,kind="generation",
+                                state__in=("succeeded","failed","cancelled","needs_info"),
+                                created_at__lt=task.created_at).order_by("-created_at")
+    for previous in earlier:
+        other=previous.snapshot
+        if other.get("input",{}).get("snapshot_id")!=context["input"]["snapshot_id"]:
+            continue
+        try:
+            if generation_basis(other)!=basis:
+                continue
+        except KeyError:
+            continue
+        old_hash=digest({"context_hash":other["context_hash"],"stage":stage,"input":data})
+        artifact=GenerationArtifact.objects.filter(task=previous,key=validated_key,input_hash=old_hash).first()
+        if artifact is None or artifact.payload_hash!=digest(artifact.payload):
+            continue
+        revalidated=validate_group(q["blueprint"],{"status":"complete","explanation":"","pair":artifact.payload["pair"],
+                                   "assets":[a["spec"] for a in artifact.payload["assets"]]},context)
+        save_artifact(token,"reused:"+validated_key,input_hash,
+                      {"from_task":str(previous.id),"from_artifact":str(artifact.id),"call_ids":artifact.call_ids},[])
+        return save_artifact(token,validated_key,input_hash,revalidated,artifact.call_ids)
+    return None
 
 
 def generate_groups(token,context,questions=None,round_number=0,repair_requests=None):
