@@ -124,3 +124,28 @@ def test_whole_run_blocks_and_repairs_only_the_later_question(course, planned):
     item = next(c for c in first.payload["checks"] if c["check_id"] == "paper:intra_duplicates")
     assert item["result"] == "fail" and first.gate["allowed"] is False
     assert targeted == [[order[-1]]]  # only the later question of the duplicate pair is repaired
+
+
+def test_evaluation_set_is_well_formed_and_covers_the_three_cases():
+    import json, sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    data = json.loads((root / "backend/tests/fixtures/intra_paper_overlap_eval.json").read_text(encoding="utf-8"))
+    cases = data["cases"]
+    assert len({c["id"] for c in cases}) == len(cases)
+    expected_by_category = {"same_stimulus_different_conclusion": (True, False),
+                            "different_stimulus_same_conclusion": (False, True),
+                            "same_stimulus_same_conclusion": (True, True)}
+    for c in cases:
+        assert (c["expected"]["same_stimulus"], c["expected"]["same_conclusion"]) == expected_by_category[c["category"]]
+        assert ("part_a" in c and "part_b" in c) or c["source"]["type"] == "local_candidate"
+    assert {c["subject"] for c in cases} >= {"mathematics", "accounting", "statistics"}
+    local = [c for c in cases if "source" in c]
+    assert local and all("part_a" not in c for c in local)  # private course-derived text is not stored
+    sys.path.insert(0, str(root / "scripts"))
+    from eval_overlap_facts import score
+    perfect = [{"id": c["id"], **c["expected"]} for c in cases]
+    assert score(data, perfect)["mismatches"] == []
+    flipped = [{**p, "same_conclusion": not p["same_conclusion"]} if p["id"] == cases[0]["id"] else p for p in perfect]
+    result = score(data, flipped)
+    assert result["same_conclusion_agree"] == len(cases) - 1 and result["mismatches"][0]["fields"] == ["same_conclusion"]

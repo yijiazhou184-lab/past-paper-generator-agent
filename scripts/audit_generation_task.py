@@ -19,13 +19,15 @@ from app.core.models import Task
 from app.core.idempotency import digest
 from app.generation.checks import mathematical_checks, program_checks, coverage_summary
 from app.generation.duplicates import duplicate_candidates
+from app.generation.shared_material import overlap_hints
 
 
-def audit(task_id):
+def audit(task_id,candidate_id=None):
     task=Task.objects.get(pk=task_id,kind="generation")
     if task.state in ("queued","processing"):
         raise ValueError("Wait for the original task to reach a terminal state before offline replay.")
-    candidate=task.candidates.order_by("-revision").first()
+    candidates=task.candidates.order_by("-revision")
+    candidate=candidates.get(pk=candidate_id) if candidate_id else candidates.first()
     if candidate is None:
         raise ValueError("This task has no complete candidate to replay.")
     report=candidate.check_report
@@ -59,6 +61,9 @@ def audit(task_id):
             "compared_pages":len(duplicates["compared_source_ids"]),"retrieval_status":duplicates["retrieval_status"],
             "per_question":{p["question_id"]:sum(p["question_id"] in c["target_ids"] for c in duplicates["candidates"]) for p in candidate.payload["pairs"]},
             "exact_duplicate_findings":duplicates["findings"]},
+        # Facts about intra-paper overlaps come only from a new review; offline replay records the program hints.
+        "offline_intra_paper_hints":overlap_hints(candidate.payload["pairs"]),
+        "offline_auxiliary_unresolved":[c["check_id"] for c in local if c.get("limitation")],
         "new_model_calls":0,"new_semantic_review":False,"publication_allowed":False,
     }
     output={"summary":summary,"calls":[{"id":str(c.id),"key":c.call_key,"state":c.state,
@@ -70,7 +75,7 @@ def audit(task_id):
     task.refresh_from_db();candidate.refresh_from_db();report.refresh_from_db()
     assert task.model_calls.count()==len(calls)
     assert candidate.payload_hash==digest(candidate.payload) and report.payload_hash==digest(report.payload)
-    path=ROOT/"var"/f"generation-audit-{task.id}.json"
+    path=ROOT/"var"/(f"generation-audit-{task.id}.json" if not candidate_id else f"generation-audit-{task.id}-{candidate.id}.json")
     path.write_text(json.dumps(output,indent=2,ensure_ascii=False),encoding="utf-8")
     print(json.dumps({"path":str(path),**summary},indent=2,ensure_ascii=True))
 
@@ -78,4 +83,6 @@ def audit(task_id):
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("task_id")
-    audit(parser.parse_args().task_id)
+    parser.add_argument("--candidate",help="Replay this saved candidate instead of the latest revision")
+    args=parser.parse_args()
+    audit(args.task_id,args.candidate)

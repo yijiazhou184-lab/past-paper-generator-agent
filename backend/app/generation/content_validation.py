@@ -15,6 +15,10 @@ def validate_group(question, output, context):
     output=copy.deepcopy(output)
     if isinstance(output.get("pair"),dict):
         output["pair"].setdefault("background_references",[])  # Read old artifacts without rewriting them.
+        for answer in output["pair"].get("answers") or []:
+            for spec in answer.get("checks") or []:
+                if isinstance(spec,dict):
+                    spec.setdefault("role","core")  # Saved before roles existed: core, never relaxed.
     try:
         data=PairOutput.model_validate(output).model_dump(mode="json")
     except ValidationError:

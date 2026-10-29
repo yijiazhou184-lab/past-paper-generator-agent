@@ -5,7 +5,13 @@ import { api } from "../../api/client";
 import { ContentBlocks, type Block, type Asset } from "./ContentBlocks";
 import "./candidate.css";
 
-type Check={check_id:string;result:string;method:string;required_for_release:boolean;rationale?:string};
+type Check={check_id:string;result:string;method:string;required_for_release:boolean;rationale?:string;math_role?:"core"|"auxiliary";limitation?:string};
+
+function checkLabel(c:Check) {
+  if(c.limitation) return " (auxiliary · not decided, non-blocking)";
+  if(c.math_role==="auxiliary") return c.required_for_release ? " (auxiliary · required)" : " (auxiliary)";
+  return c.required_for_release ? " (required)" : " (optional)";
+}
 type Answer={part_id:string;worked_solution:Block[];final_answer:Block[];marking_points:{id:string;text:string;marks:number;alternative_group:string|null}[];
   acceptable_alternatives:string[];units:string|null;precision:string|null};
 type Candidate={id:string;revision:number;mode:string;stage:string;parent_id:string|null;assets:Asset[];
@@ -41,10 +47,11 @@ function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candida
       : report ? report.gate.allowed ? "Checks passed for this candidate · publication arrives in batch 5" : "Required checks did not pass. This candidate is retained for review."
       : running ? "Checks are still pending. This is not a published practice." : "Checks did not finish. This candidate has no complete check report."}</p>
     {report?.gate.allowed && report.coverage_summary.optional_not_checked>0 && <p>Some optional checks were skipped. All required checks passed.</p>}
+    {!!report?.coverage_summary.auxiliary_unresolved && <p>Some supporting mathematical checks could not be decided. They are recorded as limitations; the written reasoning was judged separately.</p>}
     {!!report?.stages?.length && <details><summary>Check progress</summary><ol aria-label="Check stages">{report.stages.map(s=><li key={s.name}>{stageLabel(s.name,s.question_ids,candidate.pairs)} — {s.status}</li>)}</ol></details>}
     {candidate.mode==="fixture" && <p>The examples and review judgments are synthetic. They demonstrate the workflow, not real question quality.</p>}
     {report && <details><summary>Check summary</summary><dl className="check-counts">{Object.entries(report.coverage_summary).map(([k,v])=><div key={k}><dt>{k.replaceAll("_"," ")}</dt><dd>{v}</dd></div>)}</dl>
-      <ul>{report.checks.map((c,i)=><li key={c.check_id+":"+i}>{c.check_id} — {c.result.replaceAll("_"," ")}{c.required_for_release ? " (required)" : " (optional)"}</li>)}</ul><p>Detailed reasoning is available when you open the answers.</p></details>}
+      <ul>{report.checks.map((c,i)=><li key={c.check_id+":"+i}>{c.check_id} — {c.result.replaceAll("_"," ")}{checkLabel(c)}</li>)}</ul><p>Detailed reasoning is available when you open the answers.</p></details>}
   </div>
     <div className="candidate-questions">{candidate.pairs.map((q,index)=><article className="candidate-question" key={q.question_id}>
       <header><h3>Question {index+1}</h3><span>{q.parts.reduce((sum,p)=>sum+p.marks,0)} marks</span></header>
@@ -67,7 +74,7 @@ function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candida
             {(a.units || a.precision) && <p>{a.units && "Units: "+a.units+". "}{a.precision && "Precision: "+a.precision}</p>}
           </section>)}<BackgroundReferences references={q.background_references || []} sources={answers.data?.reference_sources || []} courseId={courseId}/></article>)}
         {answers.data?.report && <details><summary>Detailed check report</summary>
-          {answers.data.report.checks.map((c,i)=><div className="detailed-check" key={c.check_id+":"+i}><strong>{c.check_id} · {c.result.replaceAll("_"," ")}</strong><p>{c.rationale}</p><small>{c.method}</small></div>)}
+          {answers.data.report.checks.map((c,i)=><div className="detailed-check" key={c.check_id+":"+i}><strong>{c.check_id} · {c.result.replaceAll("_"," ")}{checkLabel(c)}</strong><p>{c.rationale}</p>{c.limitation && <p>{c.limitation}</p>}<small>{c.method}</small></div>)}
           <p>{answers.data.report.duplicate_review.retrieval_coverage}</p>
           <p>{answers.data.report.duplicate_review.compared_source_ids.length} source pages compared; {answers.data.report.duplicate_review.compared_paper_ids.length} saved papers compared.</p>
         </details>}

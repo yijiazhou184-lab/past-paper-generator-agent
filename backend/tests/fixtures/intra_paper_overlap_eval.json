@@ -1,0 +1,105 @@
+{
+  "version": "overlap-facts-eval-v1",
+  "purpose": "Labelled part pairs for sampling a model's two overlap facts (same_stimulus, same_conclusion) in a later authorised run. Code applies the rule; this set evaluates only the reported facts. Test data only; never part of a prompt.",
+  "definitions": "originality-policy-v1: stimulus = the specific material given (numbers or notation alone do not make it different); conclusion = the kind of final result required (differences caused only by numbers do not make it different).",
+  "cases": [
+    {
+      "id": "math-same-material-different-result",
+      "subject": "mathematics",
+      "category": "same_stimulus_different_conclusion",
+      "part_a": "Let f(x) = x e^{-x} for real x. Find the x-coordinate of the stationary point of f and classify it.",
+      "part_b": "Let f(x) = x e^{-x} for real x. Evaluate the limit of f(x) as x tends to infinity, justifying each step.",
+      "expected": {"same_stimulus": true, "same_conclusion": false},
+      "note": "One function; a classified stationary point versus a limit value."
+    },
+    {
+      "id": "math-shared-key-step-different-result",
+      "subject": "mathematics",
+      "category": "same_stimulus_different_conclusion",
+      "part_a": "Let g(x) = x^2 cos(1/x) for x != 0 and g(0) = 0. Show that g is continuous at 0.",
+      "part_b": "Let g(x) = x^2 cos(1/x) for x != 0 and g(0) = 0. Show that g is differentiable at 0 and find g'(0).",
+      "expected": {"same_stimulus": true, "same_conclusion": false},
+      "note": "Both use the same squeeze bound; continuity and differentiability are different final results."
+    },
+    {
+      "id": "accounting-same-statements-different-result",
+      "subject": "accounting",
+      "category": "same_stimulus_different_conclusion",
+      "part_a": "Using the trial balance of Harbour Ltd given above, prepare the statement of profit or loss for the year.",
+      "part_b": "Using the trial balance of Harbour Ltd given above, calculate the current ratio at the year end.",
+      "expected": {"same_stimulus": true, "same_conclusion": false},
+      "note": "One trial balance; a financial statement versus a liquidity ratio."
+    },
+    {
+      "id": "statistics-same-sample-different-result",
+      "subject": "statistics",
+      "category": "same_stimulus_different_conclusion",
+      "part_a": "The ten delivery times listed above are a random sample. Calculate the sample mean and sample standard deviation.",
+      "part_b": "The ten delivery times listed above are a random sample. Test at the 5% level whether the population mean exceeds 30 minutes.",
+      "expected": {"same_stimulus": true, "same_conclusion": false},
+      "note": "One sample; descriptive statistics versus a hypothesis-test decision."
+    },
+    {
+      "id": "math-different-material-same-result",
+      "subject": "mathematics",
+      "category": "different_stimulus_same_conclusion",
+      "part_a": "Find and classify the stationary point of p(x) = x^2 - 4x + 7.",
+      "part_b": "Find and classify the stationary points of h(x) = cos x on the open interval (0, 2*pi).",
+      "expected": {"same_stimulus": false, "same_conclusion": true},
+      "note": "Different function families; the same kind of result (classified stationary points)."
+    },
+    {
+      "id": "accounting-different-material-same-result",
+      "subject": "accounting",
+      "category": "different_stimulus_same_conclusion",
+      "part_a": "From the summarised statement of profit or loss above, calculate the gross profit margin.",
+      "part_b": "From the sales and purchases journal entries above, together with opening and closing inventory, calculate the gross profit margin.",
+      "expected": {"same_stimulus": false, "same_conclusion": true},
+      "note": "A prepared statement versus raw journal entries; the same ratio is required."
+    },
+    {
+      "id": "statistics-different-material-same-result",
+      "subject": "statistics",
+      "category": "different_stimulus_same_conclusion",
+      "part_a": "Find the median of the twelve exam marks listed above.",
+      "part_b": "Find the median age from the grouped frequency table above, using linear interpolation.",
+      "expected": {"same_stimulus": false, "same_conclusion": true},
+      "note": "Raw list versus grouped table; both ask for a median."
+    },
+    {
+      "id": "math-numbers-only-same-result",
+      "subject": "mathematics",
+      "category": "same_stimulus_same_conclusion",
+      "part_a": "Find the stationary point of f(x) = 3x^2 + 2x - 5 and state whether it is a minimum or a maximum.",
+      "part_b": "Find the stationary point of g(x) = 5x^2 + 4x - 1 and state whether it is a minimum or a maximum.",
+      "expected": {"same_stimulus": true, "same_conclusion": true},
+      "note": "Only the coefficients changed; the same solution path and the same kind of result."
+    },
+    {
+      "id": "accounting-numbers-only-same-result",
+      "subject": "accounting",
+      "category": "same_stimulus_same_conclusion",
+      "part_a": "A project costs 1,000 now and returns 400 at the end of each of the next three years. At a 10% discount rate, calculate its net present value.",
+      "part_b": "A project costs 1,200 now and returns 500 at the end of each of the next three years. At an 8% discount rate, calculate its net present value.",
+      "expected": {"same_stimulus": true, "same_conclusion": true},
+      "note": "Only the cash flows and rate changed."
+    },
+    {
+      "id": "statistics-identical-request",
+      "subject": "statistics",
+      "category": "same_stimulus_same_conclusion",
+      "part_a": "For the regression output shown above, state and interpret the slope coefficient.",
+      "part_b": "Using the same regression output, interpret the estimated slope in context.",
+      "expected": {"same_stimulus": true, "same_conclusion": true},
+      "note": "The same output and the same required interpretation, worded differently."
+    },
+    {
+      "id": "local-7496b3cb-q1d-q3d",
+      "subject": "mathematics",
+      "category": "same_stimulus_different_conclusion",
+      "source": {"type": "local_candidate", "candidate_id": "94917b7c-f194-431c-90ba-01d5d7e821c8", "part_a": "q1d", "part_b": "q3d"},
+      "expected": {"same_stimulus": true, "same_conclusion": false},
+      "note": "User decision 2026-10-29: Q1(d) asks for differentiability at 0 and the discontinuity of the derivative; the repaired Q3(d) asks for a limit value and the oscillation of a derivative ratio. Question text is private course-derived data and is read from the local database at run time; it is not stored in Git."
+    }
+  ]
+}

@@ -12,8 +12,8 @@ The review model reports facts only; this module applies the rule. Nothing here 
 POLICY = {
     "version": "originality-policy-v1",
     "scope": "Comparisons between parts of different questions in the same candidate paper only. Comparisons with course and historical material keep the earlier rule.",
-    "stimulus": "The specific material the question text gives the candidate to work with, such as a function, data or a scenario.",
-    "conclusion": "The final result a part requires the candidate to reach. Intermediate steps, shared methods or shared techniques are not the conclusion.",
+    "stimulus": "The specific material the question text gives the candidate to work with, such as a function, data or a scenario. Material that differs only in numbers or notation counts as the same.",
+    "conclusion": "The kind of final result a part requires the candidate to reach. Results that differ only because the numbers differ count as the same. Intermediate steps, shared methods or shared techniques are not the conclusion.",
     "rule": "Two parts are an intra-paper duplicate only when they have the same stimulus AND the same final conclusion. Same stimulus with different conclusions, or the same conclusion with different stimuli, is acceptable.",
     "not_grounds": "Shared knowledge, methods, proof techniques, specific functions or key intermediate steps are never on their own a reason for failure.",
     "check_id": "paper:intra_duplicates",
