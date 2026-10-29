@@ -370,3 +370,22 @@ scripts/audit_review_projection.py 32bb6d9c-2121-4f4a-9a6a-b89c585b7b32 在只�
 - q1–q3 的成对题答保存为本任务的阶段成果（`r0:pair:q1..q3` 及其 `validated:` 记录）。按设计，新任务不会复用其他任务的成果；跨任务复用已登记在 OPT-01。
 - 结果不确定的调用不会自动重试，这次没有发起其他付费调用。
 - 这是第二次因 12,000 输出上限中断：上一次是 `bda61a74` 的 Q1。这次 q1 和 q2 的输出也都超过 9,700，余量很小。
+
+### 生成输出上限与已验证大题复用（2026-10-30，用户决定）
+
+方案见 [2026-10-30 计划](superpowers/plans/2026-10-30-generation-output-and-reuse.md)，代码提交 `27a8d5a`。
+
+- `question_pairs` 和 `repair`：输出上限 20,000，单次时限 300 秒；盲解、语义核验和计数仍为 12,000 / 240 秒。全局输出上限 32,000（官方 GPT-6.1 Sol 最大输出 128K，[模型页](https://developers.openai.com/api/docs/models/gpt-6.1-sol)，2026-10-30 查阅）。
+- 生成任务总时限：600 → 900 秒。
+- 复用：同一冻结快照下，如果生成依据（模式、模型、生成提示词、配对 schema、检查器契约、来源政策、input）和该大题自身的输入（包括前面几题的摘要）都相同，就复用早先任务中已验证的第 0 轮大题。复用前按当前规则重新校验，记录为 `reused:` 阶段成果并注明来源，任务页标注 “Reused from an earlier attempt”。修复轮不跨任务复用。
+
+检查：后端 pytest **252 passed，220.7 秒**（新增 9 项）。同一套测试此前有一次跑了 3 小时 27 分钟，各单项都不慢，判断为测试期间环境暂停，重跑耗时正常。前端 vitest 19 项、tsc、build 均通过；Django check 无问题；无迁移；OpenAPI 无变化。
+
+离线核对（不调用模型）：在新的上下文下，e94322bf 已验证的 Q1–Q3 均可复用，只有 Q4 需要生成。
+
+### 新的出卷预检（只读，未授权）
+
+- context hash：`774d6c4ad20fbc7a307bbe993c90ca4f28bf90c432ef8bd40e812b4e098b6bb2`
+- 快照 `68a09ab1`，确认记录 `69c78b4d`，配置 revision 3；33 页来源（24 页转写、9 页文字），input 与 e94322bf 完全相同；generation-v5 / review-policy-v2 / originality-policy-v1。
+- 最多 16 次模型调用；生成和修复 20k 输出、300 秒；其他调用 12k、240 秒；任务 900 秒；最多 2 个并行；一轮修复；不发送新页图。
+- 预计：Q1–Q3 复用，只为 Q4 发起生成调用，之后完整核验 4 道题。本机文件 `var/generation-v5-reuse-live-preflight.json`。
