@@ -1,6 +1,23 @@
 # Codex 与 Claude Code 开发交接
 
-更新：2026-10-29，Asia/Shanghai。**最新实现为 generation-v4（代码基线2a63343）；后续用户授权的一次真实运行已完成，最终因必要质量检查未通过而失败。** 本次只运行/评估并更新记录，没有产品代码修改。最新提交以git log -1为准；详见 [真实实测](batch-4-live-generation-v4-2026-10-29.md)。
+更新：2026-10-29，Claude Code。**最新实现为 generation-v5**（提交 `e8632c0`、`5fbb3b2` 及之后的文档提交，以 `git log -1` 为准）。新的出卷预检已生成，**尚未授权、尚未运行**。详见[第四批记录](batch-4-validation.md)末节“generation-v5”。
+
+## generation-v5 要点（用户决定，2026-10-29）
+
+- 卷内题间重复：只有“题目相同且结论相同”才算重复。审阅只报告两项事实，由 `generation/originality_policy.py` 判定，检查项为必要项 `paper:intra_duplicates`。与课程原题、历年卷的比较保持原规则。
+- 数学：`math_bounds.py` 用区间证明定义域；绝对值尖点分段；`MathCheckSpec.role` 区分 core 和 auxiliary（auxiliary 未判定时不阻塞但记录，判 fail 仍阻塞；旧规格按 core）。
+- 拆分设计不改。下次真实运行若触发拆分，专门记录分组、调用次数、耗时和整卷检查结果。
+- AGENTS.md 第 3 节：产品代码和提示词不写死课程或科目内容；既有内容按 OPT-03 移出。
+- 评测样例 `backend/tests/fixtures/intra_paper_overlap_eval.json` 和 `scripts/eval_overlap_facts.py` 只做预检和评分，不发送请求；真实抽测需另行授权。
+
+## 下一步
+
+1. 用户对新预检 `cae1f809…` 授权后，在真实课程上运行一次 generation-v5，按上面第三项记录拆分情况；结果不论是否通过都如实记录。
+2. 本机当前用户没有 Playwright Chromium，安装前需用户同意；之前 Codex 的 Playwright 检查是在它自己的环境里运行的。
+
+---
+
+以下为 Codex 2026-10-29 早些时候的交接内容（generation-v4），保留供参考：
 
 ## 工作区与协作
 

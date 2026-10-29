@@ -307,3 +307,46 @@ scripts/audit_review_projection.py 32bb6d9c-2121-4f4a-9a6a-b89c585b7b32 在只�
 最终failed / REQUIRED_CHECKS_BLOCKED：87项必要检查78通过、3失败、5无法判断、1未检查。修复后的Q3(d)与Q1(d)重复关键函数及推理，触发3个语义失败；4个定义域检查无法判断，1个绝对值辅助最值检查不支持，相关语义检查无法判断。16项可选检查因必要项未通过跳过。题答和两份完整报告已保存，非token/超时故障，尚未发布。
 
 离线回放重现5个本地阻塞；网页6组检查通过，0 JS/KaTeX错误、登录后0写请求。18:34:23服务均活动，0活动任务，结束后0新增调用。此次只运行和更新记录，没有修改产品代码或重新执行225/19项全量回归，不进入批次5/6。
+
+## 2026-10-29：generation-v5（卷内重复规则、数学检查能力、核心/辅助划分）
+
+由 Claude Code 实施，方案见 [2026-10-29 计划](superpowers/plans/2026-10-29-originality-and-math-checks.md)，提交 `e8632c0`、`5fbb3b2`。本节记录的都是**用户决定**：
+
+1. **卷内题间重复规则**：同一份卷子里，题目相同但考点不同、或考点相同但题目不同，都可以接受；只有题目和考点都相同才算重复。“题目”指题干给出的具体材料，只差数字或记号视为相同；“考点”按最终要得出的结论判断。共用知识点、方法、技巧、具体函数或中间关键步骤，都不能单独作为失败理由。与课程原题、历年卷的比较保持原规则。
+2. **判断与规则分离**：语义核验只报告两项事实，即题目是否相同（附依据）、两题各自的最终结论及是否相同；schema 中没有“是否重复”字段。由代码（`generation/originality_policy.py`）按规则判定，检查项为必要项 `paper:intra_duplicates`。提示词只写通用定义，不写科目例子。数学能力会额外给出“跨题共用的子表达式”提示，审阅漏报这类提示对时判 inconclusive。修复只针对重复对中靠后的那道题。
+3. **数学检查能力**（`math_bounds.py`、`math_worker.py`）：用 mpmath 区间算术严格证明 log、sqrt、除法、幂运算的定义域条件（支持挖去一点后的区间并集）；找出绝对值尖点，按尖点分段求导，并把尖点纳入候选点。
+4. **核心 / 辅助**：每条数学规格带 `role`。core 必须 pass；auxiliary 判 fail 时仍阻塞，判 inconclusive 或 not_checked 时不阻塞，但原状态和原因如实记录为 limitation，不改写成 pass。需要计算的小问必须至少有 1 条 core。之前保存的、没有 role 的规格一律按 core 处理。
+5. **协作规则**：AGENTS.md 第 3 节新增“不写死课程或科目内容”；跨科目事项登记为 OPT-03（只登记）。
+
+版本：`generation-v5`、`review-policy-v2`、`originality-policy-v1`，检查器契约新增 `roles`。context hash 因此改变，旧授权不能沿用。
+
+### 实际检查
+
+| 检查 | 结果 |
+|---|---|
+| 后端 pytest 全量 | **243 passed**（新增 18 项：规则 9、评测样例格式与评分 1、数学能力 8） |
+| 前端 tsc / vitest / build | 通过 / 19 passed / 通过 |
+| Django check / makemigrations --check | 0 issues / 无变化；没有新依赖、没有迁移 |
+| 内置浏览器，fixture 课程（B4-FIXTURE `240545bf…`，任务 `ae5988de`） | succeeded；`paper:intra_duplicates` 作为必要项判 pass；显示辅助项未判定计数；0 条控制台错误。7496b3cb 两个版本仍可正常查看。本机没有 Playwright Chromium，Python Playwright 脚本没有运行 |
+
+### 7496b3cb 离线回放（没有调用模型，原记录和 hash 未改）
+
+使用 `scripts/audit_generation_task.py 7496b3cb-… --candidate <id>`：
+
+| 候选 | 原报告本地阻塞（数学） | v5 离线本地必要项 |
+|---|---|---|
+| v1 `d0e3f82f` | q3c-first-lhopital、q3c-original-limit：inconclusive | **35/35 pass** |
+| v2 `94917b7c` | 4 项 inconclusive、1 项 not_checked | **40 pass、1 fail** |
+
+- v2 唯一的 fail 是 `q3c-domain-lower-envelope`：这条旧规格没有 role，按 core 处理，而 1−|x| 的候选点漏了尖点 x=0。如果是新生成的规格，模型会把它标为 auxiliary，那么只核对最值数值（1/2），结果为 pass；这一点已有单元测试覆盖。
+- 程序发现 v2 的 q1d 和 q3d 共用 `x**2*sin(1/x)`，下次真实审阅必须报告这一对的事实。
+- **限制**：两项 originality、paper_consistency 和 math_relevance 都来自当时模型的判断，离线回放无法按新规则重新判定。新规则要在下一次真实运行中才会生效。
+
+### 新的出卷预检（只读，未授权）
+
+- context hash：`cae1f8094c9e1d2a6c2268083b703841331803db5d35f47570191ec875311dea`
+- 快照 `68a09ab1`（课程 version 2，4 道大题、15 个小问、60 分、建议 90 分钟），确认记录 `69c78b4d`，配置 revision 3。
+- 33 页来源（24 页页图转写、9 页抽取文字），整个 input 与 7496b3cb **完全相同**；变化只在核验策略、提示词和 schema。
+- `gpt-6.1-sol`，`store:false`；最多 16 次模型调用；单次 240 秒；任务 600 秒；最多 2 个并行；一轮修复；不发送新页图。
+- 本机文件 `var/generation-v5-live-preflight.json`（Git 忽略）。
+- 第三项（拆分）：本次不改代码。如果下次真实运行触发拆分，要专门记录分组、调用次数、耗时和整卷检查结果。
