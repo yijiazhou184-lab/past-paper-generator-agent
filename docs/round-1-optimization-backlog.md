@@ -44,3 +44,32 @@
 修复版第二次获授权运行 `bda61a74-c5e9-4639-adc3-08b4d35655b5` 在生成阶段停止：第一题输出达到已配置的 12,000-token 上限，API 返回 incomplete；第二题完整保存。共 2 次模型调用、2 次计数、57,281 tokens、158.914 秒。核验阶段未运行，不能据此判断优化效果或题答质量。
 
 后续处理 OPT-01 时补充评估单道大题的输出容量、分组粒度与已完成组的复用；补存具体截断原因，避免只依据总量推断。此次仅登记新证据，不调整既定排期、不增加限额、不授权新调用。详情见 [第四批验证记录](batch-4-validation.md)。
+
+## OPT-03：跨科目通用性
+
+- 状态：**仅登记，暂不实施**（2026-10-29，用户决定）。
+- 背景：首轮只针对 Quantitative Maths（QM）Topic 2，有若干课程专属内容写死在代码和提示词里。PRD 要求支持 Accounting、BA、QM 等多门课程，且不能仅凭三门样本推广。
+
+### A. 移出写死的 QM 内容
+
+后续改为从课程确认版本和配置中读取，不在代码里写死。已知位置：
+
+- [ ] `backend/app/courses/context.py`：`PAGE_SELECTION`（分析选页）、`TARGETS`（8 个知识组）、`qm_analysis_manifest.json` 材料清单、`round1_exclusions`。
+- [ ] `backend/app/ai/prompts/course_analysis.md`：QM 专属事实，例如 Topic 2、Coursework 1、2024/25 mock、all-lecture 声明的处理方式。
+- [ ] `backend/app/courses/schemas.py`：按材料编号写的规则（M46 不能作为当前考试依据；M04/M05 只能作为历史卷），以及 `coursework_1`、`round1_practice` 等适用范围取值。
+- [ ] CLI 和默认值中的 `MSIN0180`：`course_analysis`、`visual_transcription`、`import_qm`、`seed_local_course` 命令，以及 `courses/models.py` 中 `Course.code` 的默认值。
+- [ ] 相关的首轮专用常量，例如 `ai/validation.py` 的 `RISK_PAGES`。
+
+### B. 后续开发：可复用能力包
+
+- 不同科目所需的题型和核验方式不同。例如 QM 需要符号与数值数学检查；会计需要分录、报表勾稽和金额精度检查；BA 需要数据表、统计量和图表检查。
+- 方向：开发可复用的**能力包**，每门课按需要组合使用，不为每门课单独开发。
+- 能力包的具体划分和范围，等进入多课程阶段时再定。
+- 现有内容中与此相关的：
+  - 题型目前限定为 `calculation`、`explanation_proof`、`applied_optimisation`（`generation/schemas.py`、`generation/planning.py`）；
+  - 数学检查（SymPy、区间证明）可作为第一个能力包的组成部分；
+  - generation-v5 中“核心 / 辅助”划分和卷内重复规则按与科目无关的方式设计，可以直接沿用。
+
+### 判断
+
+本条不改变当前排期，不授权模型调用。首轮后续开发**不应再新增**课程专属的写死内容；确实需要时，在代码中注明“QM 首轮专用”，并补登到本清单。
