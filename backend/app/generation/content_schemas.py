@@ -32,6 +32,8 @@ class MathCheckSpec(Strict):
     direction: Literal["+", "-", "+-"]
     points: list[str] = Field(max_length=20)
     optimum: Literal["min", "max"] | None
+    # core: the part's final answer or a result the part explicitly asks for; auxiliary: supporting evidence.
+    role: Literal["core", "auxiliary"]
     rationale: str = Field(min_length=1, max_length=2000)
 
 
@@ -154,10 +156,22 @@ class RepairRequest(Strict):
     instructions: str = Field(min_length=1, max_length=4000)
 
 
+class PartOverlap(Strict):
+    """Facts about two parts from different questions; deliberately no duplicate or pass field."""
+    part_a: str = Field(min_length=1, max_length=80)
+    part_b: str = Field(min_length=1, max_length=80)
+    same_stimulus: bool
+    stimulus_basis: str = Field(min_length=1, max_length=1000)
+    conclusion_a: str = Field(min_length=1, max_length=600)
+    conclusion_b: str = Field(min_length=1, max_length=600)
+    same_conclusion: bool
+
+
 class SemanticOutput(Strict):
     status: Literal["complete", "needs_info", "unable_to_determine", "not_checked"]
     explanation: str = Field(max_length=4000)
     checks: list[ReviewCheck] = Field(max_length=100)
+    intra_paper_overlaps: list[PartOverlap] = Field(max_length=30)
     repair_requests: list[RepairRequest] = Field(max_length=4)
 
 

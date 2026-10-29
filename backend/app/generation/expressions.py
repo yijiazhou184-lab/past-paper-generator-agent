@@ -7,6 +7,7 @@ CHECKER_CONTRACT = {
     "arity":"add/mul: 2-4 arguments; sub/div/pow: exactly 2; sin/cos/exp/log/sqrt/abs: exactly 1; number/variable: no arguments.",
     "bounds":"Domain lower null or -inf means negative infinity; upper null or inf means positive infinity. Other bounds are numeric literals. Infinity is not an expression number.",
     "limits":"At most 80 AST nodes and depth 12; powers numeric with absolute exponent <=12. Single real variable x,y,t,q per check. No implicit multi-variable constraint solver.",
+    "roles":"role core: expected is the part's final answer or a result the part explicitly asks for; it must pass. role auxiliary: supporting evidence such as intermediate steps, domain or bound certificates or an alternative route. A refuted auxiliary claim blocks release; an undecided one is recorded and the written reasoning is judged instead. Each calculation or applied optimisation part needs at least one core check.",
     "responsibility":"Return math specifications and sound worked reasoning, never fabricated execution results. The application executes checks and retrieval after generation/repair. Unsupported checks remain blocking; do not omit or weaken them to pass.",
 }
 

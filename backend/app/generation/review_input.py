@@ -3,6 +3,8 @@ import copy
 from .source_policy import source_review_input
 from .duplicates import source_text
 from .review_policy import REQUIRED_CATEGORIES, OPTIONAL_CATEGORIES
+from .originality_policy import POLICY as ORIGINALITY_POLICY
+from .shared_material import overlap_hints
 
 
 def compact_expression(node):
@@ -147,6 +149,10 @@ def build_review_input(context, payload, local, blind, duplicates, question_ids,
                                      "parts": p["parts"]} for p in payload["pairs"] if p["question_id"] not in ids],
         "expression_format": "Parenthesised infix; ^ means power. All original operations, domains, points and per-step hypotheses retained. Never treat a correct unrelated identity as answer validation.",
     }
+    include_paper = data["include_paper_check"]
+    data["intra_paper_definitions"] = {k: ORIGINALITY_POLICY[k] for k in ("stimulus", "conclusion")} if include_paper else None
+    # Shared material is compared across the whole paper, so hints use every pair, not just this group.
+    data["intra_paper_overlap_hints"] = overlap_hints(payload["pairs"]) if include_paper else []
     if paper:
         # Whole-paper comparisons need full printed questions and solution paths, not per-answer ASTs.
         data["candidate"]["pairs"] = [

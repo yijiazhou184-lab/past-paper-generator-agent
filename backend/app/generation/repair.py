@@ -5,6 +5,7 @@ from app.core.tasks import checkpoint
 from .generator import generate_groups, persist_candidate
 from .source_policy import source_review_input
 from .review_policy import review_call_bound
+from .originality_policy import POLICY as ORIGINALITY_POLICY
 
 
 def repair_candidate(token,context,candidate,report):
@@ -26,6 +27,18 @@ def repair_candidate(token,context,candidate,report):
             for qid in c["target_ids"]:
                 if qid in ids:
                     requests.setdefault(qid,[]).append({"target_ids":[qid],"issue_codes":[c["check_id"]],"instructions":c["rationale"]})
+    order=[p["question_id"] for p in candidate.payload["pairs"]]
+    part_question={part["part_id"]:p["question_id"] for p in candidate.payload["pairs"] for part in p["parts"]}
+    for c in blocked:
+        if c["check_id"]==ORIGINALITY_POLICY["check_id"] and c["result"]=="fail":
+            # Repair only the later question of each pair; the earlier one stays as it is.
+            for a,b in c.get("duplicate_pairs",[]):
+                qa,qb=part_question.get(a),part_question.get(b)
+                if qa in ids and qb in ids:
+                    target=max(qa,qb,key=order.index)
+                    requests.setdefault(target,[]).append({"target_ids":[target],"issue_codes":[c["check_id"]],
+                        "instructions":f"Parts {a} and {b} have the same given material and the same final conclusion. "
+                                       "Change this question's given material or the conclusion its part asks for; keep the knowledge targets."})
     for finding in report.payload["duplicate_review"]["findings"]:
         for qid in finding["target_ids"]:
             if qid in ids:

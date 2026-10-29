@@ -54,11 +54,30 @@ def mathematical_checks(pairs):
                         "not_applicable" if qualitative else "not_checked",
                         "No quantitative symbolic claim supplied; semantic proof review remains mandatory." if qualitative else "No supported mathematical check was supplied.",
                         required=not qualitative))
+                if answer["checks"] and types[answer["part_id"]] in QUANTITATIVE and \
+                        not any(spec.get("role","core")=="core" for spec in answer["checks"]):
+                    checks.append(check(f"math:{answer['part_id']}:core_missing",[pair["question_id"],answer["part_id"]],"symbolic",
+                        "not_checked","No core check states this part's final answer; supporting checks cannot replace it."))
                 for spec in answer["checks"]:
-                    output=worker.check(spec)
-                    checks.append(check("math:"+spec["id"],[pair["question_id"],answer["part_id"]],"sympy_subprocess",
-                                        output["result"],output["rationale"]))
+                    # Specifications saved before roles existed are treated as core, never relaxed.
+                    role=spec.get("role","core")
+                    output=worker.check({**spec,"role":role})
+                    checks.append(math_check(spec["id"],[pair["question_id"],answer["part_id"]],role,output))
     return checks
+
+
+QUANTITATIVE=("calculation","applied_optimisation")
+
+
+def math_check(spec_id,targets,role,output):
+    """core must pass; a refuted auxiliary claim blocks; an undecided auxiliary claim is a recorded limitation."""
+    undecided=role=="auxiliary" and output["result"] in ("inconclusive","not_checked")
+    item=check("math:"+spec_id,targets,"sympy_subprocess",output["result"],output["rationale"],
+               required=not (role=="auxiliary" and output["result"]!="fail"))
+    item["math_role"]=role
+    if undecided:
+        item["limitation"]="Auxiliary evidence not decided; recorded without blocking. The written reasoning is judged separately."
+    return item
 
 
 def release_gate(checks):
@@ -74,4 +93,5 @@ def coverage_summary(checks):
     optional=[c for c in checks if not c["required_for_release"]]
     return {"required":len(required),"passed":counts["pass"],"failed":counts["fail"],
             "not_checked":counts["not_checked"],"inconclusive":counts["inconclusive"],
-            "optional":len(optional),"optional_not_checked":sum(c["result"]=="not_checked" for c in optional)}
+            "optional":len(optional),"optional_not_checked":sum(c["result"]=="not_checked" for c in optional),
+            "auxiliary_unresolved":sum(1 for c in checks if c.get("limitation"))}

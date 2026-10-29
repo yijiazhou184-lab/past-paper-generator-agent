@@ -40,7 +40,7 @@ def fixture_pair(q):
             "acceptable_alternatives":["Use the limit definition with a complete derivation."],"units":None,"precision":"Exact",
             "checks":[{"id":p["id"]+"-derivative","part_id":p["id"],"kind":"derivative","expression":expr,"expected":derivative,
                 "denominator":None,"variable":"x","domain":{"lower":lower,"upper":None,"left_open":True,"right_open":True},
-                "at":None,"direction":"+-","points":[],"optimum":None,"rationale":"Check the synthetic polynomial derivative."}]})
+                "at":None,"direction":"+-","points":[],"optimum":None,"role":"core","rationale":"Check the synthetic polynomial derivative."}]})
     return {"status":"complete","explanation":"Synthetic fixture only.",
         "pair":{"question_id":q["id"],"stem":stem,"parts":parts,"answers":answers,"asset_ids":[a["id"] for a in assets],
         "evidence_ids":copy.deepcopy(q["evidence_ids"]),"background_references":[],"originality_notes":"Synthetic fixture; originality is not calibrated.","marking_basis":"suggested"},
@@ -64,4 +64,4 @@ def fixture_review(pairs):
         "checks":[{"question_id":"paper","category":"paper_consistency","result":"pass",
                    "rationale":"Synthetic whole-paper judgement.", "evidence_ids":[]}]+[{"question_id":p["question_id"],"category":c,"result":"pass",
                    "rationale":"Deterministic fixture review, not a live judgement.","evidence_ids":p["evidence_ids"]}
-                  for p in pairs for c in CATEGORIES],"repair_requests":[]}
+                  for p in pairs for c in CATEGORIES],"intra_paper_overlaps":[],"repair_requests":[]}

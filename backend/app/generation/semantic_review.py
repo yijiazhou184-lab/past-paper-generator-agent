@@ -9,6 +9,7 @@ from .source_policy import source_catalog
 from .review_input import build_review_input
 from .review_policy import REVIEW_POLICY, REQUIRED_CATEGORIES, OPTIONAL_CATEGORIES, PAPER_CATEGORY
 from .check_progress import save_check_stage
+from .originality_policy import POLICY as ORIGINALITY_POLICY, judge as judge_overlaps
 
 
 def normalise_review(context, output, ids, *, paper=False, optional=False, provided_evidence_ids=None):
@@ -53,7 +54,7 @@ def _fixture_for(fixture, pairs, mode, include_paper):
         return {"status": "complete", "explanation": "Synthetic optional review; no model call.",
                 "checks": [{"question_id": p["question_id"], "category": c, "result": "pass",
                             "rationale": "Synthetic advisory judgement.", "evidence_ids": []}
-                           for p in pairs for c in OPTIONAL_CATEGORIES], "repair_requests": []}
+                           for p in pairs for c in OPTIONAL_CATEGORIES], "intra_paper_overlaps": [], "repair_requests": []}
     output = fixture(pairs)
     if mode == "paper":
         output["checks"] = [c for c in output["checks"] if c["question_id"] == "paper"]
@@ -90,8 +91,23 @@ def run_semantic_review(token, context, candidate, local, blind, duplicates, fix
         for c in checks:
             if c["check_id"] == "semantic:paper:paper_consistency":
                 c["target_ids"] = all_ids
+        details = {}
+        if data["include_paper_check"]:
+            # The model reports facts only; the user's rule is applied here.
+            # Missing facts are never read as "no overlap".
+            reported = output.get("intra_paper_overlaps")
+            reviewed = output["status"] == "complete" and reported is not None
+            overlaps = reported if reviewed else []
+            part_question = {part["part_id"]: p["question_id"] for p in candidate.payload["pairs"] for part in p["parts"]}
+            result, reason, duplicate_pairs = judge_overlaps(overlaps, data["intra_paper_overlap_hints"], part_question,
+                                                             reviewed=reviewed)
+            item = check(ORIGINALITY_POLICY["check_id"], all_ids, "intra_paper_rule", result, reason)
+            item["duplicate_pairs"] = duplicate_pairs
+            checks.append(item)
+            details = {"intra_paper_overlaps": overlaps, "intra_paper_overlap_hints": data["intra_paper_overlap_hints"],
+                       "originality_policy": ORIGINALITY_POLICY["version"]}
         requests = [r for r in output["repair_requests"] if set(r["target_ids"]) <= set(ids)]
-        saved = save_check_stage(token, candidate, "semantic-" + path, checks, repair_requests=requests)
+        saved = save_check_stage(token, candidate, "semantic-" + path, checks, repair_requests=requests, **details)
         results.extend(saved["checks"])
         repairs.extend(saved["repair_requests"])
 

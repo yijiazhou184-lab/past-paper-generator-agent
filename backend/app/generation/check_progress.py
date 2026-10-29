@@ -43,7 +43,8 @@ def progress_report(candidate):
             checks[c["check_id"]] = c
     expected = [(f"blind_available:{qid}", [qid], "blind_solver") for qid in ids]
     expected += [(f"semantic:{qid}:{category}", [qid], "semantic_review") for qid in ids for category in REQUIRED_CATEGORIES]
-    expected += [("semantic:paper:paper_consistency", ids, "semantic_review")]
+    expected += [("semantic:paper:paper_consistency", ids, "semantic_review"),
+                 ("paper:intra_duplicates", ids, "intra_paper_rule")]
     for key, targets, method in expected:
         checks.setdefault(key, check(key, targets, method, "not_checked", "This required check has not completed."))
     for qid in ids:

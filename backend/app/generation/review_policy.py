@@ -1,11 +1,11 @@
 """Code-owned release requirements, frozen with every new generation context."""
-PIPELINE_VERSION = "generation-v4"
+PIPELINE_VERSION = "generation-v5"
 REQUIRED_CATEGORIES = ("clarity", "conditions", "methods", "reasoning", "difficulty",
                        "preferences", "originality", "blind_agreement", "source_alignment", "math_relevance")
 OPTIONAL_CATEGORIES = ("wording", "alternative_methods", "difficulty_detail", "background_references")
 PAPER_CATEGORY = "paper_consistency"
 REVIEW_POLICY = {
-    "version": "review-policy-v1",
+    "version": "review-policy-v2",
     "required_categories": list(REQUIRED_CATEGORIES),
     "optional_categories": list(OPTIONAL_CATEGORIES),
     "paper_category": PAPER_CATEGORY,

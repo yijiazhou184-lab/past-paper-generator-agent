@@ -121,7 +121,7 @@ def test_reference_policy_is_frozen_and_old_policy_cannot_resume(course, planned
     from app.core.errors import DomainError
     from app.generation.runtime import verify_context
     task, context, _ = start(course, planned)
-    assert context["pipeline_version"] == "generation-v4"
+    assert context["pipeline_version"] == "generation-v5"
     assert context["source_policy"]["background_scope"] == "unrestricted"
     task.snapshot = copy.deepcopy(context)
     task.snapshot["source_policy"]["background_scope"] = "restricted"
