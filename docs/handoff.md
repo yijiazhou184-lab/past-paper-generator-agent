@@ -1,5 +1,23 @@
 # Codex 与 Claude Code 开发交接
 
+## 最新交接（2026-10-30，Claude Code → Codex）
+
+- **代码状态**：最新实现为 generation-v5 加上生成专用上限和跨任务复用（`27a8d5a`）。之后只有文档提交，没有未提交改动。验证：后端 252 passed（220.7 秒）、前端 19 passed、生产构建通过。
+- **最近一次真实运行**：`b02101f9-4b54-4571-8df3-da3c75f10d56`，failed / REQUIRED_CHECKS_BLOCKED，只剩 `semantic:q3:originality`（q3c 与课程例子解题路径相同）。候选 `b7abb94e`（v1）、`0afc9ea9`（v2），未发布。拆分未触发。详见[第四批记录](batch-4-validation.md)末节。
+- **待用户确认的方案**：[与课程材料比较的原创性规则 + 故意错误示例的处理](superpowers/plans/2026-10-30-source-originality-rule.md)（`555a385`）。用户已作出两项决定（原文见方案开头），但**方案本身还没有确认，确认前不改代码**。要点：
+  - 与课程材料比较：审阅只报告事实（题目、结论、是否沿用解题步骤），由代码判定。一般来源要题目和结论都相同才算重复；课程材料中的故意错误示例例外，照搬它的解题路径也算重复。
+  - 故意错误示例由课程数据中的标注汇总（转写 findings `intentional_wrong_example`、issue code `INTENTIONAL_WRONG_PROOF`），提示词只用通用表述，不据此规划或出找错题。
+  - 当前冻结蓝图（快照 `68a09ab1`）的 q3d 是按故意错误示例规划的找错小问，违反用户决定，**需要重新组卷规划**；之后 4 道题都要重新生成，不能复用 b02101f9 的大题。
+  - 已确认课程版本 2 中把该示例描述为“找错练习”的文字不改（确认记录不可修改），由代码规则说明以用户决定为准。
+- **下一步**：等用户确认方案 → 实现并用 fixture 测试 → 给出新的组卷规划预检 → 用户按 context hash 授权后规划 → 用户在 Generate 页确认结构并 Prepare generation → 新的出卷预检 → 授权后真实运行。每一次付费调用都要先有用户按精确 context hash 的授权。真实运行如触发拆分，专门记录分组、调用次数、耗时和整卷检查结果。
+- **未验证事项**：拆分在真实运行中从未触发；新方案的任何部分都未实现、未测试。
+- **服务状态**（交接时检查）：PostgreSQL（54330）、web（5173）、dispatcher 在运行；**API（8000）和 worker 已停止**，原因未查（api.log 最后一条请求在 06:13，无报错）。没有排队或运行中的任务（只有 3 个早期的 needs_info 分析/规划任务）。接手后用 `.venv/Scripts/python.exe scripts/local.py start` 补起。
+- 本机当前用户没有 Playwright Chromium，安装前需用户同意。
+
+---
+
+以下为 2026-10-29 的交接内容，保留供参考：
+
 更新：2026-10-29，Claude Code。**最新实现为 generation-v5**（提交 `e8632c0`、`5fbb3b2` 及之后的文档提交，以 `git log -1` 为准）。新的出卷预检已生成，**尚未授权、尚未运行**。详见[第四批记录](batch-4-validation.md)末节“generation-v5”。
 
 ## generation-v5 要点（用户决定，2026-10-29）
