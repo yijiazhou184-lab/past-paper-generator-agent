@@ -23,7 +23,7 @@ def repair_candidate(token,context,candidate,report):
                 requests.setdefault(qid,[]).append({**r,"target_ids":[qid]})
     # Deterministic failures can request a targeted repair even if the review omitted one.
     for c in blocked:
-        if (c["method"] in ("sympy_subprocess","program","source_policy") and c["result"]=="fail") or c["check_id"].endswith(":source_alignment"):
+        if (c["method"] in ("sympy_subprocess","program","source_policy","source_originality_rule") and c["result"]=="fail") or c["check_id"].endswith(":source_alignment"):
             for qid in c["target_ids"]:
                 if qid in ids:
                     requests.setdefault(qid,[]).append({"target_ids":[qid],"issue_codes":[c["check_id"]],"instructions":c["rationale"]})

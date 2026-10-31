@@ -1,78 +1,61 @@
-# 与课程材料比较的原创性规则调整，以及故意错误示例的处理
+# 与课程材料比较的原创性规则调整
 
-> 状态：**待用户确认的方案**（2026-10-30，Claude Code）。确认前不改代码。
+> 当前决定（2026-10-31）：统一按题目、答案和评分的实际正确性核验；发现问题后由现有修复阶段处理，不按材料中的错误是否出于教学意图另设分类、禁用或判重例外。此前关于故意错误示例的专门约束已撤销。
 >
-> 用户决定一（2026-10-30）：与课程材料、历年卷比较时，允许“标准方法相同、题目不同”，只把“照搬原题”或“只换数字”判为重复。
->
-> 用户决定二（2026-10-30）：课程材料里标明为故意错误的示例照常识别和标注，唯一作用是让模型知道它不是课程认可的正确方法。出题、答案和评分都不能把它当作正确解法；不据此生成找错题，蓝图里也不专门规划“诊断错误”的小问。照搬它的解题路径仍算重复。规则用“课程材料中的故意错误示例”这类通用表述，不写死具体材料或知识点。
+> 实现状态（2026-11-01）：用户要求的前四项——统一来源判重、精简 `source_overlaps`、接入现有核验/修复、版本绑定与离线检查——已实现。当前 `generation-v6` 已加载到本地服务；真实运行由用户自行发起，旧任务的失败记录不改写，新规则实际质量尚未实测。专门清单、输入传递和提示词约束继续保持撤回。
 
-## 起因与现状
+## 一、来源比较的统一规则
 
-- 真实任务 `b02101f9` 只剩 1 项阻塞 `semantic:q3:originality`：q3c 换了函数，但解题路径与课程例子相同。按决定一，这种情况应当接受。
-- 提示词里没有“可以把故意错误示例作为找错练习参考”的原句，但这层意思存在于以下位置：
-  - **已确认的课程版本 2**（课程分析产物）：一条状态为 supported 的规则写着该 WRONG 页“是找错练习”；一个知识点描述里有“诊断那道 WRONG 证明”；生成说明里有“只作为找错练习的依据”。
-  - **冻结的蓝图**（快照 `68a09ab1`）：q3d 的 focus 是“诊断重复使用该法则的错误”，3 分，就是按这个示例规划的找错小问。
-  - `question_pairs.md` 只有一句“A proof labelled WRONG is not a valid proof.”，依赖材料上的 WRONG 字样。
-- 课程数据里已有两种标注：页图转写 findings 的 `kind: intentional_wrong_example`（schema 固定的取值），课程分析 issues 的 `code: INTENTIONAL_WRONG_PROOF`（模型给出的自由文本，schema 不固定）。
+- 题目指题干给出的具体材料，仅数字或记号不同视为相同。
+- 结论指要求得出的结果种类，仅最终数值不同不代表结论不同。
+- 与课程材料及历年卷比较，题目和结论都相同才判重复；不同题目使用相同标准方法或步骤可以接受。
+- 不设置按来源意图、特殊标签或页码触发的额外失败条件。
+- 原材料、确认课程、冻结蓝图、历史转写和任务结果保留；原文出现的标签只是来源内容。
 
-## 一、与课程材料比较的新规则
+## 二、精简语义输出（已实现）
 
-沿用卷内规则的两项事实和定义：
+`source_overlaps` 每条保留 `subpart_id`、`source_id`、`same_stimulus`、`same_conclusion`、`note`。
 
-- **题目**：题干给出的具体材料，只差数字或记号视为相同。
-- **结论**：要求得出的结果种类。
-- **一般来源**：题目和结论都相同才算重复，对应“照搬原题”和“只换数字”。题目不同时，即使方法和步骤相同也接受。
-- **故意错误示例来源**（决定二，规则不变）：照搬它的解题路径也算重复，即使题目不同。
+- 不复述两边结论，不要求逐项展开依据，不输出“是否重复”。
+- 正常比较 `note` 为 null；疑似照搬或无法判断时才给一句简短说明。
+- 判断允许 null，不能把信息不足自动当作 false。
+- `same_reasoning` 原本服务于已撤销的例外，不再作为必需输出或判重条件。
+- 精简减少的是解释性输出；实际 token、耗时与判断质量需同样例对比，尚未实测。
 
-规则文件升为 `originality-policy-v2`，保存两次决定的原文。
+## 三、最小实施范围（已实现）
 
-## 二、故意错误示例的识别（由课程数据驱动，不写死内容）
+1. 复用现有有限范围检索，明确本次需要比较的小问与来源；不对全部小问和全部材料做穷举比较，不另建检索系统。
+2. 语义模型返回比较事实，代码按上述两项条件判定 `semantic:qN:originality`。必要事实不足为 inconclusive，审阅未完成为 not_checked；不能按空列表自动放行。
+3. 保留现有 NUMBER_SWAP_DUPLICATE 程序检查及分组结果汇总。
+4. 复用现有错误记录和一次定向修复，不新增调用阶段或独立修复流程。题答中的实际错误仍由通用数学、逻辑及语义检查处理。
+5. 测试覆盖：同题同结论拒绝、不同题共用标准方法接受、仅换数字拒绝、缺失事实不冒充通过、分组汇总与定向修复。
+6. 版本已更新为 `generation-v6` / `review-policy-v3` / `originality-policy-v2`，schema、提示词和策略共同进入预检 context hash，运行时核对冻结策略。旧授权不静默沿用；现有课程和已确认结构无需为本次改动重新规划。
 
-1. 程序从冻结的课程数据中汇总一份 `intentional_wrong_examples` 清单，每条包括证据 ID、页码和一句说明：
-   - 页图转写 findings 中 `kind` 为 `intentional_wrong_example` 的条目；
-   - 课程 issues 中 `code` 为 `INTENTIONAL_WRONG_PROOF` 的条目及其 `evidence_ids`。
-2. `course_analysis.md` 增加一句通用说明：发现课程材料中标明为故意错误的示例时，用 issue code `INTENTIONAL_WRONG_PROOF` 标注；只说明它是故意错误，不把它写成练习目标。这样以后的课程分析能稳定使用这个代码。这句只影响以后的分析，已确认的版本 2 不变，也不需要重新分析。
-3. 这份清单放进组卷规划、出题、核验和修复四个阶段的输入，提示词只引用这个字段，不出现任何具体材料。
+## 四、此前撤回专门约束的落实记录
 
-## 三、各阶段的规则（全部使用通用表述）
+- 删除上一轮新增的标记汇总函数及专用测试，移除规划、出题、核验和修复中的专门输入。
+- 删除相关提示词约束和课程分析中的专用 issue 要求；不禁止找错题这一题型。
+- 新页图/页面核对输出只使用 parser_loss、source_issue、uncertain。历史类别通过只读兼容保留，既不改写旧来源 hash，也不用于特殊规则。
+- 网站操作、数据库结构、生成预算、一般正确性检查和修复边界保持现有机制。本次不发起模型请求或真实任务。
+- 2026-11-01 验证：visual_contract、visual_transcription、generation_sources、generation_review_budget、generation_execution 共 67 passed，93.05 秒；独立临时测试库，未调用真实模型。这 67 项属于此前撤回约束的验证；来源判重后续实现的检查见下节。
 
-- **组卷规划**（`blueprint.md`）：不要因为 `intentional_wrong_examples` 中的示例而规划找错题或“诊断错误”的小问；与这些示例相关的课程文字（包括把它描述为找错练习的内容）只说明它不是正确方法。
-- **出题**（`question_pairs.md`）：删去“A proof labelled WRONG…”，改为一句：`intentional_wrong_examples` 中的示例不是课程认可的方法，题目、答案和评分都不得把它当作正确解法，不得照搬它的推理过程，也不得据此出找错题。
-- **核验**（`semantic_review.md`）：
-  - 题目、答案或评分把故意错误示例当作正确方法 → reasoning 判 fail；
-  - 小问要求找出或诊断某个故意错误示例的错误，或仿照它出找错题 → source_alignment 判 fail，并给出修复要求；
-  - 照搬路径按第四节的事实由代码判定。
-- **修复**（`repair.md`）：同一句通用规则。修复时不得改成找错题。
-- **课程分析**：除第二节第 2 点那句之外不变，继续识别和标注。
-- **冲突说明**：已确认的课程版本 2 中“找错练习”的描述与决定二不一致。课程版本是不可修改的确认记录，所以不改它；由代码中的规则和提示词说明以用户决定为准。这一点会写入规则文件和第四批记录。
+## 五、实现文件与实际验证（2026-11-01）
 
-## 四、实现（判断与规则分离）
+| 文件（相对项目根目录） | 已实现职责 |
+|---|---|
+| `backend/app/generation/content_schemas.py` | 五字段 `SourceOverlap` 契约，两个判断允许 null，短 note 上限 300 字符；模型不再输出 originality 类别的裁决。 |
+| `backend/app/generation/source_originality.py` | 复用既有检索，每小问选至多 2 个不同来源页，按两项事实生成必要原创性检查；缺失/冲突事实不能冒充通过。 |
+| `backend/app/generation/review_input.py`、`reviewer.py` | 比较材料覆盖已冻结课程和历年卷来源，复用同一份证据正文及既有每大题最多 6 段检索上限；没有新增外部数据获取。 |
+| `backend/app/generation/semantic_review.py`、`check_progress.py` | 保存和汇总分组事实与目标，未完成阶段如实保留 not_checked；事实进入报告版本 hash。 |
+| `backend/app/generation/repair.py`、`backend/app/ai/prompts/repair.md` | 确定重复使用现有一次修复，仅修相关大题；缺少判断依据本身不要求盲目改题。 |
+| `backend/app/ai/prompts/semantic_review.md`、`question_pairs.md` | 说明同题且同结论规则与短事实输出，允许共享标准方法，不引入来源意图例外。 |
+| `backend/app/generation/review_policy.py`、`originality_policy.py`、`runtime.py` | 新策略版本与冻结内容校验，预算和调用阶段不变。 |
+| `backend/tests/test_source_originality.py`、`test_generation_sources.py`、`test_intra_paper_rule.py` | 三值逻辑、缺失/冲突、来源边界、限定比较目标、定向修复、拆分汇总及中断保存、版本失效检查。 |
 
-1. **审阅只报告事实**：语义输出新增 `source_overlaps`。对候选题与相关的课程或历年卷摘录，每一对报告：小问 ID、来源 ID、`same_stimulus` 及依据、两边的结论、`same_conclusion`、`same_reasoning`（是否沿用同样的解题步骤）及依据。不设“是否重复”字段。
-2. **由代码判定** `semantic:qN:originality`：
-   - 来源在 `intentional_wrong_examples` 中，且 `same_reasoning` 为真 → fail；
-   - 其他来源，`same_stimulus` 和 `same_conclusion` 都为真 → fail；
-   - 否则 pass。模型不再直接给出这一项结论。
-3. **防漏报**：每道题检索得分最高的 2 条摘录，以及检索到的所有故意错误示例摘录，都必须有事实记录，缺少则判 inconclusive；审阅缺失或不完整时判 not_checked。
-4. **保留程序检查**：`local_duplicates` 中“只换数字”的文本比对（NUMBER_SWAP_DUPLICATE）不变。
-5. **修复**只针对判 fail 的题。
-6. **测试**：
-   - 一般来源：同材料同结论判 fail；同方法不同材料判 pass；只换数字判 fail；
-   - 故意错误示例来源：题目不同但照搬路径判 fail；
-   - 防漏报：缺少高分摘录或故意错误示例摘录的事实判 inconclusive；
-   - 清单汇总：从 findings 和 issue code 两种标注都能得到，并出现在四个阶段的输入中；
-   - 分组审阅时，各组的事实都能汇总；
-   - 规则文件和改动的提示词不含具体课程、材料编号或知识点（用跨科目样例检查）；
-   - 评测样例补充“与课程材料比较”和“故意错误示例”条目，跨科目、带标准答案。
+实际运行所有 `backend/tests/test_generation*.py`，加 `test_source_originality.py`、`test_intra_paper_rule.py`：**116 passed，168.61 秒**。通过项目虚拟环境 Python 的 `pytest.main`，参数 `-q -c backend/pytest.ini -p no:cacheprovider`；预设随机独立测试库 `test_ppg_generation_v6_<uuid>`，结束后删除。测试适配器使用明确的合成事实，真实模型缺失事实不会由 fixture 补齐。真实 OpenAI HTTP（含计数）被测试拦截。
 
-## 五、影响（与上一版方案不同之处）
+Django `manage.py check`：**0 issues**；`git diff --check` 通过。无需数据库迁移。现有脚本 `restart-workers` 和 `restart-api` 已成功执行；重启前无 queued/processing 业务任务。
 
-- **需要重新组卷规划**。当前冻结蓝图的 q3d 就是按故意错误示例规划的找错小问，违反决定二。顺序：
-  1. 实现并测试；
-  2. 生成新的组卷规划预检，你按 context hash 授权后发起一次规划调用；
-  3. 你在 Generate 页确认新结构并点 Prepare generation，生成新的冻结快照；
-  4. 生成新的出卷预检，你授权后再真实运行。
-- **不能复用已验证的大题**：`question_pairs.md` 改动，快照也会换新，b02101f9 的 Q1–Q4 都不能复用，下一次真实运行要为 4 道题全部发起生成调用。上一版方案中“不需要生成调用”的估计作废。
-- 版本：`originality-policy-v2`、`review-policy-v3`、`generation-v6`，规划提示词和语义 schema 也会变化，相关 context hash 都会改变。
-- `semantic_review.md` 中原有的一条针对具体法则的检查句属于 [OPT-03](../../round-1-optimization-backlog.md) 的范围，这次不动，只保证新增内容不写死具体知识点。
-- 风险：放宽之后，“方法相同、只换函数”的题会被接受，练习的新颖程度更依赖生成阶段的设计。这是用户已经接受的取舍。
+只读浏览器检查：[QM Generate](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/generate) 显示四大题和已确认结构，Generate practice 可用；历史候选可阅读且答案默认关闭；0 JavaScript 错误，登录后 0 写请求。检查产物在 Git 忽略的 `var/source-overlap-v6-local-check-2026-11-01.json` 和 `var/screenshots/source-overlap-v6-generate.png`。
+
+模型调用记录前后均 153，活动任务为 0。本次未发起真实模型、官方输入计数、规划或生成；未提交网页预检。用户可从原 Generate 入口查看新预检，再自行点击 Start generation and checks。实际 token、拆分耗时和最终质量仍需新任务验证，不能用离线通过替代。

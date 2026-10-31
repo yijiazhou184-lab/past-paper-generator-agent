@@ -1,5 +1,25 @@
 # Codex 与 Claude Code 开发交接
 
+## 当前实现：来源判重前四项已完成（2026-11-01）
+
+用户要求实现方案前四项，并由用户自行从网站发起真实运行。本次没有代用户运行模型。
+
+- **规则与契约**：`generation-v6` / `review-policy-v3` / `originality-policy-v2`。精简 `source_overlaps` 每条为 `subpart_id`、`source_id`、可空的 `same_stimulus` / `same_conclusion`、可空短 `note`（最多 300 字符）。没有 `same_reasoning` 或模型判重字段；课程来源与卷内比较均按同题且同结论判重复，标准方法可复用。
+- **实现入口**：新增 `generation/source_originality.py`，复用既有每大题最多 6 段的检索结果，为每小问选至多 2 个不同来源页；`review_input.py` 传入目标，`semantic_review.py` 保存事实并由代码生成 `semantic:qN:originality`。缺项、冲突、未知 ID 或没有可用比较目标不会自动通过。`check_progress.py` 汇总分组成果并进入报告 hash，`repair.py` 将确定重复纳入已有一次定向修复；无需新增阶段或页面。
+- **版本绑定**：schema、提示词、策略及版本进入当前预检 context hash，runtime 校验冻结策略。旧失败任务保持原记录；不要求重规划现有已确认结构，用户在 Generate 点击 Generate practice 获取新预检后自行运行。
+- **实际检查**：所有 `backend/tests/test_generation*.py` 加 `test_source_originality.py`、`test_intra_paper_rule.py`，**116 passed / 168.61 秒**；随机独立测试数据库，阻断真实 OpenAI 请求。Django check **0 issues**；git diff --check 通过。此前 67 项是撤回专门约束的独立记录，不当作全库覆盖。
+- **工作台**：[QM Generate](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/generate)。API 和 worker/dispatcher 已用既有脚本重启加载代码，前端继续运行；只读浏览器核对已确认四大题、生成按钮可用、旧候选四大题可读、答案默认关闭；0 JS 错误，登录后 0 写请求。没有点击真实生成或提交预检。
+- **本地证据**：`var/source-overlap-v6-local-check-2026-11-01.json`、`var/screenshots/source-overlap-v6-generate.png`（均 Git 忽略）。纯本地构造当前上下文得到 33 个冻结来源页；调用记录前后均 **153**，活动业务任务 **0**。真实 token、拆分耗时、质量及端到端是否通过尚未测量。
+- **交接边界**：本次侧聊代码与文档修改留在工作区，未 pull/commit/push；保留已有修改及独立的 `docs/multi-course-compatibility-design-v0.1.md`，未进入批次 5/6。下一步由用户在网页运行，再依据新任务的实际报告评估。下文为历史记录，待实施/服务状态以本节为准。
+
+## 历史侧聊决定：撤回专门分类和约束（2026-10-31）
+
+- 用户撤销此前关于故意错误示例的专门处理要求。生成内容统一走普通正确性核验，实际错误由现有修复阶段处理；不按来源的意图、标签或相关题型额外禁止。
+- 已删除上一轮新增的清单函数及专用测试，撤回四阶段输入字段和五份提示词的专门约束；新页图/页面核对 schema 仅保留通用 finding 类别。历史标签只读保留，不改来源、确认版本或任务记录。
+- 新增两项转写契约回归：新请求不要求意图分类，旧标签及原文仍保持不变。2026-11-01 完成定向回归：visual_contract、visual_transcription、generation_sources、generation_review_budget、generation_execution 共 **67 passed，93.05 秒**。独立随机命名临时测试库在结束后删除，测试阻断真实 API；此前 45 passed 属于已撤回版本。
+- 来源比较方案已去掉特殊判重例外及 same_reasoning 必需输出；`source_overlaps` schema 和普通来源的代码判重仍待实施，旧任务原创性失败尚不能宣称解决。
+- 未调用真实模型、未新建真实生成任务、未修改网站流程或重启服务。当前为主聊天可接续的本地文件修改，未 pull/commit/push。
+
 ## 接手核查（2026-10-31，Codex）
 
 本次仅交接、定向验证和恢复既有服务。接手基线ae894d6；git status干净，git pull --ff-only已是最新，HEAD与origin/main一致。未实施待确认的原创性方案，未发起规划、生成或其他真实模型调用。
@@ -8,9 +28,9 @@
 
 - 已核对主要实现提交：e8632c0（generation-v5的卷内规则、数学能力及core/auxiliary）、5fbb3b2（前端数学角色、离线评测/回放）、27a8d5a（生成专用限额、跨任务复用）。之后是运行记录与待确认方案的文档提交。
 - 以数据库实际记录确认最新真实任务仍为b02101f9-4b54-4571-8df3-da3c75f10d56；候选/报告hash有效，最终75必要项74pass、1fail，唯一阻塞semantic:q3:originality。11模型+11计数均有终态，287,060 tokens，494.485秒，语义输入57,027/58,054，没有拆分。
-- 冻结蓝图68a09ab1的q3d确为“Diagnosis of invalid repeated use of L'Hopital's Rule”，3分；当前方案所指出的冲突实际存在，不能只改核验规则就继续使用该蓝图。
+- 冻结蓝图68a09ab1的q3d实际内容已核对并保留。此前基于来源类型认定该小问被禁止的要求已被用户撤销，不再据此强制重规划。
 - [2026-10-30方案](superpowers/plans/2026-10-30-source-originality-rule.md)仍待用户确认。其记录的两项用户决定与实施方案的确认状态分开保留；本次交接不代替方案批准。
-- 按该待确认方案实施后，应重新规划和确认新结构；新快照及生成提示词改变后，旧大题不能直接复用。批次5/6仍未进入。
+- 后续来源判重改动以最新方案为准，沿用现有页面及输入绑定机制；是否复用由实际快照、提示词和输入一致性决定。批次5/6仍未进入。
 
 ### 本次实际验证
 
@@ -43,12 +63,8 @@
 
 - **代码状态**：最新实现为 generation-v5 加上生成专用上限和跨任务复用（`27a8d5a`）。之后只有文档提交，没有未提交改动。验证：后端 252 passed（220.7 秒）、前端 19 passed、生产构建通过。
 - **最近一次真实运行**：`b02101f9-4b54-4571-8df3-da3c75f10d56`，failed / REQUIRED_CHECKS_BLOCKED，只剩 `semantic:q3:originality`（q3c 与课程例子解题路径相同）。候选 `b7abb94e`（v1）、`0afc9ea9`（v2），未发布。拆分未触发。详见[第四批记录](batch-4-validation.md)末节。
-- **待用户确认的方案**：[与课程材料比较的原创性规则 + 故意错误示例的处理](superpowers/plans/2026-10-30-source-originality-rule.md)（`555a385`）。用户已作出两项决定（原文见方案开头），但**方案本身还没有确认，确认前不改代码**。要点：
-  - 与课程材料比较：审阅只报告事实（题目、结论、是否沿用解题步骤），由代码判定。一般来源要题目和结论都相同才算重复；课程材料中的故意错误示例例外，照搬它的解题路径也算重复。
-  - 故意错误示例由课程数据中的标注汇总（转写 findings `intentional_wrong_example`、issue code `INTENTIONAL_WRONG_PROOF`），提示词只用通用表述，不据此规划或出找错题。
-  - 当前冻结蓝图（快照 `68a09ab1`）的 q3d 是按故意错误示例规划的找错小问，违反用户决定，**需要重新组卷规划**；之后 4 道题都要重新生成，不能复用 b02101f9 的大题。
-  - 已确认课程版本 2 中把该示例描述为“找错练习”的文字不改（确认记录不可修改），由代码规则说明以用户决定为准。
-- **下一步**：等用户确认方案 → 实现并用 fixture 测试 → 给出新的组卷规划预检 → 用户按 context hash 授权后规划 → 用户在 Generate 页确认结构并 Prepare generation → 新的出卷预检 → 授权后真实运行。每一次付费调用都要先有用户按精确 context hash 的授权。真实运行如触发拆分，专门记录分组、调用次数、耗时和整卷检查结果。
+- 当时提出的来源分类和禁用方案已被用户撤销；有效的来源比较要求及实施状态见[当前方案](superpowers/plans/2026-10-30-source-originality-rule.md)，不按本历史段落恢复已删除的约束。
+- **历史下一步安排已作废**：后续工作以最新用户决定及当前方案为准，不由本记录触发新的规划或生成调用。
 - **未验证事项**：拆分在真实运行中从未触发；新方案的任何部分都未实现、未测试。
 - **服务状态**（交接时检查）：PostgreSQL（54330）、web（5173）、dispatcher 在运行；**API（8000）和 worker 已停止**，原因未查（api.log 最后一条请求在 06:13，无报错）。没有排队或运行中的任务（只有 3 个早期的 needs_info 分析/规划任务）。接手后用 `.venv/Scripts/python.exe scripts/local.py start` 补起。
 - 本机当前用户没有 Playwright Chromium，安装前需用户同意。

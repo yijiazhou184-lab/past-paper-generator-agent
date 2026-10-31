@@ -3,6 +3,7 @@
 These tests check that code applies the rule correctly; they do not evaluate a model's judgement.
 """
 import copy
+import re
 from unittest.mock import patch
 from app.generation import semantic_review
 from app.generation.generator import run_generation
@@ -51,13 +52,13 @@ def test_missing_review_is_not_checked_and_same_question_pairs_are_ignored():
     assert result == "pass" and "Ignored invalid pairs" in reason
 
 
-def test_policy_text_is_generic_and_scoped_to_this_paper():
+def test_policy_text_is_generic_for_paper_and_sources():
     text = " ".join(str(v) for v in POLICY.values()).lower()
     assert "same stimulus and the same final conclusion" in text
-    assert "course and historical material keep the earlier rule" in text
+    assert "course and historical material use the same two-fact rule" in text
     # AGENTS.md section 3: no subject or course content in the code-owned rule.
     for word in ("x^2", "sin", "derivative", "limit", "accounting", "qm", "msin"):
-        assert word not in text
+        assert re.search(r"\b" + re.escape(word) + r"\b", text) is None
 
 
 def num(v): return {"op": "number", "value": str(v), "args": []}

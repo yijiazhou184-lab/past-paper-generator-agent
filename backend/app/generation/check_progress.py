@@ -18,6 +18,7 @@ def progress_report(candidate):
     stages = []
     checks = {}
     blind = []
+    source_facts, source_targets = [], []
     duplicates = {"retrieval_coverage": "Comparison retrieval has not finished.",
                   "compared_source_ids": [], "compared_paper_ids": []}
     ids = [p["question_id"] for p in candidate.payload["pairs"]]
@@ -31,6 +32,8 @@ def progress_report(candidate):
                        "question_ids": [qid for qid in ids if qid in targets]})
         checks.update({c["check_id"]: c for c in p["checks"]})
         blind.extend(p.get("blind", []))
+        source_facts.extend(p.get("source_overlaps", []))
+        source_targets.extend(p.get("source_overlap_targets", []))
         if "duplicates" in p:
             duplicates = p["duplicates"]
     if not stages:
@@ -53,7 +56,8 @@ def progress_report(candidate):
             checks.setdefault(key, check(key, [qid], "optional_review", "not_checked",
                                          "Optional check has not run; required checks take priority.", required=False))
     values = list(checks.values())
-    return {"candidate_version_id": str(candidate.id), "complete": False, "version": digest([stages, values]),
+    return {"candidate_version_id": str(candidate.id), "complete": False, "version": digest([stages, values, source_facts, source_targets]),
             "checks": values, "stages": stages, "gate": {**release_gate(values), "allowed": False},
             "coverage_summary": coverage_summary(values), "blind_comparison": blind,
-            "duplicate_review": duplicates, "repair_requests": []}
+            "duplicate_review": duplicates, "repair_requests": [],
+            "source_overlaps": source_facts, "source_overlap_targets": source_targets}

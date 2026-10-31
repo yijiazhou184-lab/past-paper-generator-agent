@@ -15,6 +15,7 @@ from .content_schemas import schema_hashes
 from .expressions import CHECKER_CONTRACT
 from .source_policy import SOURCE_POLICY
 from .review_policy import REVIEW_POLICY, PIPELINE_VERSION
+from .originality_policy import POLICY as ORIGINALITY_POLICY
 
 
 GENERATION_STAGES=("question_pairs","repair")
@@ -30,6 +31,8 @@ def verify_context(task):
         raise DomainError("GENERATION_SOURCE_POLICY_CHANGED", "Review a new preflight using the current academic and background reference policy.")
     if context.get("review_policy") != REVIEW_POLICY:
         raise DomainError("GENERATION_REVIEW_POLICY_CHANGED", "Review a new preflight using the current validation policy.")
+    if context.get("originality_policy") != ORIGINALITY_POLICY:
+        raise DomainError("GENERATION_ORIGINALITY_POLICY_CHANGED", "Review a new preflight using the current source-comparison rule.")
     if schema_hashes() != context["schema_hashes"]:
         raise DomainError("GENERATION_SCHEMA_CHANGED", "Start a new preflight using the current generation schema.")
     if context["mode"]=="live" and not GenerationGrant.objects.filter(course=task.course,context_hash=context["context_hash"]).exists():

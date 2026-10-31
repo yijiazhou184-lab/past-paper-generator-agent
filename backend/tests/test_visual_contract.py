@@ -121,3 +121,25 @@ def test_database_rejects_update_of_transcription(course, pdf_bytes):
         payload=transcription(), origin="fixture")
     with pytest.raises(DatabaseError), transaction.atomic():
         VisualTranscription.objects.filter(pk=row.pk).update(status="tampered")
+
+def test_current_page_schemas_do_not_request_intent_classification():
+    from app.ai.page_review import PageReview
+    for output_type in (PageReview, VisualTranscriptionOutput):
+        kinds = output_type.model_json_schema()["$defs"]["Finding"]["properties"]["kind"]["enum"]
+        assert set(kinds) == {"parser_loss", "source_issue", "uncertain"}
+
+
+def test_legacy_labels_remain_unchanged_without_new_policy():
+    review = {
+        "source": {k: v for k, v in SOURCE.items() if k != "locator"}, "status": "reviewed",
+        "page_title": "Historical source", "faithful_transcription": "Original printed content.",
+        "math_items": [],
+        "findings": [{"kind": "intentional_wrong_example", "observation": "Historical observation.",
+                      "evidence_on_page": "Original location", "suggested_interpretation": None}],
+        "teaching_use": "Original description.", "unresolved": [],
+    }
+    before = copy.deepcopy(review)
+    mapped = legacy_to_visual(review)
+    assert mapped["findings"] == before["findings"]
+    assert mapped["faithful_transcription"] == before["faithful_transcription"]
+    assert review == before

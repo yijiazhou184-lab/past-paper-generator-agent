@@ -144,7 +144,7 @@ class BlindOutput(Strict):
 
 class ReviewCheck(Strict):
     question_id: str
-    category: Literal["clarity", "conditions", "methods", "reasoning", "difficulty", "preferences", "originality", "blind_agreement", "math_relevance", "source_alignment", "paper_consistency", "wording", "alternative_methods", "difficulty_detail", "background_references"]
+    category: Literal["clarity", "conditions", "methods", "reasoning", "difficulty", "preferences", "blind_agreement", "math_relevance", "source_alignment", "paper_consistency", "wording", "alternative_methods", "difficulty_detail", "background_references"]
     result: CheckStatus
     rationale: str = Field(min_length=1, max_length=4000)
     evidence_ids: list[str] = Field(max_length=40)
@@ -167,11 +167,22 @@ class PartOverlap(Strict):
     same_conclusion: bool
 
 
+
+class SourceOverlap(Strict):
+    """Compact observations; application code decides whether a source was copied."""
+    subpart_id: str = Field(min_length=1, max_length=100)
+    source_id: str = Field(min_length=1, max_length=100)
+    same_stimulus: bool | None
+    same_conclusion: bool | None
+    note: str | None = Field(max_length=300)
+
+
 class SemanticOutput(Strict):
     status: Literal["complete", "needs_info", "unable_to_determine", "not_checked"]
     explanation: str = Field(max_length=4000)
     checks: list[ReviewCheck] = Field(max_length=100)
     intra_paper_overlaps: list[PartOverlap] = Field(max_length=30)
+    source_overlaps: list[SourceOverlap] = Field(max_length=100)
     repair_requests: list[RepairRequest] = Field(max_length=4)
 
 

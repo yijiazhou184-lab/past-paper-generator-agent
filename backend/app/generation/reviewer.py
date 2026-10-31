@@ -35,7 +35,9 @@ def save_report(token,candidate,checks,duplicates,repair_requests,blind):
     checks=list(values.values())
     payload={"candidate_version_id":str(candidate.id),"complete":True,
              "checks":checks,"duplicate_review":duplicates,"stages":(progress or {}).get("stages",[]),
-             "repair_requests":repair_requests,"coverage_summary":coverage_summary(checks),"blind_comparison":blind}
+             "repair_requests":repair_requests,"coverage_summary":coverage_summary(checks),"blind_comparison":blind,
+             "source_overlaps":(progress or {}).get("source_overlaps",[]),
+             "source_overlap_targets":(progress or {}).get("source_overlap_targets",[])}
     payload["version"]=digest(payload)
     return CheckReport.objects.create(candidate=candidate,payload=payload,payload_hash=digest(payload),gate=release_gate(checks))
 
@@ -81,7 +83,8 @@ def _check_candidate(token,context,candidate):
         checks+=saved["checks"]
         blind+=saved["blind"]
     checkpoint(token,"Retrieving comparison questions")
-    sources=[s for s in context["input"]["sources"] if s["id"] in context["input"]["comparison_source_ids"]]
+    # Teaching pages and historical/practice pages are all already frozen and authorised.
+    sources=context["input"]["sources"]
     duplicates=duplicate_candidates(candidate.payload["pairs"],sources,context["input"]["history_content_ids"])
     retrieval_missing=bool(duplicates["available_source_ids"]) and not duplicates["candidates"]
     duplicate_status="fail" if duplicates["findings"] else "not_checked" if retrieval_missing else "pass"

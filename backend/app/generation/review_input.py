@@ -2,7 +2,8 @@
 import copy
 from .source_policy import source_review_input
 from .duplicates import source_text
-from .review_policy import REQUIRED_CATEGORIES, OPTIONAL_CATEGORIES
+from .review_policy import MODEL_REQUIRED_CATEGORIES, OPTIONAL_CATEGORIES
+from .source_originality import build_source_targets
 from .originality_policy import POLICY as ORIGINALITY_POLICY
 from .shared_material import overlap_hints
 
@@ -98,6 +99,7 @@ def build_review_input(context, payload, local, blind, duplicates, question_ids,
     comparison = copy.deepcopy(duplicates)
     comparison["candidates"] = [c for c in comparison["candidates"] if ids.intersection(c["target_ids"])]
     comparison["findings"] = [f for f in comparison["findings"] if ids.intersection(f["target_ids"])]
+    source_targets = build_source_targets(pairs, comparison) if not (paper or optional) else []
     evidence = _evidence(context, source_review, comparison) if not (paper or optional) else []
     for e in source_review["academic_excerpts"]:
         e.pop("text")
@@ -132,7 +134,7 @@ def build_review_input(context, payload, local, blind, duplicates, question_ids,
         assets.append(a)
     data = {
         "review_mode": mode, "question_ids": list(question_ids),
-        "required_categories": [] if paper or optional else list(REQUIRED_CATEGORIES),
+        "required_categories": [] if paper or optional else list(MODEL_REQUIRED_CATEGORIES),
         "optional_categories": list(OPTIONAL_CATEGORIES) if optional else [],
         "include_paper_check": paper or (not optional and ids == all_ids),
         "candidate": {"pairs": [compact_pair(p, include_checks=not (paper or optional)) for p in pairs], "assets": assets},
@@ -144,6 +146,8 @@ def build_review_input(context, payload, local, blind, duplicates, question_ids,
         "duplicate_comparison": comparison if not (paper or optional) else {"findings": comparison["findings"]},
         "source_review": source_review if not (paper or optional) else {"policy": source_review["policy"]},
         "evidence": evidence,
+        "source_overlap_targets": source_targets,
+        "source_overlap_definitions": {k: ORIGINALITY_POLICY[k] for k in ("stimulus", "conclusion")} if source_targets else None,
         "evidence_coverage": "One copy of each frozen source span. academic_excerpts link by id, comparison candidates by source_id/chunk_index. Fragment purposes identify use; omitted spans have not been read.",
         "other_question_summaries": [{"question_id": p["question_id"], "stem": p["stem"],
                                      "parts": p["parts"]} for p in payload["pairs"] if p["question_id"] not in ids],

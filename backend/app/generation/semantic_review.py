@@ -7,13 +7,14 @@ from .content_schemas import SemanticOutput
 from .checks import check
 from .source_policy import source_catalog
 from .review_input import build_review_input
-from .review_policy import REVIEW_POLICY, REQUIRED_CATEGORIES, OPTIONAL_CATEGORIES, PAPER_CATEGORY
+from .review_policy import REVIEW_POLICY, MODEL_REQUIRED_CATEGORIES, OPTIONAL_CATEGORIES, PAPER_CATEGORY
+from .source_originality import source_originality_checks
 from .check_progress import save_check_stage
 from .originality_policy import POLICY as ORIGINALITY_POLICY, judge as judge_overlaps
 
 
 def normalise_review(context, output, ids, *, paper=False, optional=False, provided_evidence_ids=None):
-    categories = OPTIONAL_CATEGORIES if optional else REQUIRED_CATEGORIES
+    categories = OPTIONAL_CATEGORIES if optional else MODEL_REQUIRED_CATEGORIES
     expected = [(qid, c) for qid in ids for c in categories]
     if paper:
         expected.append(("paper", PAPER_CATEGORY))
@@ -49,13 +50,18 @@ def normalise_review(context, output, ids, *, paper=False, optional=False, provi
     return results + notices
 
 
-def _fixture_for(fixture, pairs, mode, include_paper):
+def _fixture_for(fixture, pairs, mode, include_paper, source_targets=()):
     if mode == "optional":
         return {"status": "complete", "explanation": "Synthetic optional review; no model call.",
                 "checks": [{"question_id": p["question_id"], "category": c, "result": "pass",
                             "rationale": "Synthetic advisory judgement.", "evidence_ids": []}
-                           for p in pairs for c in OPTIONAL_CATEGORIES], "intra_paper_overlaps": [], "repair_requests": []}
+                           for p in pairs for c in OPTIONAL_CATEGORIES], "intra_paper_overlaps": [], "source_overlaps": [], "repair_requests": []}
     output = fixture(pairs)
+    # Synthetic observations only. Live outputs never pass through this fixture adapter.
+    output.setdefault("source_overlaps", [
+        {"subpart_id": t["subpart_id"], "source_id": sid, "same_stimulus": False,
+         "same_conclusion": True, "note": None}
+        for t in source_targets for sid in t["source_ids"]])
     if mode == "paper":
         output["checks"] = [c for c in output["checks"] if c["question_id"] == "paper"]
     elif not include_paper:
@@ -75,7 +81,7 @@ def run_semantic_review(token, context, candidate, local, blind, duplicates, fix
         pairs = [p for p in candidate.payload["pairs"] if p["question_id"] in ids]
         try:
             output = stage_output(token, f"r{candidate.revision-1}:semantic:{path}", "semantic_review", data,
-                                  SemanticOutput, lambda: _fixture_for(fixture, pairs, mode, data["include_paper_check"]))
+                                  SemanticOutput, lambda: _fixture_for(fixture, pairs, mode, data["include_paper_check"], data["source_overlap_targets"]))
         except DomainError as exc:
             if exc.payload["code"] != "TOKEN_BUDGET_EXCEEDED" or mode != "required" or len(ids) < 2:
                 raise
@@ -92,6 +98,14 @@ def run_semantic_review(token, context, candidate, local, blind, duplicates, fix
             if c["check_id"] == "semantic:paper:paper_consistency":
                 c["target_ids"] = all_ids
         details = {}
+        if mode == "required":
+            reported_sources = output.get("source_overlaps")
+            source_facts = reported_sources if isinstance(reported_sources, list) else []
+            checks.extend(source_originality_checks(
+                pairs, source_facts, data["source_overlap_targets"], {e["id"] for e in data["evidence"]},
+                reviewed=output["status"] == "complete" and isinstance(reported_sources, list)))
+            details.update(source_overlaps=source_facts, source_overlap_targets=data["source_overlap_targets"],
+                           originality_policy=ORIGINALITY_POLICY["version"])
         if data["include_paper_check"]:
             # The model reports facts only; the user's rule is applied here.
             # Missing facts are never read as "no overlap".
@@ -104,8 +118,8 @@ def run_semantic_review(token, context, candidate, local, blind, duplicates, fix
             item = check(ORIGINALITY_POLICY["check_id"], all_ids, "intra_paper_rule", result, reason)
             item["duplicate_pairs"] = duplicate_pairs
             checks.append(item)
-            details = {"intra_paper_overlaps": overlaps, "intra_paper_overlap_hints": data["intra_paper_overlap_hints"],
-                       "originality_policy": ORIGINALITY_POLICY["version"]}
+            details.update(intra_paper_overlaps=overlaps, intra_paper_overlap_hints=data["intra_paper_overlap_hints"],
+                           originality_policy=ORIGINALITY_POLICY["version"])
         requests = [r for r in output["repair_requests"] if set(r["target_ids"]) <= set(ids)]
         saved = save_check_stage(token, candidate, "semantic-" + path, checks, repair_requests=requests, **details)
         results.extend(saved["checks"])

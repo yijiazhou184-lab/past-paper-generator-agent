@@ -55,8 +55,8 @@ def fixture_blind(q):
                         "final_answer":copy.deepcopy(a["final_answer"])} for a in generated["answers"]]}
 
 
-from .review_policy import REQUIRED_CATEGORIES
-CATEGORIES=REQUIRED_CATEGORIES
+from .review_policy import MODEL_REQUIRED_CATEGORIES
+CATEGORIES=MODEL_REQUIRED_CATEGORIES
 
 
 def fixture_review(pairs):

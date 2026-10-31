@@ -4,14 +4,16 @@
 只有题目和考点都相同时，才算题间重复，例如同一个函数被问同一个结论，或只换了数字、记号，解题路径完全相同。
 "题目"指题干给出的具体函数、数据或情境；"考点"按最终要得出的结论判断。只要两题最终要得出的结论不同，就算考点不同，
 即使中间用到相同的关键步骤。共用知识点、方法、证明技巧、具体函数或中间关键步骤，都不能单独作为失败理由。
-与课程原题、历年卷比较时保持原规则；本规则只用于同一份卷子内部的题间比较。
+2026-10-31：与课程原题及历年卷比较也采用相同的两项事实；标准方法或步骤相同不单独判重复。不设置来源类型例外。
 
 The review model reports facts only; this module applies the rule. Nothing here depends on a course or subject.
 """
 
 POLICY = {
-    "version": "originality-policy-v1",
-    "scope": "Comparisons between parts of different questions in the same candidate paper only. Comparisons with course and historical material keep the earlier rule.",
+    "version": "originality-policy-v2",
+    "scope": "Comparisons within this candidate and with supplied course and historical material use the same two-fact rule.",
+    "max_source_pages_per_part": 2,
+    "source_rule": "A source comparison is a duplicate only when same_stimulus and same_conclusion are both true. Either false means acceptable; otherwise undecided. Missing comparisons do not pass.",
     "stimulus": "The specific material the question text gives the candidate to work with, such as a function, data or a scenario. Material that differs only in numbers or notation counts as the same.",
     "conclusion": "The kind of final result a part requires the candidate to reach. Results that differ only because the numbers differ count as the same. Intermediate steps, shared methods or shared techniques are not the conclusion.",
     "rule": "Two parts are an intra-paper duplicate only when they have the same stimulus AND the same final conclusion. Same stimulus with different conclusions, or the same conclusion with different stimuli, is acceptable.",

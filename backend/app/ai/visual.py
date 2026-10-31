@@ -103,6 +103,11 @@ def check_transcription(payload, expected_source):
     return output
 
 
+class HistoricalFinding(Finding):
+    """Read stored labels without reclassifying or changing their provenance."""
+    kind: str
+
+
 def legacy_to_visual(review):
     """Read-only view of a batch-one PageReview in the transcription shape; the original stays unchanged."""
     status = {"reviewed": "transcribed", "insufficient_information": "partially_readable",
@@ -112,8 +117,10 @@ def legacy_to_visual(review):
               "value_origin": "not_applicable", "latex_as_printed": m["as_printed_latex"], "columns": None,
               "rows": None, "units": None, "axes": None, "series": None, "labelled_values": None,
               "elements": None, "relations": None, "text": None} for m in review["math_items"]]
-    return VisualTranscriptionOutput.model_validate({
+    output = VisualTranscriptionOutput.model_validate({
         "source": source, "status": status, "page_title": review["page_title"],
         "faithful_transcription": review["faithful_transcription"], "items": items,
-        "findings": review["findings"], "teaching_use": review["teaching_use"],
+        "findings": [], "teaching_use": review["teaching_use"],
         "unresolved": review["unresolved"]}).model_dump(mode="json")
+    output["findings"] = [HistoricalFinding.model_validate(f).model_dump(mode="json") for f in review["findings"]]
+    return output

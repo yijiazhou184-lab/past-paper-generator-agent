@@ -12,6 +12,6 @@ Leave fields that do not apply to the item's kind as null. Every value comes fro
 
 Mark legibility honestly. If part of the page cannot be read, say so in unresolved and use partially_readable; do not guess. If the page is a scan, a photograph or handwriting, use unsupported_input. If nothing can be determined, use unable_to_determine.
 
-In findings, separate observation from interpretation: parser_loss where the extracted text dropped or garbled content, source_issue for a possible error in the source itself, intentional_wrong_example where the page presents a mistake on purpose, uncertain otherwise. A possible source error stays as printed in the transcription.
+In findings, separate observation from interpretation: parser_loss where the extracted text dropped or garbled content, source_issue for a possible error in the source itself, uncertain otherwise. A possible source error stays as printed in the transcription.
 
 This is a candidate transcription, not a human verification, a course profile or a judgement about exam scope. Keep it concise enough to fit the output limit.

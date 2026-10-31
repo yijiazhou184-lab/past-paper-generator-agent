@@ -34,7 +34,7 @@
 
 **页图转写** `VisualTranscription`（每页调用一次，严格 schema）：
 
-- 通用核心：`source`（与现有 SourceRef 一致，加 locator）、`status`（`transcribed | partially_readable | unsupported_input | unable_to_determine`）、`faithful_transcription`、`findings[]`（沿用第一批的 parser_loss / source_issue / intentional_wrong_example / uncertain）、`unresolved[]`。
+- 通用核心：`source`（与现有 SourceRef 一致，加 locator）、`status`（`transcribed | partially_readable | unsupported_input | unable_to_determine`）、`faithful_transcription`、`findings[]`（新输出为 parser_loss / source_issue / uncertain；历史标签仅作为旧来源记录保留，不决定生成约束）、`unresolved[]`。
 - `items[]`：`kind` 取 `formula | table | chart | diagram | image_text | other`；每项都带 `location`、`legibility`、`value_origin`（`native_data | read_from_image | not_applicable`）。各类型的专属字段在不适用时为 null：
   - formula：`latex_as_printed`
   - table：`columns`、`rows`、`units`
