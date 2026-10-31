@@ -1,5 +1,44 @@
 # Codex 与 Claude Code 开发交接
 
+## 接手核查（2026-10-31，Codex）
+
+本次仅交接、定向验证和恢复既有服务。接手基线ae894d6；git status干净，git pull --ff-only已是最新，HEAD与origin/main一致。未实施待确认的原创性方案，未发起规划、生成或其他真实模型调用。
+
+### 代码、任务与决定状态
+
+- 已核对主要实现提交：e8632c0（generation-v5的卷内规则、数学能力及core/auxiliary）、5fbb3b2（前端数学角色、离线评测/回放）、27a8d5a（生成专用限额、跨任务复用）。之后是运行记录与待确认方案的文档提交。
+- 以数据库实际记录确认最新真实任务仍为b02101f9-4b54-4571-8df3-da3c75f10d56；候选/报告hash有效，最终75必要项74pass、1fail，唯一阻塞semantic:q3:originality。11模型+11计数均有终态，287,060 tokens，494.485秒，语义输入57,027/58,054，没有拆分。
+- 冻结蓝图68a09ab1的q3d确为“Diagnosis of invalid repeated use of L'Hopital's Rule”，3分；当前方案所指出的冲突实际存在，不能只改核验规则就继续使用该蓝图。
+- [2026-10-30方案](superpowers/plans/2026-10-30-source-originality-rule.md)仍待用户确认。其记录的两项用户决定与实施方案的确认状态分开保留；本次交接不代替方案批准。
+- 按该待确认方案实施后，应重新规划和确认新结构；新快照及生成提示词改变后，旧大题不能直接复用。批次5/6仍未进入。
+
+### 本次实际验证
+
+- 定向回归：test_intra_paper_rule.py、test_math_capability.py、test_generation_output_and_reuse.py，**27 passed，34.21秒**，隔离测试数据库且阻断真实API传输。
+- Django check：0 issues；makemigrations --check --dry-run：No changes detected。
+- Playwright只读页面5组通过：最新真实任务/4题15问、唯一阻塞、主动打开15份答案、双版本和刷新、Generate页入口；0 JS/KaTeX错误，登录后0写请求。截图已查看。
+- 当前Codex环境已有Chromium可执行文件，直接使用成功；没有安装依赖。下文“本机无Chromium”是Claude当时环境记录，不适用于本次检查。
+- Claude此前252项后端、19项前端及构建结果作为既有记录保留，本次未重跑全量，不能将其写成本次实测。
+
+### 服务恢复与发现
+
+- 接手时web/dispatcher运行，API/worker停止，API及代理请求失败；业务数据库可连接，没有queued/processing任务。
+- 使用现有scripts/local.py start复用并补起。2026-10-31 23:24:15（Asia/Shanghai）核对：web/api/worker/dispatcher均为本项目活动进程；5173前端、8000 session和5173代理session均HTTP200；0活动任务。
+- 模型调用记录总数前后均153，新增0。没有重跑旧任务；原材料、课程确认、候选和报告均未改。
+- worker旧日志包含数据库连接超时，API旧日志没有直接异常。现有证据不能确定两进程停止的共同根因；恢复后的检查正常。
+- 运行地址：http://127.0.0.1:5173 。最新任务：http://127.0.0.1:5173/tasks/b02101f9-4b54-4571-8df3-da3c75f10d56 。内置浏览器打开请求返回queued，页面可用性由Playwright验证。
+
+### 交接时发现的说明差异
+
+1. README操作说明仍残留600秒/12k统一上限，已在本次文档更新中纠正为实际900秒及分阶段上限。
+2. **待修的产品文案**：GenerationLaunch.tsx:40的预检摘要仍用scope.call_seconds显示所有调用“each up to 240 seconds”，实际question_pairs/repair使用generation_call_seconds=300。完整展开scope包含实际字段，但主摘要不准确。此次未改代码，应在下一次真实运行前同步该摘要并验证。
+3. 旧交接及待确认方案提到Prepare generation，但当前网页实际入口为Generate practice，点击后打开精确预检；不要按不存在的按钮编写操作步骤。
+
+本机证据（Git忽略）：var/handoff-check-2026-10-31.json、handoff-after-2026-10-31.json、handoff-browser-2026-10-31.json、screenshots/handoff-2026-10-31-latest.png。以下内容保留为历史交接记录；服务和环境当前状态以上述核查为准。
+
+---
+
+
 ## 最新交接（2026-10-30，Claude Code → Codex）
 
 - **代码状态**：最新实现为 generation-v5 加上生成专用上限和跨任务复用（`27a8d5a`）。之后只有文档提交，没有未提交改动。验证：后端 252 passed（220.7 秒）、前端 19 passed、生产构建通过。
