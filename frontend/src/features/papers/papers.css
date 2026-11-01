@@ -1,0 +1,23 @@
+.paper-list {display:grid;gap:16px;margin-bottom:24px}
+.paper-row {display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.paper-row h2 {font-size:1.15rem;margin:0 0 12px}.paper-row h2 a {color:var(--ink,#172134);text-decoration:none}.paper-row h2 a:hover{text-decoration:underline}
+.paper-row p {margin:8px 0}.paper-row small{color:#55627b}
+.pdf-panel h2{font-size:1.2rem;margin:0 0 8px}.pdf-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.pdf-heading p{margin:0}
+.pdf-note{color:#55627b;font-size:.9rem}.pdf-panel .actions{flex-wrap:wrap}.pdf-panel a small{margin-left:6px}
+.paper-reading-grid{display:grid;grid-template-columns:145px minmax(0,1fr);gap:22px;align-items:start}
+.paper-index{position:sticky;top:20px;display:flex;flex-direction:column;gap:12px;font-size:.9rem;padding:18px 0}
+.paper-reading-grid .candidate-question{scroll-margin-top:24px}
+.run-details summary{cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.run-details summary:before{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin-right:6px}
+.run-details[open] summary:before{transform:rotate(45deg)}
+.run-details .run-duration{font-variant-numeric:tabular-nums;margin-left:auto}
+.run-details .run-target{font-size:.8rem;color:#8b5a13}
+.run-details .timeline{margin-top:24px}
+.paper-config-reuse{margin-bottom:20px}
+@media(max-width:850px){.paper-reading-grid{grid-template-columns:minmax(0,1fr)}.paper-index{position:static;flex-direction:row;flex-wrap:wrap}.paper-row,.pdf-heading{flex-direction:column;gap:12px}}
+@media(max-width:480px){.run-details .run-duration{margin-left:0}.pdf-panel .actions>*{width:100%;justify-content:center}.paper-row h2{overflow-wrap:anywhere}}
+
+.run-details summary::marker{content:""}
+.run-details summary::-webkit-details-marker{display:none}
+.paper-reading-grid+details p{overflow-wrap:anywhere}
+@media(max-width:600px){.paper-heading{flex-direction:column;align-items:flex-start;gap:16px}.paper-heading>.button{align-self:flex-start}}

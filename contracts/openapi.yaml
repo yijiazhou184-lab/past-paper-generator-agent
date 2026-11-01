@@ -501,6 +501,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/UploadResultSchema'
           description: ''
+  /api/v1/courses/{course_id}/papers:
+    get:
+      operationId: v1_courses_papers_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PapersSchema'
+          description: ''
   /api/v1/courses/{course_id}/planning-preflight:
     get:
       operationId: v1_courses_planning_preflight_retrieve
@@ -738,6 +759,96 @@ paths:
               schema:
                 $ref: '#/components/schemas/RelationResultSchema'
           description: ''
+  /api/v1/papers/{paper_id}:
+    get:
+      operationId: v1_papers_retrieve
+      parameters:
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperContentSchema'
+          description: ''
+  /api/v1/papers/{paper_id}/answers:
+    get:
+      operationId: v1_papers_answers_retrieve
+      parameters:
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationAnswerSchema'
+          description: ''
+  /api/v1/papers/{paper_id}/exports:
+    post:
+      operationId: v1_papers_exports_create
+      parameters:
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportSchema'
+          description: ''
+  /api/v1/papers/{paper_id}/files/{kind}:
+    get:
+      operationId: v1_papers_files_retrieve
+      parameters:
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: paper_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/relations/{relation_id}/remove:
     post:
       operationId: v1_relations_remove_create
@@ -899,6 +1010,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/GenerationAnswerSchema'
           description: ''
+  /api/v1/tasks/{task_id}/paper:
+    get:
+      operationId: v1_tasks_paper_retrieve
+      parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperSchema'
+          description: ''
   /api/v1/tasks/{task_id}/retries:
     post:
       operationId: v1_tasks_retries_create
@@ -1012,6 +1144,19 @@ components:
       required:
       - committed_revision
       - draft
+    ExportSchema:
+      type: object
+      properties:
+        paper_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - paper_id
+      - task_id
     FreezeRequest:
       type: object
       properties:
@@ -1288,6 +1433,59 @@ components:
       - fidelity_status
       - id
       - physical_page
+    PaperContentSchema:
+      type: object
+      properties:
+        paper:
+          $ref: '#/components/schemas/PaperSchema'
+        candidate: {}
+      required:
+      - candidate
+      - paper
+    PaperSchema:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        content_version_id:
+          type: string
+          format: uuid
+        content_hash:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        metadata: {}
+        export: {}
+      required:
+      - content_hash
+      - content_version_id
+      - course_id
+      - created_at
+      - export
+      - id
+      - metadata
+      - task_id
+    PapersSchema:
+      type: object
+      properties:
+        papers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaperSchema'
+        next_cursor:
+          type: string
+          nullable: true
+      required:
+      - next_cursor
+      - papers
     PatchedBlueprintEditRequest:
       type: object
       properties:

@@ -1,3 +1,5 @@
+import { TaskExportPanel } from "../papers/ExportPanel";
+import "../papers/papers.css";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock, CheckCircle2, ArrowLeft } from "lucide-react";
@@ -49,18 +51,19 @@ export function TaskPage() {
   const analysis = task.kind === "analysis";
   const planning = task.kind === "planning";
   const generation = task.kind === "generation";
+  const exporting = task.kind === "export";
   return (
     <>
-      <Link className="back-link" to={`/courses/${task.course_id}/${(planning || generation) ? "generate" : "materials"}`}>
+      <Link className="back-link" to={`/courses/${task.course_id}/${(planning || generation || exporting) ? "generate" : "materials"}`}>
         <ArrowLeft size={16} />
-        {(planning || generation) ? "Back to Generate" : "Back to materials"}
+        {(planning || generation || exporting) ? "Back to Generate" : "Back to materials"}
       </Link>
       <div className="page-heading">
         <div>
-          <p className="breadcrumb">{generation ? "Practice generation" : planning ? "Practice planning" : analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
+          <p className="breadcrumb">{exporting ? "PDF export" : generation ? "Practice generation" : planning ? "Practice planning" : analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
           <h1>{task.state === "failed" ? "Processing failed" : task.stage}</h1>
           <p>
-            {generation ? "This task uses frozen inputs to generate paired questions and answers, check them, and repair at most once. Refreshing restores this task. Open answers only when you are ready." : planning ? "This task plans a structure from a frozen course version and configuration. Refreshing restores the same task. No questions or answers are generated at this stage."
+            {exporting ? "Your PDFs use saved questions and answers. Export does not call a model or change your content." : generation ? "This task uses frozen inputs to generate paired questions and answers, check them, and repair at most once. Refreshing restores this task. Open answers only when you are ready." : planning ? "This task plans a structure from a frozen course version and configuration. Refreshing restores the same task. No questions or answers are generated at this stage."
               : analysis ? "Your analysis uses a frozen selection of sources and statements. Refreshing this page restores the same task. Review the resulting draft before confirming your course."
               : liveValidation ? "A bounded integration check. The saved call records show exactly what ran; page observations remain separate from original evidence."
               : task.state === "succeeded" ? "Processing is complete. Your sources are saved in the materials workspace."
@@ -83,71 +86,22 @@ export function TaskPage() {
         </>}</section>}
       {generation && !!task.result.explanation && <section className="review-note"><strong>Generation needs more information</strong><p>{String(task.result.explanation)}</p></section>}
       {generation && <Suspense fallback={<section className="panel">Opening practice content…</section>}><CandidatePreview taskId={task.id} courseId={task.course_id} running={["queued","processing"].includes(task.state)}/></Suspense>}
+      {generation && task.state==="succeeded" && task.result.allowed===true && <TaskExportPanel taskId={task.id}/>}
+      {exporting && <p><Link className="button primary" to={`/courses/${task.course_id}/papers`}>Open Papers</Link></p>}
       <section className="task-panel panel">
-        <div className="task-clock">
-          <Clock size={22} />
-          <strong>
-            {Math.floor(task.elapsed_seconds / 60)}m{" "}
-            {Math.floor(task.elapsed_seconds % 60)}s
-          </strong>
-          <span>Elapsed since submission</span>
-        </div>
-        {query.isError && (
-          <p role="alert">Connection lost — your task may still be running.</p>
-        )}
-        {task.target_exceeded && (
-          <div className="review-note">
-            Longer than the 2-minute target
-            {task.state === "processing" ? " — still processing." : "."}
-          </div>
-        )}
-        <ol className="timeline">
-          {task.events.map((event, i) => (
-            <li key={i}>
-              <CheckCircle2 size={17} />
-              <div>
-                <strong>{event.stage}</strong>
-                <small>{new Date(event.created_at).toLocaleTimeString()}</small>
-              </div>
-            </li>
-          ))}
-        </ol>
-        {task.error.message && (
-          <div className="error-box" role="alert">
-            <h3>Processing could not finish</h3>
-            <p>{task.error.message}</p>
-            <small>Error code: {task.error.code}</small>
-            <small>Diagnostic ID: {task.error.diagnostic_id}</small>
-          </div>
-        )}
+        {query.isError && <p role="alert">Connection lost — your task may still be running.<button onClick={()=>query.refetch()}>Reconnect</button></p>}
+        {task.error.message && <div className="error-box" role="alert"><h3>{exporting ? "PDF export could not finish" : "Processing could not finish"}</h3><p>{task.error.message}</p><small>Error code: {task.error.code} · Diagnostic ID: {task.error.diagnostic_id}</small></div>}
         <div className="actions">
-          {["queued", "processing"].includes(task.state) && (
-            <button disabled={cancel.isPending} onClick={() => cancel.mutate()}>
-              {cancel.isPending ? "Cancellation requested…" : "Cancel task"}
-            </button>
-          )}
-          {!liveValidation && !planning && !generation && ["failed", "cancelled"].includes(task.state) && (
-            <button
-              className="primary"
-              onClick={() => retry.mutate()}
-              disabled={retry.isPending}
-            >
-              {analysis ? "Retry analysis (new model call)" : "Retry processing"}
-            </button>
-          )}
-          {["succeeded", "needs_info"].includes(task.state) && (
-            <Link
-              className="button primary"
-              to={`/courses/${task.course_id}/${(planning || generation) ? "generate" : analysis ? "profile" : "materials"}`}
-            >
-              {generation ? "Return to Generate" : planning ? "Review practice structure" : analysis ? "Review course profile" : "Review material"}
-            </Link>
-          )}
+          {["queued","processing"].includes(task.state) && <><p role="status">{task.stage} · {Math.floor(task.elapsed_seconds/60)}m {Math.floor(task.elapsed_seconds%60)}s</p><button disabled={cancel.isPending} onClick={()=>cancel.mutate()}>Cancel task</button></>}
+          {!liveValidation && !planning && !generation && ["failed","cancelled"].includes(task.state) && <button className="primary" disabled={retry.isPending} onClick={()=>retry.mutate()}>{exporting ? "Retry PDF export" : analysis ? "Retry analysis (new model call)" : "Retry processing"}</button>}
+          {!exporting && ["succeeded","needs_info"].includes(task.state) && <Link className="button" to={`/courses/${task.course_id}/${generation || planning ? "generate" : analysis ? "profile" : "materials"}`}>{generation ? "Return to Generate" : planning ? "Review practice structure" : analysis ? "Review course profile" : "Review material"}</Link>}
+          {(planning || generation) && ["failed","cancelled"].includes(task.state) && <Link className="button" to={`/courses/${task.course_id}/generate`}>Review inputs before a new attempt</Link>}
         </div>
-        {(planning || generation) && ["failed", "cancelled"].includes(task.state) && <Link className="button primary" to={`/courses/${task.course_id}/generate`}>Review inputs before a new attempt</Link>}
-        {liveValidation && ["failed", "cancelled"].includes(task.state) && (
-          <p className="review-note">Review the saved calls before a new paid validation run. This page does not automatically retry model requests.</p>
-        )}
+        {(cancel.isError || retry.isError) && <p role="alert">{cancel.error?.message ?? retry.error?.message}</p>}
+        <details className="run-details">
+          <summary><Clock size={18}/><strong>Run details</strong><span className="run-duration">{Math.floor(task.elapsed_seconds/60)}m {Math.floor(task.elapsed_seconds%60)}s · {task.state}</span>{task.target_exceeded && <span className="run-target">Longer than the 2-minute target</span>}</summary>
+          <p>Elapsed since submission. Concurrent model call durations are not added together.</p>
+          <ol className="timeline">{task.events.map((event,i)=><li key={i}><CheckCircle2 size={17}/><div><strong>{event.stage}</strong><small>{new Date(event.created_at).toLocaleTimeString()}</small></div></li>)}</ol>
         {task.model_calls?.length > 0 && (
           <section aria-label="Model call records">
             <h2>Model call records</h2>
@@ -167,29 +121,8 @@ export function TaskPage() {
             ))}
           </section>
         )}
-        {(cancel.isError || retry.isError) && (
-          <p role="alert">{cancel.error?.message ?? retry.error?.message}</p>
-        )}
-        <details>
-          <summary>Task details</summary>
-          <dl>
-            <dt>Task ID</dt>
-            <dd>{task.id}</dd>
-            <dt>Execution</dt>
-            <dd>{task.epoch}</dd>
-            <dt>Heartbeat</dt>
-            <dd>{task.heartbeat_at ?? "Not started"}</dd>
-            {task.parent_id && (
-              <>
-                <dt>Previous attempt</dt>
-                <dd>
-                  <Link to={`/tasks/${task.parent_id}`}>
-                    View previous task
-                  </Link>
-                </dd>
-              </>
-            )}
-          </dl>
+
+          <details><summary>Task identity</summary><dl><dt>Task ID</dt><dd>{task.id}</dd><dt>Execution</dt><dd>{task.epoch}</dd><dt>Heartbeat</dt><dd>{task.heartbeat_at ?? "Not started"}</dd>{task.parent_id && <><dt>Previous attempt</dt><dd><Link to={`/tasks/${task.parent_id}`}>View previous task</Link></dd></>}</dl></details>
         </details>
       </section>
     </>

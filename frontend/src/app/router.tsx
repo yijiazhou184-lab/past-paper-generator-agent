@@ -1,3 +1,6 @@
+import { lazy, Suspense } from "react";
+const PapersPage = lazy(() => import("../features/papers/PapersPage").then(m => ({default:m.PapersPage})));
+const PaperPage = lazy(() => import("../features/papers/PaperPage").then(m => ({default:m.PaperPage})));
 import {
   createBrowserRouter,
   Navigate,
@@ -143,10 +146,10 @@ function Workspace() {
             <SlidersHorizontal size={19} />
             Generate
           </Link>
-          <span className="nav-item disabled" title="No generated papers yet">
+          <Link className={location.pathname.includes("/papers") ? "nav-item active" : "nav-item"} to={`/courses/${course.id}/papers`}>
             <LibraryBig size={19} />
             Papers
-          </span>
+          </Link>
         </nav>
         <div className="sidebar-footer">
           <span className="online-dot" /> Local workspace
@@ -189,6 +192,8 @@ export const router = createBrowserRouter([
       { path: "/courses/:courseId/profile", element: <ProfilePage /> },
       { path: "/courses/:courseId/generate", element: <GeneratePage /> },
       { path: "/tasks/:taskId", element: <TaskPage /> },
+      { path: "/courses/:courseId/papers", element: <Suspense fallback={<p role="status">Opening saved papers…</p>}><PapersPage /></Suspense> },
+      { path: "/courses/:courseId/papers/:paperId", element: <Suspense fallback={<p role="status">Opening saved practice…</p>}><PaperPage /></Suspense> },
     ],
   },
 ]);

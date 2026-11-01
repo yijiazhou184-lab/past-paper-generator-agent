@@ -85,7 +85,7 @@ def _check_candidate(token,context,candidate):
     checkpoint(token,"Retrieving comparison questions")
     # Teaching pages and historical/practice pages are all already frozen and authorised.
     sources=context["input"]["sources"]
-    duplicates=duplicate_candidates(candidate.payload["pairs"],sources,context["input"]["history_content_ids"])
+    duplicates=duplicate_candidates(candidate.payload["pairs"],sources,context["input"]["history_content_ids"],context["input"].get("history_papers",[]))
     retrieval_missing=bool(duplicates["available_source_ids"]) and not duplicates["candidates"]
     duplicate_status="fail" if duplicates["findings"] else "not_checked" if retrieval_missing else "pass"
     duplicate_reason=("Potential substantive duplicates need repair." if duplicates["findings"] else
@@ -110,11 +110,14 @@ def finish_candidate(token,candidate,report):
     task=locked_task(token)
     result={"mode":candidate.mode,"candidate_id":str(candidate.id),"report_id":str(report.id),
             "candidate_revision":candidate.revision,**report.gate,
-            "message":"Checks passed for this candidate · publication arrives in batch 5" if report.gate["allowed"] else
+            "message":"Questions and answers saved. Generate PDFs when you are ready." if report.gate["allowed"] else
                       "Required checks did not pass. The candidate and reports are retained; nothing was published."}
     task.result=result
     task.save(update_fields=["result"])
     if report.gate["allowed"]:
+        from app.papers.publication import freeze_content
+        paper = freeze_content(task, candidate, report)
+        result["paper_id"] = str(paper.id)
         finish_task(token,result)
     else:
         fail_task(token,"REQUIRED_CHECKS_BLOCKED",result["message"],False)

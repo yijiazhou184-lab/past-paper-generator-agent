@@ -9,7 +9,15 @@ from app.generation.api import (GenerationWorkspaceView, GenerationConfigView, P
 
 from app.generation.content_api import GenerationContentView, GenerationAnswersView
 
+from app.papers.api import PapersView, PaperView, AnswersView, ExportsView, DownloadView, TaskPaperView
+
 urlpatterns = [
+    path("api/v1/courses/<uuid:course_id>/papers", PapersView.as_view()),
+    path("api/v1/papers/<uuid:paper_id>", PaperView.as_view()),
+    path("api/v1/papers/<uuid:paper_id>/answers", AnswersView.as_view()),
+    path("api/v1/papers/<uuid:paper_id>/exports", ExportsView.as_view()),
+    path("api/v1/papers/<uuid:paper_id>/files/<str:kind>", DownloadView.as_view()),
+    path("api/v1/tasks/<uuid:task_id>/paper", TaskPaperView.as_view()),
     path("api/v1/tasks/<uuid:task_id>/generation-content", GenerationContentView.as_view()),
     path("api/v1/tasks/<uuid:task_id>/generation-content/<uuid:candidate_id>/answers", GenerationAnswersView.as_view()),
     path("api/v1/session", SessionView.as_view()),

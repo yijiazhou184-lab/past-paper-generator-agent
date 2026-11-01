@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/papers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_courses_papers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/courses/{course_id}/planning-preflight": {
         parameters: {
             query?: never;
@@ -388,6 +404,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/papers/{paper_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_papers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/papers/{paper_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_papers_answers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/papers/{paper_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["v1_papers_exports_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/papers/{paper_id}/files/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_papers_files_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/relations/{relation_id}/remove": {
         parameters: {
             query?: never;
@@ -500,6 +580,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tasks/{task_id}/paper": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_tasks_paper_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tasks/{task_id}/retries": {
         parameters: {
             query?: never;
@@ -555,6 +651,12 @@ export interface components {
         DraftResponse: {
             draft: unknown;
             committed_revision: number;
+        };
+        ExportSchema: {
+            /** Format: uuid */
+            paper_id: string;
+            /** Format: uuid */
+            task_id: string | null;
         };
         FreezeRequest: {
             /** Format: uuid */
@@ -655,6 +757,29 @@ export interface components {
             id: string;
             physical_page: number;
             fidelity_status: string;
+        };
+        PaperContentSchema: {
+            paper: components["schemas"]["PaperSchema"];
+            candidate: unknown;
+        };
+        PaperSchema: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            course_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            content_version_id: string;
+            content_hash: string;
+            /** Format: date-time */
+            created_at: string;
+            metadata: unknown;
+            export: unknown;
+        };
+        PapersSchema: {
+            papers: components["schemas"]["PaperSchema"][];
+            next_cursor: string | null;
         };
         PatchedBlueprintEditRequest: {
             config_revision?: number;
@@ -1318,6 +1443,27 @@ export interface operations {
             };
         };
     };
+    v1_courses_papers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PapersSchema"];
+                };
+            };
+        };
+    };
     v1_courses_planning_preflight_retrieve: {
         parameters: {
             query?: never;
@@ -1527,6 +1673,91 @@ export interface operations {
             };
         };
     };
+    v1_papers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperContentSchema"];
+                };
+            };
+        };
+    };
+    v1_papers_answers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationAnswerSchema"];
+                };
+            };
+        };
+    };
+    v1_papers_exports_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportSchema"];
+                };
+            };
+        };
+    };
+    v1_papers_files_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+                paper_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
     v1_relations_remove_create: {
         parameters: {
             query?: never;
@@ -1688,6 +1919,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerationAnswerSchema"];
+                };
+            };
+        };
+    };
+    v1_tasks_paper_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperSchema"];
                 };
             };
         };

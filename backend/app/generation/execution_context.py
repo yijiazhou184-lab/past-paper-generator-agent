@@ -67,6 +67,12 @@ def build_generation_context(snapshot):
             for e in evidence.values()],
         "comparison_source_ids": comparison_ids, "history_content_ids": frozen["history_content_ids"],
         "history_cutoff": frozen["history_cutoff"], "history_status": frozen["history_status"]}
+    from app.papers.history import history_snapshot
+    history = history_snapshot(snapshot.course_id)
+    data["history_papers"] = history
+    data["history_content_ids"] = [p["content_version_id"] for p in history]
+    data["history_cutoff"] = history[0]["created_at"] if history else frozen["history_cutoff"]
+    data["history_status"] = "Latest 20 saved papers, frozen at preflight; local normalised question and conclusion comparison. Generator receives up to three relevant question excerpts; not teaching evidence."
     context = {"pipeline_version": PIPELINE_VERSION, "review_policy": copy.deepcopy(REVIEW_POLICY), "originality_policy": copy.deepcopy(ORIGINALITY_POLICY), "source_policy": copy.deepcopy(SOURCE_POLICY), "mode": snapshot.mode, "input": data,
         "checker_contract": copy.deepcopy(CHECKER_CONTRACT),
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses",

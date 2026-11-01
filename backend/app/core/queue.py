@@ -21,7 +21,7 @@ def run_business_task(task_id):
         return
     task = Task.objects.get(pk=task_id)
     command = {"parse": "parse_one", "ai_validation": "validate_ai_one", "analysis": "analyse_course_one", "planning": "plan_practice_one",
-               "generation": "generate_practice_one", "visual_transcription": "transcribe_visual_one"}.get(task.kind)
+               "export": "export_paper_one", "generation": "generate_practice_one", "visual_transcription": "transcribe_visual_one"}.get(task.kind)
     if command is None:
         fail_task(token, "NOT_IMPLEMENTED", "This stage is not available in the current development batch.", False)
         return

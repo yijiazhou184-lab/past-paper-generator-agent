@@ -58,7 +58,7 @@ it("fetches the final report when task polling finishes before content polling",
   await screen.findByText("Checks are still pending. This is not a published practice.");
   complete=true;
   mounted.rerender(view(false));
-  await screen.findByText("Checks passed for this candidate · publication arrives in batch 5");
+  await screen.findByText("All required checks passed. Your questions and answers are saved.");
   expect(vi.mocked(api).mock.calls.some(([p])=>p.endsWith("/answers"))).toBe(false);
 });
 
@@ -116,7 +116,7 @@ it("allows success with skipped optional checks and preserves explicit answer op
   }}]});
   mount();
   await screen.findByText("Some optional checks were skipped. All required checks passed.");
-  expect(screen.getByText("Checks passed for this candidate · publication arrives in batch 5")).not.toBeNull();
+  expect(screen.getByText("All required checks passed. Your questions and answers are saved.")).not.toBeNull();
   expect(vi.mocked(api).mock.calls.some(([p])=>p.endsWith("/answers"))).toBe(false);
 });
 

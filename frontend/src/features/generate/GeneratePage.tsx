@@ -13,11 +13,14 @@ import { typeLabels, responseTypes } from "./types";
 import type { ConfigDraft, Config, Plan, Preflight, Snapshot, Workspace } from "./types";
 import "../profile/profile.css";
 import "./generate.css";
+import type { Paper } from "../papers/types";
 
 function Planner({workspace, refresh}: {workspace: Workspace; refresh: ()=>void}) {
   const course=useCourse();
   const cache=useQueryClient();
   const [params,setParams]=useSearchParams();
+  const fromPaper=params.get("fromPaper");
+  const reuse=useQuery({queryKey:["reuse-paper",fromPaper],queryFn:()=>api<{paper:Paper}>(`/papers/${fromPaper}`),enabled:!!fromPaper});
   const requested=workspace.versions.find(v=>v.id===params.get("courseVersion"));
   const controller=useMemo(()=>new ConfigController(workspace.draft,defaults(requested || workspace.versions[0]),
     async attempt=>{
@@ -58,6 +61,19 @@ function Planner({workspace, refresh}: {workspace: Workspace; refresh: ()=>void}
   const retrySave=async()=>{await controller.save();refresh();};
   const base=`/courses/${course.id}`;
   return <>
+    {fromPaper && <section className="panel paper-config-reuse"><h2>Start another practice</h2>
+      {reuse.isPending ? <p>Loading the saved configuration…</p> : reuse.isError ? <p role="alert">{reuse.error.message}</p> : reuse.data && reuse.data.paper.course_id===course.id ? <>
+        <p>The previous paper stays unchanged. Its configuration used course version {reuse.data.paper.metadata.course_version_number}; the latest confirmed version is {workspace.versions[0].number}.</p>
+        <p>Apply these settings to review them against the latest course. Save, plan and confirm a new structure before generating.</p>
+        {reuse.data.paper.metadata.config.topic_ids.some(id=>!workspace.versions[0].payload.knowledge_nodes.some(n=>n.id===id && n.readiness==="supported")) && <p className="review-note" role="status">Some previously selected topics are no longer supported in the latest confirmed course. Those topics will be left out. Review and select supported topics below before saving.</p>}
+        <button disabled={busy || running} onClick={()=>{
+          const previous=reuse.data!.paper.metadata.config;
+          const latest=workspace.versions[0];
+          const available=new Set(latest.payload.knowledge_nodes.filter(n=>n.readiness==="supported").map(n=>n.id));
+          change({...previous,course_version_id:latest.id,topic_ids:previous.topic_ids.filter(id=>available.has(id))});
+          setParams({});
+        }}>Use settings with latest course</button></> : <p role="alert">This paper belongs to another course.</p>}
+      <p><button onClick={()=>setParams({})}>Keep current configuration</button></p></section>}
     <div className="generation-meta"><span className="profile-tag">Course version {version.number} confirmed</span><span>{version.mode === "fixture" ? "Fixture data · no model call" : version.mode === "live" ? "Based on a real model draft" : "Analysis provenance not recorded"}</span><Link to={`${base}/profile`}>Review course</Link></div>
     {requested && requested.id !== state.config.course_version_id && <p className="review-note">You arrived from course version {requested.number}. This saved practice uses another version; choose the intended version below.</p>}
     {state.recovered && <p className="review-note">Recovered your unsaved configuration from this tab.</p>}

@@ -4,8 +4,8 @@ import { Dialog } from "../../components/Dialog";
 import { useAction } from "./useAction";
 import type { ConfigDraft } from "./types";
 
-type Scope = { context_hash: string; mode: string; model: string; max_calls: number; call_seconds: number; task_seconds: number;
-  input: {snapshot_id: string; sources: {id: string; material_code?: string; physical_page?: number}[]}; [key: string]: unknown };
+type Scope = { context_hash: string; mode: string; model: string; max_calls: number; call_seconds: number; generation_call_seconds?: number; task_seconds: number;
+  input: {snapshot_id: string; history_papers?: {paper_id:string}[]; sources: {id: string; material_code?: string; physical_page?: number}[]}; [key: string]: unknown };
 type Preflight = {scope: Scope; authorized: boolean; api_key_configured: boolean};
 
 export function GenerationLaunch({courseId, draft, disabled, refresh}: {
@@ -23,7 +23,7 @@ export function GenerationLaunch({courseId, draft, disabled, refresh}: {
   return <>
     <section className="panel generation-handoff"><div><h2>Generate your practice</h2>
       <p>Review the exact inputs, then generate paired questions and answers with layered checks.</p>
-      <small>Task previews are available in this batch. Papers and PDF downloads arrive in batch 5.</small></div>
+      <small>Your successful practice is saved to Papers. Generate PDFs when you are ready.</small></div>
       <button className="primary" disabled={disabled || action.running || !!action.pending}
         onClick={()=>action.run("Review generation inputs",`/courses/${courseId}/generation-preflight`,binding)}>Generate practice</button>
     </section>
@@ -36,8 +36,9 @@ export function GenerationLaunch({courseId, draft, disabled, refresh}: {
       <h2 id="generation-scope-title">Review generation inputs</h2>
       <p>{live ? "Generate questions and answers, independently solve them, review them, and repair at most once." : "Synthetic fixture · runs locally without model calls. This does not validate real question quality."}</p>
       <p>{preflight.scope.input.sources.length} frozen source pages · no new page images.</p>
+      {!!preflight.scope.input.history_papers?.length && <p>{preflight.scope.input.history_papers.length} saved practices are included as frozen comparison references. Up to three relevant question excerpts per new question help avoid repetition; these are not teaching evidence.</p>}
       {live && <><p>{preflight.scope.model} · Official OpenAI API · store:false</p>
-        <p>At most {preflight.scope.max_calls} model calls within {preflight.scope.task_seconds} seconds; each up to {preflight.scope.call_seconds} seconds. Official input-token counts run before new model calls. Unknown outcomes are not automatically replayed. store:false does not mean zero retention.</p>
+        <p>At most {preflight.scope.max_calls} model calls within {preflight.scope.task_seconds} seconds; question generation and repair up to {preflight.scope.generation_call_seconds ?? preflight.scope.call_seconds} seconds per call, other required stages up to {preflight.scope.call_seconds} seconds. Official input-token counts run before new model calls. Unknown outcomes are not automatically replayed. store:false does not mean zero retention.</p>
         {!preflight.api_key_configured && <p role="alert">Add OPENAI_API_KEY to .env.local before live generation.</p>}
         <label className="check-line"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>I allow these inputs and derived candidate content to be sent for this generation and checking task, and accept my account's region and retention conditions.</label></>}
       <p>Academic references should ground the main course knowledge. Small adjacent extensions can be accepted after review; an extra citation alone will not stop generation.</p>

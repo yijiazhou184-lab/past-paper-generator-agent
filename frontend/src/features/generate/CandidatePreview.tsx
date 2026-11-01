@@ -14,7 +14,7 @@ function checkLabel(c:Check) {
 }
 type Answer={part_id:string;worked_solution:Block[];final_answer:Block[];marking_points:{id:string;text:string;marks:number;alternative_group:string|null}[];
   acceptable_alternatives:string[];units:string|null;precision:string|null};
-type Candidate={id:string;revision:number;mode:string;stage:string;parent_id:string|null;assets:Asset[];
+export type Candidate={id:string;revision:number;mode:string;stage:string;parent_id:string|null;assets:Asset[];
   pairs:{question_id:string;stem:Block[];parts:{part_id:string;prompt:Block[];marks:number;assumptions:string[]}[];evidence_ids:string[];source_summary?:SourceSummary;reused_from_task?:string}[];
   sources:Source[];
   report:{gate:{allowed:boolean;blocking_check_ids:string[]};coverage_summary:Record<string,number>;checks:Check[];complete?:boolean;version?:string;stages?:{name:string;status:string;question_ids?:string[]}[]}|null};
@@ -36,15 +36,15 @@ function stageLabel(name:string, questionIds:string[]=[], pairs:Candidate["pairs
   return name;
 }
 
-function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candidate;taskId:string;courseId:string;running:boolean}) {
+export function CandidateReading({candidate,taskId,courseId,running,answersPath}:{candidate:Candidate;taskId:string;courseId:string;running:boolean;answersPath?:string}) {
   const [show,setShow]=useState(false);
-  const answers=useQuery({queryKey:["candidate-answers",taskId,candidate.id,candidate.report?.version || !!candidate.report],
-    queryFn:()=>api<Answers>(`/tasks/${taskId}/generation-content/${candidate.id}/answers`),enabled:show,staleTime:Infinity,retry:false});
+  const answers=useQuery({queryKey:["candidate-answers",answersPath || taskId,candidate.id,candidate.report?.version || !!candidate.report],
+    queryFn:()=>api<Answers>(answersPath || `/tasks/${taskId}/generation-content/${candidate.id}/answers`),enabled:show,staleTime:Infinity,retry:false});
   const report=candidate.report;
   return <><div className="candidate-status"><strong>{candidate.mode==="fixture" ? "Synthetic fixture · no model call" : "Model-generated candidate"}</strong>
     <p>{report?.complete===false
       ? running ? "Required checks are in progress. Questions and answers have been saved." : "Questions and answers saved. Required checks did not finish. Completed stages are retained."
-      : report ? report.gate.allowed ? "Checks passed for this candidate · publication arrives in batch 5" : "Required checks did not pass. This candidate is retained for review."
+      : report ? report.gate.allowed ? "All required checks passed. Your questions and answers are saved." : "Required checks did not pass. This candidate is retained for review."
       : running ? "Checks are still pending. This is not a published practice." : "Checks did not finish. This candidate has no complete check report."}</p>
     {report?.gate.allowed && report.coverage_summary.optional_not_checked>0 && <p>Some optional checks were skipped. All required checks passed.</p>}
     {!!report?.coverage_summary.auxiliary_unresolved && <p>Some supporting mathematical checks could not be decided. They are recorded as limitations; the written reasoning was judged separately.</p>}
@@ -53,7 +53,7 @@ function CandidateReading({candidate,taskId,courseId,running}:{candidate:Candida
     {report && <details><summary>Check summary</summary><dl className="check-counts">{Object.entries(report.coverage_summary).map(([k,v])=><div key={k}><dt>{k.replaceAll("_"," ")}</dt><dd>{v}</dd></div>)}</dl>
       <ul>{report.checks.map((c,i)=><li key={c.check_id+":"+i}>{c.check_id} — {c.result.replaceAll("_"," ")}{checkLabel(c)}</li>)}</ul><p>Detailed reasoning is available when you open the answers.</p></details>}
   </div>
-    <div className="candidate-questions">{candidate.pairs.map((q,index)=><article className="candidate-question" key={q.question_id}>
+    <div className="candidate-questions">{candidate.pairs.map((q,index)=><article className="candidate-question" id={`question-${q.question_id}`} key={q.question_id}>
       <header><h3>Question {index+1}</h3><span>{q.parts.reduce((sum,p)=>sum+p.marks,0)} marks</span></header>
       {q.reused_from_task && <p className="assumptions">Reused from an earlier attempt (task {q.reused_from_task.slice(0,8)}) after revalidation; not generated again.</p>}
       <ContentBlocks blocks={q.stem} assets={candidate.assets}/>

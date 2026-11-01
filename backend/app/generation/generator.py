@@ -15,6 +15,7 @@ from .source_policy import SOURCE_POLICY
 
 
 def question_input(context,q,earlier):
+    from app.papers.history import history_for_question
     ids=set(q["blueprint"]["evidence_ids"])
     academic={k:copy.deepcopy(v) for k,v in q.items() if k!="issues"}
     return {**academic,"config":context["input"]["config"],
@@ -25,6 +26,7 @@ def question_input(context,q,earlier):
         "source_policy":context.get("source_policy",SOURCE_POLICY),
         "sources":[s for s in context["input"]["sources"] if s["id"] in ids],
         "earlier_question_summaries":earlier,
+        "previous_practice_examples_to_avoid": history_for_question(context, q),
         "allowed_assets":["function_graph","data_table"],"software_answers":False,
         "checker_contract":context["checker_contract"]}
 
@@ -74,7 +76,7 @@ def reuse_from_earlier_task(token,context,q,stage,data,validated_key,input_hash)
     task=Task.objects.get(pk=token.task_id)
     basis=generation_basis(context)
     earlier=Task.objects.filter(course_id=task.course_id,kind="generation",
-                                state__in=("succeeded","failed","cancelled","needs_info"),
+                                state__in=("failed","cancelled","needs_info"),
                                 created_at__lt=task.created_at).order_by("-created_at")
     for previous in earlier:
         other=previous.snapshot

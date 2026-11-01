@@ -30,7 +30,7 @@ def terms(text):
     return set(re.findall(r"[a-z]+|[#=+*/^<>-]",normalise(text)))-stop
 
 
-def duplicate_candidates(pairs,sources,history_ids):
+def duplicate_candidates(pairs,sources,history_ids,history_papers=None):
     selected={}
     findings=[]
     chunks=[]
@@ -65,9 +65,18 @@ def duplicate_candidates(pairs,sources,history_ids):
             if normalise(question_text(pair))==normalise(question_text(other)):
                 findings.append({"code":"INTERNAL_DUPLICATE","target_ids":[pair["question_id"],other["question_id"]],
                                  "source_id":None,"explanation":"Two printed questions differ only in numeric literals."})
+    for pair in pairs if history_papers else []:
+        stimulus = normalise(question_text(pair))
+        conclusion = normalise(" ".join(block_text(a["final_answer"]) for a in pair["answers"]))
+        for paper in history_papers or []:
+            for previous in paper["questions"]:
+                if stimulus == normalise(previous["text"]) and conclusion == normalise(previous["conclusion"]):
+                    findings.append({"code": "SAVED_PAPER_DUPLICATE", "target_ids": [pair["question_id"]],
+                        "source_id": None, "paper_id": paper["paper_id"],
+                        "explanation": "The question and conclusion match a saved practice after numeric normalisation."})
     return {"candidates":list(selected.values()),"compared_source_ids":sorted({key[0] for key in selected}),
-        "compared_paper_ids":history_ids,
+        "compared_paper_ids":[p["paper_id"] for p in history_papers] if history_papers is not None else history_ids,
         "retrieval_status":"complete" if selected else "empty_source_content" if sources else "no_comparison_sources",
         "retrieval_coverage":
-        f"Ranked text and normalised mathematical tokens across {len(sources)} frozen source pages; selected up to 6 actual excerpts per question. No page images. Personal paper history is not available before batch 5. Retrieval does not prove exhaustive originality.",
+        f"Ranked text and normalised mathematical tokens across {len(sources)} frozen source pages; selected up to 6 actual excerpts per question. No page images. Personal history comparison covers {len(history_papers or [])} frozen papers by normalised question and conclusion, not exhaustive semantic comparison. Retrieval does not prove exhaustive originality.",
         "findings":findings,"available_source_ids":[s["id"] for s in sources]}

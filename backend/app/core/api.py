@@ -53,7 +53,7 @@ class SessionView(APIView):
             db_version = cursor.fetchone()[0].split(",")[0]
         return Response({"authenticated": request.user.is_authenticated, "csrf_token": get_token(request),
                          "local_access": settings.LOCAL_ACCESS,
-                         "database": db_version, "batch": 4, "model_mode": "scoped_consent",
+                         "database": db_version, "batch": 5, "model_mode": "scoped_consent",
                          "course_data_upload": False})
 
     @extend_schema(request=None, responses=SessionSchema)
@@ -99,6 +99,10 @@ class RetryView(APIView):
         original = get_object_or_404(Task.objects.select_related("course"), pk=task_id, course__owner=request.user)
         if original.state not in ("failed", "cancelled"):
             raise DomainError("TASK_NOT_RETRYABLE")
+        if original.kind == "export":
+            from app.papers.publication import submit_export
+            _, task = submit_export(request.user, original.snapshot["paper_id"], request.headers.get("Idempotency-Key"))
+            return Response(task_view(task), status=202)
         if original.kind == "ai_validation":
             raise DomainError("LIVE_VALIDATION_COMMAND_REQUIRED",
                               "Review the saved model calls before starting another paid validation run.")

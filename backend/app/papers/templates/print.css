@@ -1,0 +1,36 @@
+@page { size:A4; margin:18mm; }
+* {box-sizing:border-box}
+body {color:#172134;font-family:Georgia,"Times New Roman",serif;font-size:12pt;line-height:1.5;margin:0;overflow-wrap:anywhere}
+header {border-bottom:1px solid #bac4d2;padding-bottom:14pt;margin-bottom:18pt}
+h1,h2,h3,h4,.eyebrow {font-family:Arial,sans-serif}
+h1 {font-size:26pt;margin:8pt 0}
+h2 {font-size:16pt;border-bottom:1px solid #ccd2dc;padding-bottom:6pt;margin:24pt 0 12pt}
+h3 {font-size:12pt;margin:16pt 0 5pt}
+h4 {font-size:10pt;margin:12pt 0 4pt;color:#41506a}
+h2 span,h3 span {float:right;font-size:10pt;font-weight:normal}
+h1,h2,h3,h4,caption {break-after:avoid}
+p,li {orphans:3;widows:3}
+p {margin:6pt 0 10pt;white-space:pre-wrap}
+.question+.question {break-before:page}
+.small,.eyebrow,figcaption {font-size:9pt;color:#4c5768}
+.notice {font-family:Arial,sans-serif;font-size:10pt;margin:14pt 0}
+.formula {margin:9pt 0;break-inside:avoid;max-width:100%;font-size:12pt}
+.katex-display {margin:.5em 0!important}
+table {width:100%;border-collapse:collapse;margin:14pt 0;font-size:10pt;table-layout:fixed}
+th,td {border:1px solid #b7c1ce;padding:6pt;vertical-align:top;overflow-wrap:anywhere}
+th {background:#f0f3f8;text-align:left}
+thead {display:table-header-group}
+tr {break-inside:avoid}
+caption {text-align:left;font-weight:bold;padding-bottom:5pt}
+figure {margin:16pt 0;break-inside:avoid}
+img {display:block;max-width:100%;max-height:180mm;margin:auto}
+figcaption {text-align:center}
+li {margin-bottom:5pt}
+
+.questions {font-size:11.5pt;line-height:1.45}
+.part {break-inside:avoid-page}
+.questions .formula {font-size:11.5pt}
+
+.answers .part {break-inside:auto}
+.marking {break-inside:auto}
+.marking ul {break-inside:avoid-page}
