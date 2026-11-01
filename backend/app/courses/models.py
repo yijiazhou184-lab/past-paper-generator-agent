@@ -72,3 +72,31 @@ class CourseVersion(UUIDModel):
         if not self._state.adding:
             raise ValueError("Confirmed course versions are immutable.")
         return super().save(*args, **kwargs)
+
+
+class Topic(UUIDModel):
+    course = models.ForeignKey(Course, related_name="topics", on_delete=models.PROTECT)
+    name = models.CharField(max_length=200)
+    code = models.CharField(max_length=40, blank=True)
+    order = models.PositiveIntegerField(default=0)
+    revision = models.PositiveIntegerField(default=1)
+    archived = models.BooleanField(default=False)
+    provenance = models.CharField(max_length=40, default="user_declared")
+    source_refs = models.JSONField(default=list)
+
+
+class LegacyTopicMapping(UUIDModel):
+    course_version = models.ForeignKey(CourseVersion, on_delete=models.PROTECT)
+    topic = models.ForeignKey(Topic, on_delete=models.PROTECT)
+    topic_name = models.CharField(max_length=200)
+    topic_code = models.CharField(max_length=40, blank=True)
+    knowledge_ids = models.JSONField()
+    source = models.CharField(max_length=300)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["course_version", "topic"], name="unique_legacy_topic_mapping")]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Legacy mappings are immutable; old results must not drift.")
+        return super().save(*args, **kwargs)

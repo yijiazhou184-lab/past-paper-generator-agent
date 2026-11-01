@@ -1,3 +1,4 @@
+from app.courses.topic_api import TopicsView, TopicView, TopicAssignmentView
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView
 from app.core.api import SessionView, CoursesView, TasksView, TaskView, CancelView, RetryView
@@ -12,6 +13,9 @@ from app.generation.content_api import GenerationContentView, GenerationAnswersV
 from app.papers.api import PapersView, PaperView, AnswersView, ExportsView, DownloadView, TaskPaperView
 
 urlpatterns = [
+    path("api/v1/courses/<uuid:course_id>/topics", TopicsView.as_view()),
+    path("api/v1/courses/<uuid:course_id>/topics/<uuid:topic_id>", TopicView.as_view()),
+    path("api/v1/material-versions/<uuid:version_id>/topic-assignment", TopicAssignmentView.as_view()),
     path("api/v1/courses/<uuid:course_id>/papers", PapersView.as_view()),
     path("api/v1/papers/<uuid:paper_id>", PaperView.as_view()),
     path("api/v1/papers/<uuid:paper_id>/answers", AnswersView.as_view()),

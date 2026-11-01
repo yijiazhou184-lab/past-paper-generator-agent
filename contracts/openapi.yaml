@@ -618,6 +618,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/TasksSchema'
           description: ''
+  /api/v1/courses/{course_id}/topics:
+    get:
+      operationId: v1_courses_topics_retrieve
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicListSchema'
+          description: ''
+    post:
+      operationId: v1_courses_topics_create
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TopicInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TopicInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSchema'
+          description: ''
+  /api/v1/courses/{course_id}/topics/{topic_id}:
+    patch:
+      operationId: v1_courses_topics_partial_update
+      parameters:
+      - in: path
+        name: course_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: topic_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTopicPatchInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTopicPatchInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTopicPatchInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicSchema'
+          description: ''
   /api/v1/courses/{course_id}/versions/{version_id}:
     get:
       operationId: v1_courses_versions_retrieve
@@ -758,6 +849,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RelationResultSchema'
+          description: ''
+  /api/v1/material-versions/{version_id}/topic-assignment:
+    patch:
+      operationId: v1_material_versions_topic_assignment_partial_update
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAssignmentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAssignmentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAssignmentInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentSchema'
           description: ''
   /api/v1/papers/{paper_id}:
     get:
@@ -1085,6 +1208,49 @@ components:
       - expected_revision
       - question_id
       - text
+    AssignmentSchema:
+      type: object
+      properties:
+        scope:
+          $ref: '#/components/schemas/ScopeEnum'
+        topic_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        page_ranges_by_topic:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: array
+              items:
+                type: integer
+              maxItems: 2
+              minItems: 2
+        shared_page_ranges:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+            maxItems: 2
+            minItems: 2
+        note:
+          type: string
+        revision:
+          type: integer
+          readOnly: true
+        provenance:
+          type: string
+          readOnly: true
+      required:
+      - page_ranges_by_topic
+      - provenance
+      - revision
+      - scope
+      - shared_page_ranges
+      - topic_ids
     ConfigResponse:
       type: object
       properties:
@@ -1276,6 +1442,8 @@ components:
     MaterialSchema:
       type: object
       properties:
+        topic_assignment:
+          $ref: '#/components/schemas/AssignmentSchema'
         id:
           type: string
           format: uuid
@@ -1355,6 +1523,7 @@ components:
       - sha256
       - state
       - task_id
+      - topic_assignment
       - transcription
     MaterialsSchema:
       type: object
@@ -1486,6 +1655,45 @@ components:
       required:
       - next_cursor
       - papers
+    PatchedAssignmentInput:
+      type: object
+      properties:
+        scope:
+          $ref: '#/components/schemas/ScopeEnum'
+        topic_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        page_ranges_by_topic:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: array
+              items:
+                type: integer
+              maxItems: 2
+              minItems: 2
+        shared_page_ranges:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+            maxItems: 2
+            minItems: 2
+        note:
+          type: string
+        revision:
+          type: integer
+          readOnly: true
+        provenance:
+          type: string
+          readOnly: true
+        expected_revision:
+          type: integer
+          minimum: 0
     PatchedBlueprintEditRequest:
       type: object
       properties:
@@ -1528,6 +1736,28 @@ components:
         acknowledge_merge:
           type: boolean
           default: false
+    PatchedTopicPatchInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        code:
+          type: string
+          maxLength: 40
+        order:
+          type: integer
+          maximum: 10000
+          minimum: 0
+        provenance:
+          $ref: '#/components/schemas/ProvenanceEnum'
+        source_refs:
+          type: array
+          items: {}
+          maxItems: 30
+        expected_revision:
+          type: integer
+          minimum: 1
     PlanRequest:
       type: object
       properties:
@@ -1589,6 +1819,14 @@ components:
       - draft
       - latest_task_id
       - versions
+    ProvenanceEnum:
+      enum:
+      - user_declared
+      - reviewed_material
+      type: string
+      description: |-
+        * `user_declared` - user_declared
+        * `reviewed_material` - reviewed_material
     RelationInput:
       type: object
       properties:
@@ -1677,6 +1915,16 @@ components:
       - route
       - rule_version
       - signals
+    ScopeEnum:
+      enum:
+      - topic
+      - shared
+      - unassigned
+      type: string
+      description: |-
+        * `topic` - topic
+        * `shared` - shared
+        * `unassigned` - unassigned
     SessionSchema:
       type: object
       properties:
@@ -1914,6 +2162,82 @@ components:
             $ref: '#/components/schemas/TaskSchema'
       required:
       - tasks
+    TopicInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        code:
+          type: string
+          maxLength: 40
+        order:
+          type: integer
+          maximum: 10000
+          minimum: 0
+        provenance:
+          $ref: '#/components/schemas/ProvenanceEnum'
+        source_refs:
+          type: array
+          items: {}
+          maxItems: 30
+      required:
+      - name
+    TopicListSchema:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicSchema'
+        capabilities:
+          type: object
+          additionalProperties:
+            type: boolean
+      required:
+      - capabilities
+      - topics
+    TopicSchema:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        code:
+          type: string
+          maxLength: 40
+        order:
+          type: integer
+          maximum: 10000
+          minimum: 0
+        provenance:
+          $ref: '#/components/schemas/ProvenanceEnum'
+        source_refs:
+          type: array
+          items: {}
+          maxItems: 30
+        id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+        archived:
+          type: boolean
+        material_count:
+          type: integer
+        readiness:
+          type: string
+      required:
+      - archived
+      - course_id
+      - id
+      - material_count
+      - name
+      - readiness
+      - revision
     TranscriptionSummarySchema:
       type: object
       properties:

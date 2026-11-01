@@ -324,6 +324,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["v1_courses_topics_retrieve"];
+        put?: never;
+        post: operations["v1_courses_topics_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["v1_courses_topics_partial_update"];
+        trace?: never;
+    };
     "/api/v1/courses/{course_id}/versions/{version_id}": {
         parameters: {
             query?: never;
@@ -402,6 +434,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/material-versions/{version_id}/topic-assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["v1_material_versions_topic_assignment_partial_update"];
         trace?: never;
     };
     "/api/v1/papers/{paper_id}": {
@@ -628,6 +676,17 @@ export interface components {
             question_id: string;
             text: string;
         };
+        AssignmentSchema: {
+            scope: components["schemas"]["ScopeEnum"];
+            topic_ids: string[];
+            page_ranges_by_topic: {
+                [key: string]: number[][];
+            };
+            shared_page_ranges: number[][];
+            note?: string;
+            readonly revision: number;
+            readonly provenance: string;
+        };
         ConfigResponse: {
             draft: unknown;
             committed_revision: number;
@@ -701,6 +760,7 @@ export interface components {
             unique_pages: number;
         };
         MaterialSchema: {
+            topic_assignment: components["schemas"]["AssignmentSchema"];
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -781,6 +841,18 @@ export interface components {
             papers: components["schemas"]["PaperSchema"][];
             next_cursor: string | null;
         };
+        PatchedAssignmentInput: {
+            scope?: components["schemas"]["ScopeEnum"];
+            topic_ids?: string[];
+            page_ranges_by_topic?: {
+                [key: string]: number[][];
+            };
+            shared_page_ranges?: number[][];
+            note?: string;
+            readonly revision?: number;
+            readonly provenance?: string;
+            expected_revision?: number;
+        };
         PatchedBlueprintEditRequest: {
             config_revision?: number;
             expected_revision?: number;
@@ -799,6 +871,14 @@ export interface components {
             patches?: unknown[];
             /** @default false */
             acknowledge_merge: boolean;
+        };
+        PatchedTopicPatchInput: {
+            name?: string;
+            code?: string;
+            order?: number;
+            provenance?: components["schemas"]["ProvenanceEnum"];
+            source_refs?: unknown[];
+            expected_revision?: number;
         };
         PlanRequest: {
             expected_revision: number;
@@ -824,6 +904,12 @@ export interface components {
             /** Format: uuid */
             latest_task_id: string | null;
         };
+        /**
+         * @description * `user_declared` - user_declared
+         *     * `reviewed_material` - reviewed_material
+         * @enum {string}
+         */
+        ProvenanceEnum: "user_declared" | "reviewed_material";
         RelationInput: {
             /** Format: uuid */
             target_version_id: string;
@@ -866,6 +952,13 @@ export interface components {
             signals: string[];
             rule_version: string;
         };
+        /**
+         * @description * `topic` - topic
+         *     * `shared` - shared
+         *     * `unassigned` - unassigned
+         * @enum {string}
+         */
+        ScopeEnum: "topic" | "shared" | "unassigned";
         SessionSchema: {
             authenticated: boolean;
             csrf_token: string;
@@ -965,6 +1058,34 @@ export interface components {
         };
         TasksSchema: {
             tasks: components["schemas"]["TaskSchema"][];
+        };
+        TopicInput: {
+            name: string;
+            code?: string;
+            order?: number;
+            provenance?: components["schemas"]["ProvenanceEnum"];
+            source_refs?: unknown[];
+        };
+        TopicListSchema: {
+            topics: components["schemas"]["TopicSchema"][];
+            capabilities: {
+                [key: string]: boolean;
+            };
+        };
+        TopicSchema: {
+            name: string;
+            code?: string;
+            order?: number;
+            provenance?: components["schemas"]["ProvenanceEnum"];
+            source_refs?: unknown[];
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            course_id: string;
+            revision: number;
+            archived: boolean;
+            material_count: number;
+            readiness: string;
         };
         TranscriptionSummarySchema: {
             visual_pages: number;
@@ -1554,6 +1675,82 @@ export interface operations {
             };
         };
     };
+    v1_courses_topics_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicListSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_topics_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TopicInput"];
+                "multipart/form-data": components["schemas"]["TopicInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_topics_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTopicPatchInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTopicPatchInput"];
+                "multipart/form-data": components["schemas"]["PatchedTopicPatchInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicSchema"];
+                };
+            };
+        };
+    };
     v1_courses_versions_retrieve: {
         parameters: {
             query?: never;
@@ -1669,6 +1866,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RelationResultSchema"];
+                };
+            };
+        };
+    };
+    v1_material_versions_topic_assignment_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedAssignmentInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedAssignmentInput"];
+                "multipart/form-data": components["schemas"]["PatchedAssignmentInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentSchema"];
                 };
             };
         };

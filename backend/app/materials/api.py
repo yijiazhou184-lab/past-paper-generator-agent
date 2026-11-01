@@ -15,6 +15,7 @@ from .transcription import page_states
 from .ingest import ingest_pdf
 from .evidence import render_page, get_source
 from .storage import path_for
+from .topic_assignments import assignment_view, filter_materials
 
 ROLES = ["lecture", "summary", "seminar", "additional_questions", "past_paper", "answer",
          "assessment_brief", "personal_notes", "software_reference", "other"]
@@ -59,7 +60,7 @@ def material_view(version, states=None):
             "issues": parse.issues if parse else [],
             "evidence": list(evidence.values("id", "physical_page", "fidelity_status")),
             "answer_links": list(version.answer_links.filter(active=True).values("id", "target_id", "coverage", "revision")),
-            "metadata": version.content_metadata,
+            "metadata": version.content_metadata, "topic_assignment": assignment_view(version),
             "transcription": transcription_summary(page_states(version.material.course, [version]) if states is None
                                                    else [s for s in states if s["material_version_id"] == str(version.id)])}
 
@@ -70,7 +71,7 @@ class MaterialsView(APIView):
     @extend_schema(responses=MaterialsSchema)
     def get(self, request, course_id):
         course = get_object_or_404(Course, pk=course_id, owner=request.user)
-        versions = list(MaterialVersion.objects.filter(material__course=course).select_related("blob", "task", "material__course").order_by("created_at"))
+        versions = list(filter_materials(request.user, course_id, request.query_params.get("topic_id"), request.query_params.get("include_shared") == "true").select_related("blob", "task", "material__course").order_by("created_at"))
         states = page_states(course, versions)
         return Response({"materials": [material_view(v, states) for v in versions], "roles": ROLES,
                          "limits": {"file_mib": 20, "unique_files": 20, "paths": 30, "unique_pages": 300}})

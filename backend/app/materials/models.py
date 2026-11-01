@@ -103,3 +103,13 @@ class TranscriptionGrant(UUIDModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["course", "scope_hash"], name="unique_transcription_grant")]
+
+
+class MaterialTopicAssignment(UUIDModel):
+    material_version = models.OneToOneField(MaterialVersion, related_name="topic_assignment", on_delete=models.PROTECT)
+    scope = models.CharField(max_length=20, default="unassigned")
+    topic_ids = models.JSONField(default=list)
+    page_ranges_by_topic = models.JSONField(default=dict)
+    shared_page_ranges = models.JSONField(default=list)
+    note = models.TextField(blank=True)
+    revision = models.PositiveIntegerField(default=1)

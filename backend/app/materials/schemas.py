@@ -30,7 +30,18 @@ class TranscriptionSummarySchema(s.Serializer):
     task_id = s.UUIDField(allow_null=True)
 
 
+class AssignmentSchema(s.Serializer):
+    scope = s.ChoiceField(choices=["topic", "shared", "unassigned"])
+    topic_ids = s.ListField(child=s.UUIDField())
+    page_ranges_by_topic = s.DictField(child=s.ListField(child=s.ListField(child=s.IntegerField(), min_length=2, max_length=2)))
+    shared_page_ranges = s.ListField(child=s.ListField(child=s.IntegerField(), min_length=2, max_length=2))
+    note = s.CharField(allow_blank=True, required=False)
+    revision = s.IntegerField(read_only=True)
+    provenance = s.CharField(read_only=True)
+
+
 class MaterialSchema(s.Serializer):
+    topic_assignment = AssignmentSchema()
     id = s.UUIDField()
     material_id = s.UUIDField()
     number = s.IntegerField()
