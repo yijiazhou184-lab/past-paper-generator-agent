@@ -16,33 +16,61 @@ import type { Material, MaterialList, Task } from "../../api/types";
 import { useCourse } from "../../app/router";
 import { SourcePanel } from "./SourcePanel";
 import { Dialog } from "../../components/Dialog";
+import { TopicNavigation } from "../topics/TopicNavigation";
+import { TopicPicker } from "../topics/TopicPicker";
+import { topicLabel, type TopicList, type TopicAssignment } from "../topics/types";
+import { MaterialTopicEditor } from "./MaterialTopicEditor";
+import { sourceParams } from "./topic-state";
 
 type UploadRow = {
   file: File;
   key: string;
   state: "uploading" | "ready" | "error";
   message: string;
+  assignment: {scope: TopicAssignment["scope"]; topic_ids: string[]};
+  versionId?: string;
+  duplicate?: boolean;
+  linksFailed?: boolean;
 };
 export function MaterialsPage() {
   const course = useCourse();
   const cache = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [params, setParams] = useSearchParams();
-  const [search, setSearch] = useState("");
+  const search = params.get("q") ?? "";
+  const topicId = params.get("topic") ?? "all";
+  const includeShared = params.get("shared") === "true";
+  function filterParam(key:string, value:string) {
+    const next = sourceParams(params,{});
+    if(value) next.set(key,value); else next.delete(key);
+    setParams(next);
+  }
+  const topicsQuery = useQuery({queryKey:["topics",course.id],queryFn:()=>api<TopicList>("/courses/"+course.id+"/topics")});
+  const topics = topicsQuery.data?.topics ?? [];
+  const selectedTopic = topics.find(t=>t.id===topicId);
+  const [links, setLinks] = useState<{material:Material;append:string[]}|null>(null);
+  const [pendingFiles,setPendingFiles]=useState<File[]>([]);
+  const [uploadScope,setUploadScope]=useState<TopicAssignment["scope"]>("unassigned");
+  const [uploadTopics,setUploadTopics]=useState<string[]>([]);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
   const [drag, setDrag] = useState(false);
   const [editing, setEditing] = useState<Material | null>(null);
   const [role, setRole] = useState("lecture");
   const [feedback, setFeedback] = useState("");
   const query = useQuery({
-    queryKey: ["materials", course.id],
-    queryFn: () => api<MaterialList>(`/courses/${course.id}/materials`),
+    queryKey: ["materials", course.id, topicId, includeShared],
+    queryFn: () => api<MaterialList>("/courses/"+course.id+"/materials?topic_id="+encodeURIComponent(topicId)+"&include_shared="+includeShared),
     refetchInterval: (query) =>
       query.state.data?.materials.some((m) =>
         ["queued", "processing"].includes(m.state) || m.transcription.running > 0,
       )
         ? 3000
         : false,
+  });
+  const allQuery = useQuery({
+    queryKey:["materials",course.id,"all",false],
+    queryFn:()=>api<MaterialList>("/courses/"+course.id+"/materials"),
+    enabled:topicId!=="all",
   });
   const tasks = useQuery({
     queryKey: ["tasks", course.id],
@@ -72,24 +100,33 @@ export function MaterialsPage() {
     try {
       const data = new FormData();
       data.append("file", row.file);
-      const result = await api<{ duplicate: boolean }>(
+      const result = await api<{ duplicate: boolean; version_id:string }>(
         `/courses/${course.id}/materials`,
         { method: "POST", headers: { "Idempotency-Key": row.key }, body: data },
       );
+      let linksFailed = false;
+      if(!result.duplicate && row.assignment.scope !== "unassigned"){
+        try { await api("/material-versions/"+result.version_id+"/topic-assignment", {method:"PATCH",body:JSON.stringify({
+          ...row.assignment,expected_revision:0,page_ranges_by_topic:{},shared_page_ranges:[],note:"Selected during upload",
+        })}); } catch { linksFailed = true; }
+      }
       setUploads((old) =>
         old.map((item) =>
           item.key === row.key
             ? {
                 ...item,
                 state: "ready",
-                message: result.duplicate
+                versionId:result.version_id,
+                duplicate:result.duplicate,
+                linksFailed,
+                message: linksFailed ? "Uploaded — topic links need review" : result.duplicate
                   ? "Already imported — original path retained"
                   : "Uploaded — parsing queued",
               }
             : item,
         ),
       );
-      await cache.invalidateQueries({ queryKey: ["materials", course.id] });
+      await Promise.all([cache.invalidateQueries({ queryKey: ["materials", course.id] }),cache.invalidateQueries({queryKey:["topics",course.id]})]);
     } catch (error) {
       setUploads((old) =>
         old.map((item) =>
@@ -100,28 +137,31 @@ export function MaterialsPage() {
       );
     }
   }
-  async function addFiles(files: FileList | File[]) {
-    for (const file of Array.from(files))
-      await uploadFile({
-        file,
-        key: requestKey(),
-        state: "uploading",
-        message: "",
-      });
-    if (input.current) input.current.value = "";
+  function addFiles(files: FileList | File[]) {
+    setPendingFiles(Array.from(files));
+    setUploadScope(selectedTopic?"topic":topicId==="shared"?"shared":"unassigned");
+    setUploadTopics(selectedTopic?[selectedTopic.id]:[]);
+    if(input.current) input.current.value="";
+  }
+  async function startUploads(){
+    const files=pendingFiles;
+    const assignment={scope:uploadScope,topic_ids:uploadScope==="topic"?uploadTopics:[]};
+    setPendingFiles([]);
+    for(const file of files)await uploadFile({file,key:requestKey(),state:"uploading",message:"",assignment});
   }
   const materials = query.data?.materials ?? [];
+  const allMaterials = topicId==="all"?materials:(allQuery.data?.materials ?? materials);
   const visible = materials.filter((m) =>
-    `${m.filename} ${m.roles.join(" ")}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+    (m.filename+" "+m.roles.join(" ")).toLowerCase().includes(search.toLowerCase()) &&
+    (!params.get("type") || m.roles.includes(params.get("type")!)) &&
+    (!params.get("state") || m.state===params.get("state")),
   );
   const unique = new Map(materials.map((m) => [m.sha256, m]));
   const pages = [...unique.values()].reduce((sum, m) => sum + m.pages, 0);
   const processing = materials.filter((m) =>
     ["queued", "processing"].includes(m.state),
   ).length;
-  const selected = materials.find(
+  const selected = allMaterials.find(
     (m) =>
       m.id === params.get("material") ||
       m.evidence.some((e) => e.id === params.get("source")),
@@ -137,11 +177,7 @@ export function MaterialsPage() {
     ),
   );
   function openSource(m: Material) {
-    setParams(
-      m.evidence.length
-        ? { source: m.evidence[0].id }
-        : { material: m.id, page: "1" },
-    );
+    setParams(sourceParams(params,m.evidence.length ? {source:m.evidence[0].id} : {material:m.id,page:"1"}));
   }
   return (
     <>
@@ -149,18 +185,13 @@ export function MaterialsPage() {
         <div>
           <p className="breadcrumb">Course workspace</p>
           <h1>Materials</h1>
-          <p>Your course, grounded in its sources.</p>
+          <p>Your course, organised by topic.</p>
         </div>
         <button className="primary" onClick={() => input.current?.click()}>
           <Upload size={18} />
           Upload PDFs
         </button>
       </div>
-      {tasks.data?.tasks.filter((t) => t.kind === "ai_validation").map((t) => (
-        <p className="review-note" key={t.id}>
-          Live model validation: {t.state} · <Link to={`/tasks/${t.id}`}>View saved call records</Link>
-        </p>
-      ))}
       <input
         ref={input}
         type="file"
@@ -169,17 +200,9 @@ export function MaterialsPage() {
         hidden
         onChange={(e) => e.target.files && void addFiles(e.target.files)}
       />
-      <section className="topic-banner">
-        <span className="topic-symbol" aria-hidden="true">
-          ƒ′
-        </span>
-        <div>
-          <span className="quiet-label">Your first practice chapter</span>
-          <h2>Functions of a single variable</h2>
-          <p>Topic 2 · Differentiation and optimisation</p>
-        </div>
-        <span className="topic-tag">Quantitative Methods</span>
-      </section>
+      <div className="topic-workspace">
+      <div>{topicsQuery.isPending ? <p role="status">Loading topics…</p> : topicsQuery.isError ? <div role="alert">{topicsQuery.error.message}<button onClick={()=>topicsQuery.refetch()}>Retry topics</button></div> : <TopicNavigation courseId={course.id} topics={topics} value={topicId} onChange={id=>filterParam("topic",id)}/>}</div>
+      <div className="topic-library">
       <section
         className={`upload-zone ${drag ? "dragging" : ""}`}
         onDragOver={(e) => {
@@ -224,6 +247,7 @@ export function MaterialsPage() {
             >
               <span>{item.file.name}</span>
               <span>{item.message}</span>
+              {(item.duplicate||item.linksFailed)&&item.versionId&&<button onClick={async()=>{const all=await api<MaterialList>("/courses/"+course.id+"/materials");const material=all.materials.find(m=>m.id===item.versionId);if(material)setLinks({material,append:item.assignment.topic_ids});}}>Link existing material</button>}
               {item.state === "error" && (
                 <button onClick={() => void uploadFile(item)}>
                   Retry upload
@@ -236,7 +260,7 @@ export function MaterialsPage() {
       <div className="list-heading">
         <div>
           <h2>
-            Course library <span className="count">{unique.size}</span>
+            {selectedTopic ? topicLabel(selectedTopic) : topicId==="shared" ? "Course-wide materials" : topicId==="unassigned" ? "Unassigned materials" : "Course library"} <span className="count">{unique.size}</span>
           </h2>
           <p>
             {pages} unique pages
@@ -248,10 +272,16 @@ export function MaterialsPage() {
           <input
             aria-label="Search materials"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => filterParam("q",e.target.value)}
             placeholder="Find a material…"
           />
         </label>
+      </div>
+      <div className="library-filters">
+        <label>Material type<select value={params.get("type")??""} onChange={e=>filterParam("type",e.target.value)}><option value="">All types</option>{query.data?.roles.map(r=><option key={r} value={r}>{r.replaceAll("_"," ")}</option>)}</select></label>
+        <label>Processing<select value={params.get("state")??""} onChange={e=>filterParam("state",e.target.value)}><option value="">All states</option><option value="succeeded">Parsed</option><option value="processing">Processing</option><option value="queued">Queued</option><option value="failed">Needs attention</option><option value="cancelled">Cancelled</option></select></label>
+        {selectedTopic&&<label className="shared-toggle"><input type="checkbox" checked={includeShared} onChange={e=>filterParam("shared",e.target.checked?"true":"")}/>Include course-wide materials</label>}
+        {(search||params.get("type")||params.get("state"))&&<button onClick={()=>{const next=sourceParams(params,{});["q","type","state"].forEach(k=>next.delete(k));setParams(next);}}>Clear filters</button>}
       </div>
       {feedback && (
         <p className="save-feedback" role="status">
@@ -271,7 +301,7 @@ export function MaterialsPage() {
           <h3>
             {search
               ? "No matching materials"
-              : "Start with a lecture or seminar"}
+              : selectedTopic ? "No materials linked to this topic" : "Start with a lecture or seminar"}
           </h3>
           <p>
             {search
@@ -302,6 +332,7 @@ export function MaterialsPage() {
                     {(m.bytes / 1024 / 1024).toFixed(2)} MiB <span>·</span>{" "}
                     Version {m.number}
                   </small>
+                  <div className="material-topics"><span>{m.topic_assignment.scope==="topic"?m.topic_assignment.topic_ids.map(id=>topics.find(t=>t.id===id)?.code||topics.find(t=>t.id===id)?.name||"Topic").join(", "):m.topic_assignment.scope==="shared"?"Course-wide":"Unassigned"}</span><button onClick={()=>setLinks({material:m,append:[]})}>Manage topics</button></div>
                   {m.aliases.length > 1 && (
                     <span className="duplicate">
                       <Copy size={12} />
@@ -351,6 +382,10 @@ export function MaterialsPage() {
           ))}
         </div>
       )}
+      <details className="processing-activity">
+        <summary>Processing activity ({tasks.data?.tasks.filter(t=>t.kind==="ai_validation"||t.kind==="parse").length??0})</summary>
+        {tasks.data?.tasks.filter(t=>t.kind==="ai_validation"||t.kind==="parse").map(t=><p key={t.id}>{t.kind==="ai_validation"?"Model validation":"Material parsing"}: {t.state} · <Link to={"/tasks/"+t.id}>View task and records</Link></p>)}
+      </details>
       <div className="library-note">
         <CheckCircle2 size={17} />
         <p>
@@ -362,19 +397,28 @@ export function MaterialsPage() {
         <div>
           <h3>Next: understand your course</h3>
           <p>
-            Build a course draft from the selected Topic 2 sources, then review
-            evidence, edit the profile and confirm a saved course version.
+            Review the materials for a topic, then analyse its sources and confirm your course understanding.
           </p>
         </div>
-        <Link className="button primary" to={`/courses/${course.id}/profile`}>Analyse course</Link>
+        <Link className="button primary" to={"/courses/"+course.id+"/profile"+(selectedTopic?"?topic="+selectedTopic.id:"")}>Review this topic</Link>
       </div>
+      </div></div>
+      {pendingFiles.length>0&&<Dialog labelledBy="upload-topics-title" onClose={()=>setPendingFiles([])}>
+        <h2 id="upload-topics-title">Upload {pendingFiles.length} PDF{pendingFiles.length===1?"":"s"}</h2>
+        <ul>{pendingFiles.map((f,i)=><li className="filename-wrap" key={i}>{f.name}</li>)}</ul>
+        <label>Initial material scope<select value={uploadScope} onChange={e=>setUploadScope(e.target.value as TopicAssignment["scope"])}><option value="unassigned">Unassigned</option><option value="topic">Selected topics</option><option value="shared">Course-wide</option></select></label>
+        {uploadScope==="topic"&&<TopicPicker topics={topics} value={uploadTopics} onChange={setUploadTopics}/>}
+        <p className="muted">Existing files keep their current links. You can explicitly link a duplicate after upload.</p>
+        <div className="actions"><button onClick={()=>setPendingFiles([])}>Cancel</button><button className="primary" disabled={uploadScope==="topic"&&!uploadTopics.length} onClick={()=>void startUploads()}>Upload files</button></div>
+      </Dialog>}
+      {links&&<MaterialTopicEditor material={links.material} topics={topics} courseId={course.id} appendTopicIds={links.append} onClose={()=>setLinks(null)} onSaved={()=>{setLinks(null);setFeedback("Topic links saved.");}}/>}
       {selected && (
         <SourcePanel
           material={selected}
-          materials={materials}
+          materials={allMaterials}
           page={page}
-          onClose={() => setParams({})}
-          onPage={(p) => setParams({ material: selected.id, page: String(p) })}
+          onClose={() => setParams(sourceParams(params,{}))}
+          onPage={(p) => setParams(sourceParams(params,{ material: selected.id, page: String(p) }))}
         />
       )}
       {editing && (
