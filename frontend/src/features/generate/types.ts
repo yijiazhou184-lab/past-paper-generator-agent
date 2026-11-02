@@ -3,8 +3,9 @@ import type { Payload } from "../profile/types";
 
 export const responseTypes = ["calculation", "explanation_proof", "applied_optimisation"] as const;
 export type ResponseType = typeof responseTypes[number];
-export type Config = { course_version_id: string; mode: "chapter_practice"; topic_ids: string[];
-  difficulty: "foundation" | "exam_standard" | "challenge"; main_question_count: number; question_types: ResponseType[] };
+type ConfigBase = {course_version_id:string;mode:"chapter_practice";difficulty:"foundation"|"exam_standard"|"challenge";main_question_count:number;question_types:ResponseType[]};
+export type Config=ConfigBase & ({schema_version?:"practice-config-v1";topic_ids:string[];knowledge_ids?:never;selected_topic_ids?:never}|{schema_version:"practice-config-v2";selected_topic_ids:string[];knowledge_ids:string[];topic_ids?:never});
+export const knowledgeIds=(config:Config)=>config.schema_version==="practice-config-v2"?config.knowledge_ids:config.topic_ids;
 export type Plan = { sections: { id: string; title: string; question_ids: string[]; selection: {mode: "all" | "choose"; choose_count: number} }[];
   questions: { id: string; number: number; title: string; objective: string; knowledge_ids: string[]; evidence_ids: string[];
     // focus is present on blueprint-v2 plans; earlier plans keep their long labels and have none.
@@ -21,7 +22,7 @@ export type CourseVersion = {id: string; number: number; mode: string; payload: 
 export type Snapshot = {id: string; mode: string; payload_hash: string; confirmation_id: string; created_at: string;
   payload?: {config: Config; blueprint: Plan; history_cutoff: string; course_version_id: string; [key: string]: unknown}};
 export type Workspace = {draft: ConfigDraft | null; versions: CourseVersion[]; latest_task: Task | null;
-  snapshots: Snapshot[]; generation_available: boolean};
+  snapshots: Snapshot[]; generation_available: boolean; topics:import("../topics/types").Topic[];capabilities:{mixed_topic_practice:boolean;mock_exam:boolean}};
 export type Preflight = {authorized: boolean; api_key_configured: boolean; scope: {context_hash: string; mode: string; model: string;
   endpoint: string; store: false; config_revision: number; evidence: Source[]; input: unknown;
   new_page_images: number; raw_page_texts: number; purpose: string; max_calls: number; task_seconds: number; call_seconds: number}};

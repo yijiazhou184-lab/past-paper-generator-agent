@@ -6,7 +6,8 @@ from app.core.errors import DomainError
 from app.core.idempotency import digest, intent
 from app.courses.models import Course, CourseVersion
 from .models import GenerationDraft, Blueprint, StructureConfirmation, GenerationSnapshot
-from .schemas import GenerationConfig, parse_schema, validate_config, validate_blueprint, schema_version_of
+from .config_compat import course_projection, knowledge_ids, selected_topics
+from .schemas import parse_config, parse_schema, validate_config, validate_blueprint, schema_version_of
 
 
 def owned_course(owner, course_id):
@@ -56,9 +57,11 @@ def save_config(owner, course_id, expected_revision, payload, key):
     if record.response:
         return draft, record.response["revision"]
     require_revision(draft, expected_revision)
-    parsed = parse_schema(GenerationConfig, payload, "CONFIG_SCHEMA_INVALID")
+    parsed = parse_config(payload)
     version = get_object_or_404(CourseVersion, pk=parsed["course_version_id"], course=course)
-    config = validate_config(payload, version.frozen_payload, version.evidence_manifest["evidence"])
+    config = validate_config(payload, course_projection(version), version.evidence_manifest["evidence"])
+    from app.courses.topic_confirmation import assert_topic_generation_current
+    assert_topic_generation_current(version,config)
     if draft is None:
         draft = GenerationDraft(course=course)
     else:
@@ -78,7 +81,7 @@ def structure_diff(previous, payload, old_config=None, new_config=None):
               "attempt_marks": "Attempt marks", "suggested_minutes": "Suggested minutes", "subquestion_count_locked": "Part count locked"}
     changes = [f"{label}: {previous[key]} → {payload[key]}" for key, label in labels.items() if previous[key] != payload[key]]
     for key, label in (("difficulty", "Difficulty"), ("question_types", "Question types"), ("topic_ids", "Knowledge selection")):
-        if old_config and new_config and old_config[key] != new_config[key]:
+        if old_config and new_config and (knowledge_ids(old_config) if key=="topic_ids" else old_config[key]) != (knowledge_ids(new_config) if key=="topic_ids" else new_config[key]):
             changes.append(f"{label} changed for this practice.")
     for key, label in (("questions", "Question objectives, parts, marks or coverage"), ("sections", "Section or answer-selection rules")):
         if previous[key] != payload[key]:
@@ -101,7 +104,7 @@ def edit_blueprint(owner, course_id, blueprint_id, config_revision, expected_rev
     if draft.blueprint_id != previous.id or previous.revision != expected_revision or previous.config_revision != draft.revision:
         raise DomainError("BLUEPRINT_REVISION_CONFLICT", "This structure is no longer current. Review the saved configuration and structure.")
     version = draft.course_version
-    validated = validate_blueprint(draft.config, payload, version.frozen_payload, version.evidence_manifest["evidence"],
+    validated = validate_blueprint(draft.config, payload, course_projection(version), version.evidence_manifest["evidence"],
                                    recalculate=True, schema_version=schema_version_of(previous.payload))
     # Provider explanations are not used as a programmatic diff, even on edited plans.
     validated["differences"] = previous.payload["differences"]
@@ -166,18 +169,21 @@ def freeze_generation(owner, course_id, confirmation_id, config_revision, config
         return GenerationSnapshot.objects.get(pk=record.response["snapshot_id"], course=course)
     draft = get_object_or_404(GenerationDraft.objects.select_related("course_version", "blueprint", "confirmation"), course=course)
     require_confirmation(draft, confirmation_id, config_revision, config_hash)
+    from app.courses.topic_confirmation import assert_topic_generation_current
+    assert_topic_generation_current(draft.course_version,draft.config)
     snapshot = GenerationSnapshot.objects.filter(confirmation=draft.confirmation).first()
     if snapshot is None:
         version = draft.course_version
         payload = {"schema_version": "generation-input-v1", "course_version_id": str(version.id), "course_payload_hash": version.payload_hash,
-            "course": copy.deepcopy(version.frozen_payload), "evidence_manifest": copy.deepcopy(version.evidence_manifest),
+            "course_code":course.code, "course": copy.deepcopy(version.frozen_payload), "evidence_manifest": copy.deepcopy(version.evidence_manifest),
             "statements": copy.deepcopy(version.statements), "config": copy.deepcopy(draft.config),
+            "selected_topics":selected_topics(draft.config,version),
             "config_revision": draft.revision, "config_hash": draft.config_hash, "blueprint_id": str(draft.blueprint_id),
             "blueprint_revision": draft.blueprint.revision, "blueprint_hash": draft.blueprint.payload_hash,
             "blueprint": copy.deepcopy(draft.blueprint.payload), "confirmation_id": str(draft.confirmation_id),
             "history_cutoff": timezone.now().isoformat(), "history_content_ids": [],
-            "history_status": "not_available_before_paper_storage", "limits_version": "r1-limits-proposal-1",
-            "generation_limits": {"calls": 16, "deadline_seconds": 600, "repair_rounds": 1},
+            "history_status": "not_available_before_paper_storage", "limits_version": "r1-limits-6",
+            "generation_limits": {"calls": 16, "deadline_seconds": 900, "repair_rounds": 1},
             "analysis_mode": version.evidence_manifest.get("analysis_mode", "unknown"), "planning_mode": draft.blueprint.mode}
         snapshot = GenerationSnapshot.objects.create(course=course, confirmation=draft.confirmation, payload=payload,
             payload_hash=digest(payload), mode=draft.blueprint.mode)

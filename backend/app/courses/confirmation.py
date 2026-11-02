@@ -37,7 +37,7 @@ def confirm_course(owner, course_id, draft_id, expected_revision, key):
     if unanswered_analysis:
         raise DomainError("ANSWER_REANALYSIS_REQUIRED", "Analyse your new clarification answer before confirming this course.")
     validate_template(draft.payload["template_suggestion"])
-    existing = CourseVersion.objects.filter(draft=draft, draft_revision=draft.revision).first()
+    existing = CourseVersion.objects.filter(draft=draft, draft_revision=draft.revision, confirmation_fingerprint="").first()
     if existing:
         version = existing
     else:
@@ -48,3 +48,6 @@ def confirm_course(owner, course_id, draft_id, expected_revision, key):
     record.response = {"version_id": str(version.id)}
     record.save(update_fields=["response"])
     return version
+
+
+from .topic_confirmation import confirm_topics

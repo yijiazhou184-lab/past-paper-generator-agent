@@ -104,11 +104,11 @@ export function useDraftSave(courseId: string, draft: Draft) {
   const controller = useMemo(() => new DraftSaveController(draft,
     async (attempt) => {
       const result = await api<{draft:Draft; committed_revision:number}>(`/courses/${courseId}/draft`, { method: "PATCH", headers: { "Idempotency-Key": attempt.key },
-        body: JSON.stringify({ expected_revision: attempt.revision, patches: attempt.edits.map(({path, value}) => ({path, value})) }) });
-      cache.setQueryData<Profile>(["profile",courseId], old => old ? {...old,draft:result.draft} : old);
+        body: JSON.stringify({ expected_revision: attempt.revision, topic_id:draft.topic_id??null, patches: attempt.edits.map(({path, value}) => ({path, value})) }) });
+      cache.setQueryData<Profile>(["profile",courseId,draft.topic_id??""], old => old ? {...old,draft:result.draft} : old);
       return result;
     },
-    async () => (await api<Profile>(`/courses/${courseId}/profile`)).draft!, sessionStorage, `course-edits:${courseId}`), [courseId, draft.id]);
+    async () => (await api<Profile>("/courses/"+courseId+"/profile"+(draft.topic_id?"?topic="+draft.topic_id:""))).draft!, sessionStorage, "course-edits:"+courseId+":"+(draft.topic_id??"overview")), [courseId, draft.id, draft.topic_id]);
   const state = useSyncExternalStore(controller.subscribe, controller.snapshot);
   useEffect(() => { controller.acceptServer(draft); }, [controller, draft]);
   useEffect(() => {

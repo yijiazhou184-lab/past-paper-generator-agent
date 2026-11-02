@@ -35,9 +35,10 @@ def freeze_content(task, candidate, report):
         return prior
     version = snapshot.confirmation.course_version
     metadata = {
-        "course_title": task.course.title, "course_code": task.course.code,
+        "course_title": snapshot.payload["course"]["title"], "course_code": snapshot.payload.get("course_code",task.course.code),
         "course_version_id": str(version.id), "course_version_number": version.number,
         "config": copy.deepcopy(snapshot.payload["config"]),
+        "selected_topics":copy.deepcopy(snapshot.payload.get("selected_topics",[])),
         "blueprint": copy.deepcopy(snapshot.payload["blueprint"]),
         "mode": candidate.mode, "generated_at": task.created_at.isoformat(),
         "candidate_hash": candidate.payload_hash, "report_hash": report.payload_hash,

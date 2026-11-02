@@ -9,6 +9,8 @@ from app.core.schemas import TaskSchema
 from app.core.errors import DomainError
 from app.courses.api import validate
 from app.courses.models import Course, CourseVersion
+from .config_compat import course_projection
+from app.courses.topics import list_topics
 from .models import GenerationDraft, PlanningGrant, Blueprint, GenerationSnapshot
 from .planning import build_context, inspect_scope, submit_plan
 from .snapshots import (draft_view, blueprint_view, snapshot_view, save_config, edit_blueprint,
@@ -21,6 +23,8 @@ class WorkspaceSchema(serializers.Serializer):
     latest_task = serializers.JSONField(allow_null=True)
     snapshots = serializers.ListField(child=serializers.JSONField())
     generation_available = serializers.BooleanField()
+    topics = serializers.ListField(child=serializers.JSONField())
+    capabilities = serializers.DictField(child=serializers.BooleanField())
 
 
 class ConfigRequest(serializers.Serializer):
@@ -73,10 +77,11 @@ class GenerationWorkspaceView(APIView):
         course = get_object_or_404(Course, pk=course_id, owner=request.user)
         draft = GenerationDraft.objects.select_related("blueprint", "confirmation", "latest_task").filter(course=course).first()
         versions = [{"id": str(v.id), "number": v.number, "mode": v.evidence_manifest.get("analysis_mode", "unknown"),
-            "payload": v.frozen_payload, "evidence": [{k: e[k] for k in ("id", "material_code", "material_version_id", "physical_page") if k in e}
+            "payload": course_projection(v), "evidence": [{k: e[k] for k in ("id", "material_code", "material_version_id", "physical_page") if k in e}
                                                       for e in v.evidence_manifest["evidence"]]}
                     for v in CourseVersion.objects.filter(course=course).order_by("-number")]
         return Response({"draft": draft_view(draft), "versions": versions, "generation_available": True,
+            **list_topics(request.user,course_id),
             "latest_task": task_view(draft.latest_task) if draft and draft.latest_task_id else None,
             "snapshots": [{"id": str(s.id), "mode": s.mode, "created_at": s.created_at,
                 "confirmation_id": str(s.confirmation_id), "payload_hash": s.payload_hash}

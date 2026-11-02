@@ -62,6 +62,7 @@ export function TaskPage() {
         <div>
           <p className="breadcrumb">{exporting ? "PDF export" : generation ? "Practice generation" : planning ? "Practice planning" : analysis ? "Course analysis" : liveValidation ? "Live model validation" : "Material processing"}</p>
           <h1>{task.state === "failed" ? "Processing failed" : task.stage}</h1>
+          {task.topic_summary?.length?<p>{task.topic_summary.map(t=>[t.code,t.name].filter(Boolean).join(" · ")).join("; ")}</p>:null}
           <p>
             {exporting ? "Your PDFs use saved questions and answers. Export does not call a model or change your content." : generation ? "This task uses frozen inputs to generate paired questions and answers, check them, and repair at most once. Refreshing restores this task. Open answers only when you are ready." : planning ? "This task plans a structure from a frozen course version and configuration. Refreshing restores the same task. No questions or answers are generated at this stage."
               : analysis ? "Your analysis uses a frozen selection of sources and statements. Refreshing this page restores the same task. Review the resulting draft before confirming your course."

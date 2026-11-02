@@ -12,6 +12,7 @@ class Course(UUIDModel):
 
 
 class UserStatement(UUIDModel):
+    topic_ids = models.JSONField(default=list)
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="statements")
     text = models.TextField()
     kind = models.CharField(max_length=40)
@@ -42,6 +43,7 @@ class CourseMachineBase(UUIDModel):
 
 
 class CourseDraft(UUIDModel):
+    topic_state = models.JSONField(default=dict)
     course = models.OneToOneField(Course, on_delete=models.PROTECT, related_name="draft")
     revision = models.PositiveIntegerField(default=1)
     machine_base = models.ForeignKey(CourseMachineBase, on_delete=models.PROTECT)
@@ -53,6 +55,7 @@ class CourseDraft(UUIDModel):
 
 
 class CourseVersion(UUIDModel):
+    confirmation_fingerprint = models.CharField(max_length=64, default="")
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="confirmed_versions")
     number = models.PositiveIntegerField()
     draft = models.ForeignKey(CourseDraft, on_delete=models.PROTECT)
@@ -66,7 +69,7 @@ class CourseVersion(UUIDModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["course", "number"], name="unique_course_version"),
-                       models.UniqueConstraint(fields=["draft", "draft_revision"], name="unique_confirmed_revision")]
+                       models.UniqueConstraint(fields=["draft", "draft_revision", "confirmation_fingerprint"], name="unique_scoped_confirmed_revision")]
 
     def save(self, *args, **kwargs):
         if not self._state.adding:

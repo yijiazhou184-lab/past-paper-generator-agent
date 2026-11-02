@@ -44,13 +44,17 @@ def make_spec(snapshot):
 
 
 @transaction.atomic
-def submit_analysis(course, context_hash, key, *, authorize=False, grant_source="Explicit profile consent", parent=None):
+def submit_analysis(course, context_hash, key, *, authorize=False, grant_source="Explicit profile consent", parent=None, target_topic_ids=None, material_selection=None, base_revision=None):
     course = Course.objects.select_for_update().get(pk=course.pk)
-    snapshot = build_context(course)
+    if target_topic_ids is not None:
+        from .topic_context import build_topic_analysis_context
+        snapshot = build_topic_analysis_context(course,target_topic_ids,material_selection,base_revision)
+    else:
+        snapshot = build_context(course)
     if snapshot["context_hash"] != context_hash:
         raise DomainError("ANALYSIS_INPUT_CHANGED", "The proposed inputs changed. Review the sending scope again.")
     if not snapshot["input"]["evidence"]:
-        raise DomainError("EVIDENCE_NOT_READY", "Import the selected QM teaching PDFs before analysis.")
+        raise DomainError("EVIDENCE_NOT_READY", "Select parsed teaching material and explicit physical pages before analysis.")
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         raise DomainError("API_KEY_MISSING", "Set OPENAI_API_KEY in the local .env.local file.")
     try:
@@ -69,11 +73,11 @@ def submit_analysis(course, context_hash, key, *, authorize=False, grant_source=
     return submit_task(course, "analysis", snapshot, key, parent=parent)
 
 
-def assign_ids(course, payload, target_ids):
+def assign_ids(course, payload, target_ids, namespace=None):
     """Local output keys become server-generated persistent identifiers."""
     payload = copy.deepcopy(payload)
     collections = [payload[k] for k in ("knowledge_nodes", "scope_claims", "method_rules", "historical_style", "issues", "clarifications")]
-    mapping = {item["id"]: item["id"] if item["id"] in target_ids else str(uuid.uuid5(course.id, "analysis:" + item["id"]))
+    mapping = {item["id"]: item["id"] if item["id"] in target_ids else str(uuid.uuid5(uuid.UUID(namespace) if namespace else course.id, "analysis:" + item["id"]))
                for items in collections for item in items}
     for items in collections:
         for item in items:
@@ -96,18 +100,24 @@ def publish_analysis(token, payload, context, mode, visual_review_requests=()):
         raise DomainError("ANALYSIS_ALREADY_PUBLISHED")
     base = CourseMachineBase.objects.create(course=course, task=task, payload=payload, context=context, mode=mode)
     previous = CourseDraft.objects.select_for_update().filter(course=course).first()
-    merged, warnings = merge_manual(payload, previous)
+    if context.get("target_topic_ids"):
+        from .topic_state import scoped_merge
+        merged,warnings,states = scoped_merge(payload,previous,context,base)
+    else:
+        merged,warnings = merge_manual(payload,previous)
+        states = previous.topic_state if previous else {}
     draft = previous or CourseDraft(course=course)
+    draft.topic_state = states
     draft.machine_base = base
     draft.payload = merged
     draft.merge_warnings = warnings
     if previous:
         draft.revision += 1
     draft.save()
-    questions = classify_gaps(merged, context["target_ids"])
+    questions = classify_gaps(payload if context.get("target_topic_ids") else merged, context["target_ids"])
     blocked = any(q["impact"] == "blocks_selected_scope" for q in questions)
     result = {"draft_id": str(draft.id), "revision": draft.revision, "mode": mode,
-              "profile_url": f"/courses/{course.id}/profile", "blocking_gaps": sum(q["impact"] == "blocks_selected_scope" for q in questions),
+              "profile_url": f"/courses/{course.id}/profile" + ("?topic="+context["target_topic_ids"][0] if context.get("target_topic_ids") else ""), "blocking_gaps": sum(q["impact"] == "blocks_selected_scope" for q in questions),
               "visual_review_requests": list(visual_review_requests)}
     if blocked:
         task.state, task.stage, task.result = "needs_info", "Course draft needs information", result
@@ -140,13 +150,25 @@ def run_analysis(token):
     output = AnalysisOutput.model_validate(result.payload)
     if output.draft is None or output.status in ("unable_to_determine", "not_checked"):
         raise DomainError("COURSE_ANALYSIS_UNDETERMINED", output.explanation)
+    if snapshot["input"].get("target_topic_ids") and not output.draft.knowledge_nodes:
+        raise DomainError("COURSE_KNOWLEDGE_UNDETERMINED","No supported knowledge could be identified. Review the saved analysis and material selection.")
     checkpoint(token, "Checking course references and provenance")
     payload = validate_payload(output.draft.model_dump(mode="json"), snapshot["input"])
-    if output.status == "needs_info" and not any(q["impact"] == "blocks_selected_scope" for q in classify_gaps(payload, snapshot["input"]["target_ids"])):
+    review_ids=snapshot["input"]["target_ids"] or [n["id"] for n in payload["knowledge_nodes"]]
+    if output.status == "needs_info" and not any(q["impact"] == "blocks_selected_scope" for q in classify_gaps(payload, review_ids)):
         payload["issues"].append({"id": "model-needs-info", "code": "model_needs_info", "severity": "blocking",
-            "affected_ids": snapshot["input"]["target_ids"], "explanation": output.explanation, "evidence_ids": [],
+            "affected_ids": review_ids, "explanation": output.explanation, "evidence_ids": [],
             "suggested_action": "Review the information needed by the analysis."})
-    payload = assign_ids(task.course, payload, snapshot["input"]["target_ids"])
+    target_topics=snapshot["input"].get("target_topic_ids",[])
+    if target_topics:
+        from .topic_state import state_map,COLLECTIONS
+        previous=CourseDraft.objects.filter(course=task.course).first()
+        foreign={i for tid,state in state_map(previous).items() if tid not in target_topics for ids in state["item_ids"].values() for i in ids}
+        if any(row["id"] in foreign or foreign.intersection(row.get("subject_ids",row.get("affected_ids",[]))) for key in COLLECTIONS for row in payload[key]):
+            raise DomainError("ANALYSIS_TOPIC_SCOPE_INVALID")
+    payload = assign_ids(task.course, payload, snapshot["input"]["target_ids"], target_topics[0] if target_topics else None)
+    if target_topics:
+        snapshot["input"]["target_ids"]=[n["id"] for n in payload["knowledge_nodes"]]
     publish_analysis(token, payload, snapshot["input"], "live", visual_requests(output, snapshot["input"]))
 
 

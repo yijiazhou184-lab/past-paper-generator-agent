@@ -1,3 +1,4 @@
+from .config_compat import knowledge_ids
 import itertools
 from typing import Literal
 from uuid import UUID
@@ -19,6 +20,17 @@ class GenerationConfig(Strict):
     difficulty: Literal["foundation", "exam_standard", "challenge"]
     main_question_count: int = Field(ge=2, le=4, strict=True)
     question_types: list[ResponseType] = Field(min_length=1, max_length=3)
+
+
+class GenerationConfigV2(Strict):
+    schema_version: Literal["practice-config-v2"]
+    course_version_id: UUID
+    mode: Literal["chapter_practice"]
+    selected_topic_ids: list[str] = Field(min_length=1,max_length=30)
+    knowledge_ids: list[str] = Field(min_length=1,max_length=30)
+    difficulty: Literal["foundation","exam_standard","challenge"]
+    main_question_count: int = Field(ge=2,le=4,strict=True)
+    question_types: list[ResponseType] = Field(min_length=1,max_length=3)
 
 
 class Selection(Strict):
@@ -126,13 +138,19 @@ def unique(values):
         raise DomainError("DUPLICATE_IDENTIFIER", "Each identifier or selection must appear once.", status=400)
 
 
+def parse_config(data):
+    return parse_schema(GenerationConfigV2 if isinstance(data,dict) and data.get("schema_version")=="practice-config-v2" else GenerationConfig,data,"CONFIG_SCHEMA_INVALID")
+
+
 def validate_config(data, course_payload, evidence):
-    config = parse_schema(GenerationConfig, data, "CONFIG_SCHEMA_INVALID")
-    unique(config["topic_ids"])
+    from .config_compat import validate_topic_selection
+    config = parse_config(data)
+    validate_topic_selection(config,course_payload)
+    unique(knowledge_ids(config))
     unique(config["question_types"])
     nodes = {n["id"]: n for n in course_payload["knowledge_nodes"]}
     sources = {e["id"]: e for e in evidence}
-    for kid in config["topic_ids"]:
+    for kid in knowledge_ids(config):
         node = nodes.get(kid)
         if node is None:
             raise DomainError("KNOWLEDGE_OUTSIDE_SELECTION", "Choose knowledge from this confirmed course version.", status=400)
@@ -142,7 +160,7 @@ def validate_config(data, course_payload, evidence):
             raise DomainError("SELECTED_KNOWLEDGE_NOT_READY", "Selected knowledge needs teaching evidence. Return to Course profile.")
     for claim in course_payload.get("scope_claims", []):
         if claim["applicability"] in ("current_exam", "round1_practice") and claim["disposition"] in ("exclude", "needs_review"):
-            if not claim["subject_ids"] or set(claim["subject_ids"]) & set(config["topic_ids"]):
+            if not claim["subject_ids"] or set(claim["subject_ids"]) & set(knowledge_ids(config)):
                 raise DomainError("SELECTED_KNOWLEDGE_EXCLUDED", "This selection conflicts with the confirmed course scope.")
     return config
 
@@ -203,7 +221,7 @@ def validate_blueprint(config, payload, course_payload, evidence, *, recalculate
         if not set(q["evidence_ids"]) <= sources:
             raise DomainError("EVIDENCE_REFERENCE_INVALID", "A blueprint source is outside the frozen course evidence.", status=400)
         part_knowledge = {kid for p in q["parts"] for kid in p["knowledge_ids"]}
-        if not (set(q["knowledge_ids"]) | part_knowledge) <= set(config["topic_ids"]):
+        if not (set(q["knowledge_ids"]) | part_knowledge) <= set(knowledge_ids(config)):
             raise DomainError("KNOWLEDGE_OUTSIDE_SELECTION", "The plan uses knowledge outside this practice selection.", status=400)
         if set(q["knowledge_ids"]) != part_knowledge:
             raise DomainError("QUESTION_COVERAGE_MISMATCH", "Question knowledge must match its parts.", status=400)
@@ -227,7 +245,7 @@ def validate_blueprint(config, payload, course_payload, evidence, *, recalculate
         parts = [p for group in attempt for qid in group for p in by_id[qid]["parts"]]
         if {p["response_type"] for p in parts} != set(config["question_types"]):
             raise DomainError("QUESTION_TYPE_MISSING", "Every permitted attempt must cover all selected question types.", status=400)
-        if {k for p in parts for k in p["knowledge_ids"]} != set(config["topic_ids"]):
+        if {k for p in parts for k in p["knowledge_ids"]} != set(knowledge_ids(config)):
             raise DomainError("SELECTED_KNOWLEDGE_MISSING", "Every permitted attempt must cover the selected knowledge.", status=400)
     if plan["calibration"] == "historical_reference" and not course_payload.get("historical_style"):
         raise DomainError("CALIBRATION_UNSUPPORTED", "This course version has no historical exam reference.", status=400)

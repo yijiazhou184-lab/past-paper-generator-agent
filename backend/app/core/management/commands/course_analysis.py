@@ -11,6 +11,8 @@ class Command(BaseCommand):
     help = "Inspect the exact local analysis scope; explicitly grant and submit only after user authorisation."
 
     def add_arguments(self, parser):
+        parser.add_argument("--course-id")
+        parser.add_argument("--grant-source")
         parser.add_argument("--submit", action="store_true")
         parser.add_argument("--allow-course-data-upload", action="store_true")
         parser.add_argument("--context-hash")
@@ -18,7 +20,13 @@ class Command(BaseCommand):
         parser.add_argument("--report")
 
     def handle(self, **options):
-        course = Course.objects.get(owner__username="local", code="MSIN0180")
+        courses=Course.objects.filter(owner__username="local")
+        if options["course_id"]:
+            course=courses.get(pk=options["course_id"])
+        elif courses.count()==1:
+            course=courses.get()
+        else:
+            raise CommandError("Choose --course-id explicitly; this workspace contains multiple courses.")
         if options["report"]:
             task = Task.objects.get(pk=options["report"], course=course, kind="analysis")
             report = {"id": str(task.id), "state": task.state, "error": task.error, "snapshot": task.snapshot,
@@ -36,8 +44,8 @@ class Command(BaseCommand):
             path.write_text(json.dumps(scope, indent=2, ensure_ascii=False), encoding="utf-8")
             self.stdout.write(json.dumps(scope, ensure_ascii=True))
             return
-        if not options["key"] or not options["context_hash"] or not options["allow_course_data_upload"]:
-            raise CommandError("Submission requires an inspected context hash, idempotency key and explicit upload authorisation.")
+        if not options["key"] or not options["context_hash"] or not options["allow_course_data_upload"] or not options["grant_source"]:
+            raise CommandError("Submission requires an inspected context hash, idempotency key, explicit upload authorisation and --grant-source.")
         task = submit_analysis(course, options["context_hash"], options["key"], authorize=True,
-            grant_source="User authorised this 36-page text scope in the development chat on 2026-10-23")
+            grant_source=options["grant_source"])
         self.stdout.write(json.dumps({"task_id": str(task.id), "state": task.state, "url": f"http://127.0.0.1:5173/tasks/{task.id}"}))

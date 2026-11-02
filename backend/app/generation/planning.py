@@ -1,3 +1,4 @@
+from .config_compat import course_projection, selected_topics
 import copy
 import os
 from pathlib import Path
@@ -18,7 +19,7 @@ from .snapshots import owned_course, require_revision, structure_diff
 
 def build_context(draft):
     version = draft.course_version
-    validate_config(draft.config, version.frozen_payload, version.evidence_manifest["evidence"])
+    validate_config(draft.config, course_projection(version), version.evidence_manifest["evidence"])
     if digest(version.frozen_payload) != version.payload_hash:
         raise DomainError("COURSE_VERSION_HASH_MISMATCH")
     prompt = (Path(__file__).resolve().parents[1] / "ai/prompts/blueprint.md").read_text(encoding="utf-8")
@@ -29,7 +30,8 @@ def build_context(draft):
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses", "store": False,
         "mode": "fixture" if version.evidence_manifest.get("analysis_mode") == "fixture" else "live",
         "input": {"course_version_id": str(version.id), "course_payload_hash": version.payload_hash,
-            "course": copy.deepcopy(version.frozen_payload), "config": copy.deepcopy(draft.config),
+            "course": course_projection(version), "config": copy.deepcopy(draft.config),
+            "selected_topics": selected_topics(draft.config,version),
             "statements": copy.deepcopy(version.statements),
             "evidence": [{k: e[k] for k in ("id", "material_version_id", "physical_page", "material_code", "roles", "fidelity_status") if k in e}
                          for e in version.evidence_manifest["evidence"]],

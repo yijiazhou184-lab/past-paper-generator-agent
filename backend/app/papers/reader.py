@@ -28,11 +28,19 @@ def pdf_state(paper):
             "stage": task.stage if task else None, "error": task.error if task else None}
 
 
+def paper_topics(paper):
+    frozen=paper.content.payload
+    saved=frozen["metadata"].get("selected_topics")
+    if saved is not None:return copy.deepcopy(saved)
+    from app.generation.config_compat import selected_topics
+    return selected_topics(frozen["metadata"]["config"],paper.content.candidate.snapshot.confirmation.course_version)
+
+
 def paper_summary(paper):
     m = paper.content.payload["metadata"]
     return {"id": str(paper.id), "course_id": str(paper.course_id), "task_id": str(paper.generation_task_id),
             "content_version_id": str(paper.content_id), "content_hash": paper.content.payload_hash,
-            "created_at": paper.created_at.isoformat(), "metadata": m, "export": pdf_state(paper)}
+            "created_at": paper.created_at.isoformat(), "metadata": m, "topic_summary":paper_topics(paper), "export": pdf_state(paper)}
 
 
 def question_view(paper):

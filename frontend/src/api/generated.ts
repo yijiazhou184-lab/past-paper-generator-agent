@@ -45,7 +45,7 @@ export interface paths {
         };
         get: operations["v1_courses_analysis_preflight_retrieve"];
         put?: never;
-        post?: never;
+        post: operations["v1_courses_analysis_preflight_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -665,6 +665,9 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AnalyseRequest: {
+            target_topic_ids?: string[];
+            material_selection?: components["schemas"]["MaterialSelection"][];
+            base_revision?: number;
             context_hash: string;
             /** @default false */
             authorize_upload: boolean;
@@ -675,6 +678,8 @@ export interface components {
             expected_revision: number;
             question_id: string;
             text: string;
+            /** Format: uuid */
+            topic_id?: string | null;
         };
         AssignmentSchema: {
             scope: components["schemas"]["ScopeEnum"];
@@ -694,6 +699,9 @@ export interface components {
         ConfirmRequest: {
             /** Format: uuid */
             draft_id: string;
+            selected_topic_ids?: string[];
+            /** Format: uuid */
+            base_course_version_id?: string | null;
             expected_revision: number;
         };
         CourseSchema: {
@@ -788,6 +796,11 @@ export interface components {
             };
             transcription: components["schemas"]["TranscriptionSummarySchema"];
         };
+        MaterialSelection: {
+            /** Format: uuid */
+            material_version_id: string;
+            pages: number[];
+        };
         MaterialsSchema: {
             materials: components["schemas"]["MaterialSchema"][];
             roles: string[];
@@ -835,6 +848,7 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             metadata: unknown;
+            topic_summary: unknown[];
             export: unknown;
         };
         PapersSchema: {
@@ -871,6 +885,8 @@ export interface components {
             patches?: unknown[];
             /** @default false */
             acknowledge_merge: boolean;
+            /** Format: uuid */
+            topic_id?: string | null;
         };
         PatchedTopicPatchInput: {
             name?: string;
@@ -903,6 +919,8 @@ export interface components {
             active_task_id: string | null;
             /** Format: uuid */
             latest_task_id: string | null;
+            draft_revision: number;
+            topics: unknown[];
         };
         /**
          * @description * `user_declared` - user_declared
@@ -1025,6 +1043,9 @@ export interface components {
             };
         };
         TaskSchema: {
+            topic_summary?: {
+                [key: string]: string;
+            }[];
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -1058,6 +1079,11 @@ export interface components {
         };
         TasksSchema: {
             tasks: components["schemas"]["TaskSchema"][];
+        };
+        TopicAnalysisSelection: {
+            target_topic_ids: string[];
+            material_selection: components["schemas"]["MaterialSelection"][];
+            base_revision: number;
         };
         TopicInput: {
             name: string;
@@ -1130,6 +1156,10 @@ export interface components {
             latest_task: unknown;
             snapshots: unknown[];
             generation_available: boolean;
+            topics: unknown[];
+            capabilities: {
+                [key: string]: boolean;
+            };
         };
     };
     responses: never;
@@ -1196,6 +1226,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreflightSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_analysis_preflight_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicAnalysisSelection"];
+                "application/x-www-form-urlencoded": components["schemas"]["TopicAnalysisSelection"];
+                "multipart/form-data": components["schemas"]["TopicAnalysisSelection"];
+            };
+        };
         responses: {
             200: {
                 headers: {

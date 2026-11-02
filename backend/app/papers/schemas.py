@@ -9,6 +9,7 @@ class PaperSchema(serializers.Serializer):
     content_hash = serializers.CharField()
     created_at = serializers.DateTimeField()
     metadata = serializers.JSONField()
+    topic_summary = serializers.ListField(child=serializers.JSONField())
     export = serializers.JSONField()
 
 

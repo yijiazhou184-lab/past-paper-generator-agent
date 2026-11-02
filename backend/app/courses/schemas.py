@@ -163,7 +163,6 @@ def validate_payload(raw, context):
             raise DomainError("CLAIM_SOURCE_REQUIRED")
         if provenance == "inference" and claim["status"] not in ("inferred", "unknown", "disputed"):
             raise DomainError("INFERENCE_STATUS_INVALID")
-        codes = {evidence[e].get("material_code") for e in claim["evidence_ids"]}
         roles = {r for e in claim["evidence_ids"] for r in evidence[e].get("roles", [])}
         allowed_roles = {"course_material": TEACHING_ROLES | {"additional_questions", "other"},
             "assessment_document": {"assessment_brief", "assessment", "exam_scope"},
@@ -171,11 +170,11 @@ def validate_payload(raw, context):
             "external_source": {"external_source"}}
         if provenance in allowed_roles and not roles.intersection(allowed_roles[provenance]):
             raise DomainError("SOURCE_PROVENANCE_MISMATCH")
-        if "M46" in codes and claim["applicability"] == "current_exam":
+        if roles.intersection({"assessment", "assessment_brief"}) and "exam_scope" not in roles and claim["applicability"] == "current_exam":
             raise DomainError("ASSESSMENT_APPLICABILITY_INVALID")
         if provenance == "historical_paper" and claim["applicability"] != "historical_mock":
             raise DomainError("HISTORICAL_APPLICABILITY_INVALID")
-        if codes.intersection({"M04", "M05"}) and provenance not in ("historical_paper", "inference"):
+        if roles.intersection({"past_paper", "mark_scheme"}) and provenance not in ("historical_paper", "inference"):
             raise DomainError("HISTORICAL_PROVENANCE_INVALID")
         if provenance == "course_material" and claim["applicability"] == "current_exam":
             raise DomainError("TEACHING_IS_NOT_EXAM_SCOPE")

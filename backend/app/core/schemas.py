@@ -51,6 +51,7 @@ class ModelCallSchema(s.Serializer):
 
 
 class TaskSchema(s.Serializer):
+    topic_summary = s.ListField(child=s.DictField(child=s.CharField()),required=False)
     id = s.UUIDField()
     course_id = s.UUIDField()
     kind = s.CharField()

@@ -18,6 +18,7 @@ export function PaperPage() {
   return <><title>Saved practice · Past Paper Generator</title>
     <Link className="back-link" to={`/courses/${paper.course_id}/papers`}>Back to Papers</Link>
     <div className="page-heading paper-heading"><div><h1>{m.course_title} practice</h1><p>{m.config.difficulty.replaceAll("_"," ")} · {m.blueprint.main_question_count} main questions · {m.blueprint.subquestion_count} subquestions · {m.blueprint.attempt_marks} marks</p>
+      {paper.topic_summary?.length?<p>{paper.topic_summary.map(t=>[t.code,t.name].filter(Boolean).join(" · ")).join("; ")}</p>:null}
       <p>Course version {m.course_version_number} · Saved {new Date(m.generated_at).toLocaleString()}</p></div>
       <Link className="button" to={`/courses/${paper.course_id}/generate?fromPaper=${paper.id}`}>Generate another practice</Link></div>
     <section className="panel"><ExportPanel paper={paper}/></section>

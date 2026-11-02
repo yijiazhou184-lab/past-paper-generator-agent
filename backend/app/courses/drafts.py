@@ -54,20 +54,42 @@ def merge_manual(machine, previous):
     return merged, warnings
 
 
-def draft_view(draft):
+def draft_view(draft, topic_id=None):
     if draft is None:
         return None
+    if topic_id is not None:
+        from .topic_state import topic_slice, topic_base, state_map
+        from .topic_confirmation import topic_status
+        from .models import Topic
+        topic=get_object_or_404(Topic,pk=topic_id,course=draft.course)
+        payload=topic_slice(draft,str(topic_id))
+        if payload is None:return None
+        original=draft
+        draft=copy.copy(draft)
+        draft.payload=payload
+        draft.machine_base=copy.copy(topic_base(original,str(topic_id)))
+        draft.machine_base.context={**draft.machine_base.context,"target_ids":[n["id"] for n in payload["knowledge_nodes"]]}
+        owned={i for ids in state_map(original)[str(topic_id)]["item_ids"].values() for i in ids}
+        draft.manual_patches=[p for p in draft.manual_patches if len(p["path"])<3 or p["path"][1] in owned]
+        draft.merge_warnings=[w for w in draft.merge_warnings if len(w["path"])<3 or w["path"][1] in owned]
     questions = classify_gaps(draft.payload, draft.machine_base.context["target_ids"])
+    if topic_id is not None:
+        for q in questions:
+            q["affected_topic_ids"]=[str(topic_id)]
+            if q["id"]=="gap-exam-scope":q["id"]="gap-exam-scope:"+str(topic_id)
     for q in questions:
         answer = draft.clarification_answers.get(q["id"])
         if answer:
             q["status"] = "answered"
             q["answer"] = answer
     latest = draft.course.confirmed_versions.order_by("-number").first()
-    statements = statement_list(draft.course)
+    statements = statement_list(draft.course,[str(topic_id)] if topic_id else None)
     analysed_statements = {s["id"] for s in draft.machine_base.context["statements"]}
     pending_answers = any(s["kind"] in ("exam_scope", "clarification") and s["id"] not in analysed_statements for s in statements)
     return {"id": str(draft.id), "revision": draft.revision, "payload": draft.payload,
+        "topic_id":str(topic_id) if topic_id else None,
+        "topic_name":topic.name if topic_id else None,
+        "topic_status":topic_status(original,str(topic_id),latest) if topic_id else None,
         "manual_patches": draft.manual_patches, "merge_warnings": draft.merge_warnings,
         "clarifications": questions, "mode": draft.machine_base.mode,
         "analysis_task_id": str(draft.machine_base.task_id), "updated_at": draft.updated_at,
@@ -81,9 +103,9 @@ def draft_view(draft):
 
 
 @transaction.atomic
-def save_draft(owner, course_id, expected_revision, patches, key, acknowledge_merge=False):
+def save_draft(owner, course_id, expected_revision, patches, key, acknowledge_merge=False, topic_id=None):
     course = get_object_or_404(Course.objects.select_for_update(), pk=course_id, owner=owner)
-    record = intent(owner, f"draft:{course.id}", key, {"revision": expected_revision, "patches": patches, "ack": acknowledge_merge})
+    record = intent(owner, f"draft:{course.id}", key, {"revision": expected_revision, "patches": patches, "ack": acknowledge_merge, "topic_id":topic_id})
     draft = get_object_or_404(CourseDraft.objects.select_for_update(), course=course)
     if record.response:
         # Return current server state; the committed revision is separately recorded for lost-response recovery.
@@ -92,6 +114,10 @@ def save_draft(owner, course_id, expected_revision, patches, key, acknowledge_me
         raise DomainError("DRAFT_REVISION_CONFLICT", "A newer draft is saved. Compare it with your edits before continuing.")
     if not isinstance(patches, list) or len(patches) > 100:
         raise DomainError("PATCH_INVALID", status=400)
+    from .topic_state import state_map, topic_slice, patch_topics
+    states=state_map(draft)
+    if topic_id is not None and str(topic_id) not in states:
+        raise DomainError("TOPIC_ANALYSIS_REQUIRED")
     payload = copy.deepcopy(draft.payload)
     manual = {tuple(p["path"]): p for p in draft.manual_patches}
     for patch in patches:
@@ -100,24 +126,40 @@ def save_draft(owner, course_id, expected_revision, patches, key, acknowledge_me
         path = patch["path"]
         if not all(isinstance(p, str) for p in path):
             raise DomainError("PATCH_INVALID", status=400)
+        if topic_id is not None and (len(path)<3 or str(topic_id) not in patch_topics(draft,path)):
+            if path!=["template_suggestion"]:
+                raise DomainError("PATCH_OUTSIDE_TOPIC","Edit course-wide facts from Course overview.",status=400)
+        if topic_id and path==["template_suggestion"]:
+            states[str(topic_id)]["template_suggestion"]=copy.deepcopy(patch["value"])
+            validate_template(patch["value"])
+            continue
         parent, field = get_field(payload, path)
         entry = {**patch, "base_value": manual.get(tuple(path), {}).get("base_value", copy.deepcopy(parent[field]))}
         if path[0] in ("scope_claims", "method_rules", "historical_style"):
             statement = UserStatement.objects.create(course=course, text=str(patch["value"]), kind="manual_edit",
-                source="Direct course profile edit", submitted_by=owner)
+                source="Direct course profile edit", topic_ids=patch_topics(draft,path), submitted_by=owner)
             entry["statement_id"] = str(statement.id)
         apply_patch_value(payload, entry)
         manual[tuple(path)] = entry
     try:
-        payload = CourseDraftPayload.model_validate(payload).model_dump(mode="json")
+        if states:
+            projected=copy.copy(draft);projected.payload=payload;projected.topic_state=states
+            for tid in states:
+                CourseDraftPayload.model_validate(topic_slice(projected,tid))
+        else:
+            payload = CourseDraftPayload.model_validate(payload).model_dump(mode="json")
     except ValidationError:
         raise DomainError("DRAFT_FIELD_INVALID", "Check the edited field values.", status=400)
     validate_template(payload["template_suggestion"])
     draft.payload = payload
+    draft.topic_state = states
     draft.manual_patches = list(manual.values())
     draft.revision += 1
     if acknowledge_merge:
-        draft.merge_warnings = []
+        if topic_id:
+            draft.merge_warnings=[w for w in draft.merge_warnings if len(w["path"])==3 and str(topic_id) not in patch_topics(draft,w["path"])]
+        else:
+            draft.merge_warnings = []
     draft.save()
     record.response = {"revision": draft.revision}
     record.save(update_fields=["response"])
@@ -125,22 +167,24 @@ def save_draft(owner, course_id, expected_revision, patches, key, acknowledge_me
 
 
 @transaction.atomic
-def answer_clarification(owner, course_id, question_id, text, expected_revision, key):
+def answer_clarification(owner, course_id, question_id, text, expected_revision, key, topic_id=None):
     course = get_object_or_404(Course.objects.select_for_update(), pk=course_id, owner=owner)
-    record = intent(owner, f"answer:{course.id}", key, {"id": question_id, "text": text, "revision": expected_revision})
+    record = intent(owner, f"answer:{course.id}", key, {"id": question_id, "text": text, "revision": expected_revision, "topic_id":topic_id})
     draft = get_object_or_404(CourseDraft.objects.select_for_update(), course=course)
     if record.response:
         return draft
     if draft.revision != expected_revision:
         raise DomainError("DRAFT_REVISION_CONFLICT")
-    questions = classify_gaps(draft.payload, draft.machine_base.context["target_ids"])
+    view=draft_view(draft,topic_id)
+    if view is None:raise DomainError("TOPIC_ANALYSIS_REQUIRED")
+    questions = view["clarifications"]
     asked = next((q for q in questions if q["id"] == question_id), None)
     if asked is None:
         raise DomainError("CLARIFICATION_NOT_FOUND", status=404)
     if not isinstance(text, str) or not 1 <= len(text.strip()) <= 3000:
         raise DomainError("ANSWER_INVALID", status=400)
-    statement = UserStatement.objects.create(course=course, text=text.strip(), kind="exam_scope" if question_id == "gap-exam-scope" else "clarification",
-        source="Answer to course clarification", clarification_id=question_id, question=asked["question"], submitted_by=owner)
+    statement = UserStatement.objects.create(course=course, text=text.strip(), kind="exam_scope" if question_id.startswith("gap-exam-scope") else "clarification",
+        source="Answer to course clarification", clarification_id=question_id, question=asked["question"], topic_ids=[str(topic_id)] if topic_id else [], submitted_by=owner)
     draft.clarification_answers[question_id] = {"text": text.strip(), "statement_id": str(statement.id),
         "reanalysis_required": question_id != "gap-exam-scope"}
     if question_id == "gap-exam-scope":

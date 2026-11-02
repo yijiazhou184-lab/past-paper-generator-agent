@@ -32,7 +32,16 @@ def task_view(task, include_calls=False):
                 "elapsed_seconds": result.get("elapsed_seconds"), "usage": result.get("usage", {}),
                 "error_code": result.get("error_code"), "payload": None if task.kind == "generation" else result.get("payload"),
                 "source_url": f'/courses/{task.course_id}/materials?source={source["evidence_id"]}' if source else None})
-    return {"id": str(task.id), "course_id": str(task.course_id), "kind": task.kind,
+    data=task.snapshot.get("input",{})
+    topics=data.get("selected_topics",[])
+    if not topics and data.get("target_topics"):
+        topics=[{"topic_id":t["id"],"name":t["name"],"code":t.get("code","")} for t in data["target_topics"]]
+    if not topics and data.get("course_version_id") and data.get("config"):
+        from app.courses.models import CourseVersion
+        from app.generation.config_compat import selected_topics
+        version=CourseVersion.objects.filter(pk=data["course_version_id"],course_id=task.course_id).first()
+        if version:topics=selected_topics(data["config"],version)
+    return {"topic_summary":topics,"id": str(task.id), "course_id": str(task.course_id), "kind": task.kind,
             "state": task.state, "stage": task.stage, "elapsed_seconds": round(elapsed, 1),
             "target_exceeded": task.kind in ("analysis", "planning", "generation") and elapsed > 120, "created_at": task.created_at,
             "started_at": task.started_at, "finished_at": task.finished_at,
@@ -53,7 +62,7 @@ class SessionView(APIView):
             db_version = cursor.fetchone()[0].split(",")[0]
         return Response({"authenticated": request.user.is_authenticated, "csrf_token": get_token(request),
                          "local_access": settings.LOCAL_ACCESS,
-                         "database": db_version, "batch": 5, "model_mode": "scoped_consent",
+                         "database": db_version, "batch": 6, "model_mode": "scoped_consent",
                          "course_data_upload": False})
 
     @extend_schema(request=None, responses=SessionSchema)

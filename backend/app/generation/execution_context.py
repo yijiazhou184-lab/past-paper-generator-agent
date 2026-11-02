@@ -59,6 +59,7 @@ def build_generation_context(snapshot):
             "parse_content_hash", "blob_sha256", "roles", "fidelity_status") if k in e},
             **content, "content_hash": digest(content)})
     data = {"snapshot_id": str(snapshot.id), "snapshot_hash": snapshot.payload_hash,
+        "selected_topics":copy.deepcopy(frozen.get("selected_topics",[])),
         "course_version_id": frozen["course_version_id"], "config": frozen["config"], "blueprint": frozen["blueprint"],
         "course": frozen["course"], "statements": frozen["statements"], "questions": questions,
         "sources": sources,

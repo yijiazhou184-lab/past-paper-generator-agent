@@ -9,7 +9,8 @@ import { ConfigController, currentBlueprint, defaults, configErrors } from "./co
 import { GenerationLaunch } from "./GenerationLaunch";
 import { StructureSummary } from "./StructureSummary";
 import { useAction } from "./useAction";
-import { typeLabels, responseTypes } from "./types";
+import {TopicKnowledgeSelector} from "./TopicKnowledgeSelector";
+import { knowledgeIds, typeLabels, responseTypes } from "./types";
 import type { ConfigDraft, Config, Plan, Preflight, Snapshot, Workspace } from "./types";
 import "../profile/profile.css";
 import "./generate.css";
@@ -65,12 +66,14 @@ function Planner({workspace, refresh}: {workspace: Workspace; refresh: ()=>void}
       {reuse.isPending ? <p>Loading the saved configuration…</p> : reuse.isError ? <p role="alert">{reuse.error.message}</p> : reuse.data && reuse.data.paper.course_id===course.id ? <>
         <p>The previous paper stays unchanged. Its configuration used course version {reuse.data.paper.metadata.course_version_number}; the latest confirmed version is {workspace.versions[0].number}.</p>
         <p>Apply these settings to review them against the latest course. Save, plan and confirm a new structure before generating.</p>
-        {reuse.data.paper.metadata.config.topic_ids.some(id=>!workspace.versions[0].payload.knowledge_nodes.some(n=>n.id===id && n.readiness==="supported")) && <p className="review-note" role="status">Some previously selected topics are no longer supported in the latest confirmed course. Those topics will be left out. Review and select supported topics below before saving.</p>}
+        {knowledgeIds(reuse.data.paper.metadata.config).some(id=>!workspace.versions[0].payload.knowledge_nodes.some(n=>n.id===id && n.readiness==="supported")) && <p className="review-note" role="status">Some previously selected topics are no longer supported in the latest confirmed course. Those topics will be left out. Review and select supported topics below before saving.</p>}
         <button disabled={busy || running} onClick={()=>{
           const previous=reuse.data!.paper.metadata.config;
           const latest=workspace.versions[0];
           const available=new Set(latest.payload.knowledge_nodes.filter(n=>n.readiness==="supported").map(n=>n.id));
-          change({...previous,course_version_id:latest.id,topic_ids:previous.topic_ids.filter(id=>available.has(id))});
+          const initial=defaults(latest);
+          const ids=knowledgeIds(previous).filter(id=>available.has(id));
+          change(initial.schema_version==="practice-config-v2"?{...initial,difficulty:previous.difficulty,main_question_count:previous.main_question_count,question_types:previous.question_types,knowledge_ids:ids.filter(id=>latest.payload.topic_manifest?.find(m=>m.topic_id===initial.selected_topic_ids[0])?.knowledge_ids.includes(id))}:{...previous,course_version_id:latest.id,topic_ids:ids,schema_version:undefined,knowledge_ids:undefined,selected_topic_ids:undefined});
           setParams({});
         }}>Use settings with latest course</button></> : <p role="alert">This paper belongs to another course.</p>}
       <p><button onClick={()=>setParams({})}>Keep current configuration</button></p></section>}
@@ -82,8 +85,7 @@ function Planner({workspace, refresh}: {workspace: Workspace; refresh: ()=>void}
     <div className="generation-grid"><section className="panel generation-config"><div className="config-heading"><SlidersHorizontal size={20}/><h2>This practice</h2></div><p>Choose a focus. These settings do not change your course defaults.</p>
       <fieldset disabled={busy}><label>Confirmed course version<select value={state.config.course_version_id} onChange={e=>change(defaults(workspace.versions.find(v=>v.id===e.target.value)!))}>{workspace.versions.map(v=><option key={v.id} value={v.id}>Version {v.number}{v.mode==="fixture" ? " (fixture)" : ""}</option>)}</select></label>
         <label>Practice mode<select value="chapter_practice" disabled><option value="chapter_practice">Chapter practice</option></select></label>
-        <h3>Topic 2</h3><p className="topic-caption">Functions of a single variable: differentiation and optimisation</p>
-        <div className="knowledge-options" role="group" aria-label="Knowledge targets">{version.payload.knowledge_nodes.map(n=><label className="check-line" key={n.id}><input type="checkbox" disabled={n.readiness!=="supported"} checked={state.config.topic_ids.includes(n.id)} onChange={e=>change({...state.config,topic_ids:e.target.checked ? [...state.config.topic_ids,n.id] : state.config.topic_ids.filter(k=>k!==n.id)})}/><span>{n.title}{n.readiness!=="supported" && <small>Needs evidence · review Course profile</small>}</span></label>)}</div>
+        <TopicKnowledgeSelector version={version} topics={workspace.topics??[]} config={state.config} onChange={change} disabled={busy}/>
         <label>Difficulty<select aria-label="Difficulty" value={state.config.difficulty} onChange={e=>change({...state.config,difficulty:e.target.value as Config["difficulty"]})}><option value="foundation">Foundation</option><option value="exam_standard">Exam-standard</option><option value="challenge">Challenge</option></select></label>
         <label>Main questions<input type="number" min={2} max={4} value={state.config.main_question_count} onChange={e=>change({...state.config,main_question_count:Number(e.target.value)})}/><small>2–4 main questions. Each can cover several targets.</small></label>
         <h3>Question types</h3>{responseTypes.map(type=><label className="check-line" key={type}><input type="checkbox" checked={state.config.question_types.includes(type)} onChange={e=>change({...state.config,question_types:e.target.checked ? [...state.config.question_types,type] : state.config.question_types.filter(t=>t!==type)})}/>{typeLabels[type]}</label>)}

@@ -10,7 +10,7 @@ from app.courses.models import Course
 from app.generation.content_api import GenerationAnswerSchema
 from .models import Paper, PDFArtifact
 from .publication import submit_export, assert_integrity
-from .reader import paper_summary, question_view, answer_view
+from .reader import paper_topics, paper_summary, question_view, answer_view
 from .schemas import PapersSchema, PaperContentSchema, ExportSchema, PaperSchema
 from .storage import valid_artifact, artifact_path
 
@@ -28,12 +28,24 @@ class PapersView(APIView):
         if cursor:
             try:
                 data = signing.loads(cursor, salt="paper-list")
-                if data["course"] != str(course_id): raise ValueError()
+                if data["course"] != str(course_id) or data.get("topic") != request.query_params.get("topic"): raise ValueError()
                 qs = qs.filter(Q(created_at__lt=data["time"]) | Q(created_at=data["time"], id__lt=data["id"]))
             except (signing.BadSignature, KeyError, ValueError):
                 raise DomainError("INVALID_CURSOR", status=400)
-        items = list(qs[:21])
-        next_cursor = signing.dumps({"course": str(course_id), "time": items[19].created_at.isoformat(), "id": str(items[19].id)}, salt="paper-list") if len(items) > 20 else None
+        topic_id=request.query_params.get("topic")
+        if topic_id:
+            from rest_framework import serializers
+            topic_id=str(serializers.UUIDField().run_validation(topic_id))
+            from app.courses.models import Topic
+            get_object_or_404(Topic,pk=topic_id,course_id=course_id)
+            items=[]
+            for paper in qs.iterator(chunk_size=20):
+                if any(t["topic_id"]==topic_id for t in paper_topics(paper)):
+                    items.append(paper)
+                if len(items)==21:break
+        else:
+            items = list(qs[:21])
+        next_cursor = signing.dumps({"course": str(course_id), "topic":request.query_params.get("topic"), "time": items[19].created_at.isoformat(), "id": str(items[19].id)}, salt="paper-list") if len(items) > 20 else None
         return Response({"papers": [paper_summary(p) for p in items[:20]], "next_cursor": next_cursor})
 
 

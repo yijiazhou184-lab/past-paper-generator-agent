@@ -69,3 +69,5 @@
 .part-focus input {
   width: 100%;
 }
+
+.topic-knowledge{margin:24px 0}.topic-knowledge>input{width:100%;min-width:0}.knowledge-topic{padding:14px 0;border-top:1px solid var(--border)}.knowledge-topic summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}.knowledge-topic summary small{display:block;color:var(--muted);font-weight:400;margin:4px 0 8px}.topic-knowledge ul{padding-left:20px;overflow-wrap:anywhere}

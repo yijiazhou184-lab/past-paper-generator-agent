@@ -47,10 +47,15 @@ def validate_sources(course, data):
 def topic_view(topic):
     from app.materials.models import MaterialTopicAssignment
     assignments = MaterialTopicAssignment.objects.filter(material_version__material__course=topic.course, topic_ids__contains=[str(topic.id)])
+    from .models import CourseDraft
+    from .topic_confirmation import topic_status
+    draft=CourseDraft.objects.filter(course=topic.course).select_related("machine_base").first()
+    readiness=topic_status(draft,str(topic.id)) if draft else "needs_analysis"
+    if not assignments.exists() and readiness=="needs_analysis":readiness="no_materials"
     return {"id": str(topic.id), "course_id": str(topic.course_id), "name": topic.name, "code": topic.code,
             "order": topic.order, "revision": topic.revision, "archived": topic.archived,
             "provenance": topic.provenance, "source_refs": topic.source_refs,
-            "material_count": assignments.count(), "readiness": "needs_analysis" if assignments.exists() else "no_materials"}
+            "material_count": assignments.count(), "readiness": readiness}
 
 
 def list_topics(owner, course_id):

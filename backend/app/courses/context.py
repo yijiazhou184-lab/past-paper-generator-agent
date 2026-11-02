@@ -17,26 +17,14 @@ from app.materials.transcription import cached, decide, page_entry, signal_pages
 from .models import UserStatement
 from .schemas import AnalysisOutput
 
-PROMPT_VERSION = "r1-course-analysis-3"
+PROMPT_VERSION = "r1-course-analysis-4-topics"
 ANALYSIS_CALL_SECONDS = 300
 SCHEMA_VERSION = "r1-course-draft-1"
-# 2026-10-24: user added the main L'Hopital and implicit-differentiation teaching pages
-# (M34 p34, 46-49; M14 p4; M48 p19, 21, 22) after the first visual re-analysis found them missing.
-PAGE_SELECTION = {"M35": list(range(2, 18)), "M34": [14, 28, 29, 30, 31, 32, 33, 34, 41, 46, 47, 48, 49],
-    "M48": [19, 20, 21, 22], "M06": [2, 6], "M32": [2], "M46": [3, 4, 6], "M05": [1, 3, 5], "M14": [4, 5], "M33": [22]}
-TARGETS = {"K1": "Definition and differentiability", "K2": "Differentiation rules and higher derivatives",
-    "K3": "Stationary points and extrema", "K4": "Business applications and optimisation",
-    "K5": "Rolle and Mean Value Theorems", "K6": "L'Hopital's Rule", "K7": "Implicit differentiation",
-    "K8": "Monotonicity"}
-
-
-def target_knowledge(course):
-    return [{"id": str(uuid.uuid5(course.id, key)), "key": key, "title": title} for key, title in TARGETS.items()]
-
-
-def statement_list(course):
+def statement_list(course, topic_ids=None):
     # An answer is only meaningful with its question, so the question text travels with it.
-    rows = list(course.statements.order_by("created_at", "id").values("id", "text", "kind", "source", "clarification_id", "question"))
+    rows = list(course.statements.order_by("created_at", "id").values("id", "text", "kind", "source", "clarification_id", "question", "topic_ids"))
+    if topic_ids is not None:
+        rows = [r for r in rows if not r["topic_ids"] or set(r["topic_ids"]).intersection(topic_ids)]
     for row in rows:
         row["id"] = str(row["id"])
     if not rows and course.scope_statement and course.scope_provenance == "user_statement":
@@ -101,33 +89,21 @@ def attach_visual_evidence(course, evidence):
 
 
 def build_context(course):
-    # Material hashes are the reviewed round-one manifest, not untrusted filename matching.
-    inventory = json.loads((Path(__file__).parent / "qm_analysis_manifest.json").read_text(encoding="utf-8"))
-    known = {m["sha256"]: m for m in inventory}
-    versions = list(MaterialVersion.objects.filter(material__course=course, blob__sha256__in=known)
-                    .select_related("blob").order_by("id"))
-    # Duplicate imports of identical content contribute once, preserving their source version.
-    unique = {}
-    for v in versions:
-        unique.setdefault(v.blob.sha256, v)
-    versions = list(unique.values())
-    pack = build_evidence_pack(course.owner, [v.id for v in versions])
-    v_by_id = {str(v.id): v for v in versions}
-    materials = [{**m, "filename": v_by_id[m["material_version_id"]].original_filename,
-                  "code": known[m["sha256"]]["id"], "selected_pages": PAGE_SELECTION[known[m["sha256"]]["id"]]}
-                 for m in pack["materials"]]
-    evidence = []
-    for e in pack["evidence"]:
-        v = v_by_id[e["material_version_id"]]
-        code = known[v.blob.sha256]["id"]
-        if e["physical_page"] in PAGE_SELECTION[code]:
-            evidence.append({k: value for k, value in {**e, "material_code": code,
-                            "roles": v.roles, "blob_sha256": v.blob.sha256}.items() if k != "blocks"})
-    attach_visual_evidence(course, evidence)
-    targets = target_knowledge(course)
-    data = {"course_title": course.title, "target_ids": [t["id"] for t in targets], "target_knowledge": targets,
-        "materials": materials, "evidence": evidence, "route_rule_version": RULE_VERSION, "statements": statement_list(course),
-        "round1_exclusions": ["software_command_answers", "above_and_beyond_curve_sketching", "other_chapters"]}
+    """Compatibility entrypoint; explicit catalogue links replace subject-specific selection."""
+    from .models import CourseDraft
+    from .topic_context import build_topic_analysis_context, selection_defaults
+    topics=list(course.topics.filter(archived=False))
+    if len(topics)==1:
+        selection=[s for s in selection_defaults(course,str(topics[0].id)) if s["pages"]]
+        if selection:
+            draft=CourseDraft.objects.filter(course=course).first()
+            return build_topic_analysis_context(course,[str(topics[0].id)],selection,draft.revision if draft else 0)
+    return freeze_context({"course_title":course.title,"target_ids":[],"target_knowledge":[],
+        "materials":[],"evidence":[],"route_rule_version":RULE_VERSION,"statements":statement_list(course),
+        "round1_exclusions":["software_command_answers"]})
+
+
+def freeze_context(data):
     prompt = (Path(__file__).parents[1] / "ai/prompts/course_analysis.md").read_text(encoding="utf-8")
     schema = AnalysisOutput.model_json_schema()
     frozen = {"input": data, "prompt": prompt, "prompt_version": PROMPT_VERSION, "schema_version": SCHEMA_VERSION,
@@ -144,6 +120,7 @@ def inspect_scope(snapshot):
     data = snapshot["input"]
     return {"context_hash": snapshot["context_hash"], "model": snapshot["model"],
         "endpoint": snapshot["endpoint"], "store": False, "new_images": 0,
+        "target_topics": data.get("target_topics", []), "base_revision": data.get("base_revision"),
         "page_count": len(data["evidence"]),
         "review_count": sum(e["visual_status"] == "transcribed" for e in data["evidence"]),
         "visual_pending": [{"evidence_id": e["id"], "material_code": e["material_code"], "physical_page": e["physical_page"],
@@ -165,6 +142,11 @@ def local_bytes(snapshot):
 
 def verify_sources(snapshot, course):
     for material in snapshot["input"]["materials"]:
+        if "assignment" in material:
+            from app.materials.topic_assignments import assignment_view
+            linked = MaterialVersion.objects.get(pk=material["material_version_id"], material__course=course)
+            if assignment_view(linked) != material["assignment"]:
+                raise DomainError("MATERIAL_CONTEXT_CHANGED","Topic links changed since this analysis was prepared.")
         version = MaterialVersion.objects.select_related("blob").get(id=material["material_version_id"], material__course=course)
         if hashlib.sha256(path_for(version.blob.storage_key).read_bytes()).hexdigest() != material["sha256"]:
             raise DomainError("SOURCE_CONTENT_CHANGED")

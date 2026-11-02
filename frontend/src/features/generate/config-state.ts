@@ -1,14 +1,20 @@
 import { ApiError, requestKey } from "../../api/client";
+import {knowledgeIds} from "./types";
 import type { Config, ConfigDraft, CourseVersion } from "./types";
 
 export function defaults(version: CourseVersion): Config {
-  return {course_version_id: version.id, mode: "chapter_practice", difficulty: "exam_standard", main_question_count: 3,
-    question_types: ["calculation", "explanation_proof", "applied_optimisation"],
-    topic_ids: version.payload.knowledge_nodes.filter(n => n.readiness === "supported").map(n => n.id)};
+  const topic=version.payload.topic_manifest?.[0];
+  const template=topic?.template_suggestion??version.payload.template_suggestion;
+  const suggested=template?.question_types?.filter((t):t is Config["question_types"][number]=>["calculation","explanation_proof","applied_optimisation"].includes(t));
+  const base={course_version_id:version.id,mode:"chapter_practice" as const,difficulty:"exam_standard" as const,main_question_count:3,
+    question_types:suggested?.length?suggested:["calculation","explanation_proof"] as Config["question_types"]};
+  const nodes=version.payload.knowledge_nodes.filter(n=>n.readiness==="supported").map(n=>n.id);
+  return topic?{...base,schema_version:"practice-config-v2",selected_topic_ids:[topic.topic_id],knowledge_ids:nodes.filter(id=>topic.knowledge_ids.includes(id))}:{...base,topic_ids:nodes};
 }
 export function configErrors(config: Config) {
   const errors: string[] = [];
-  if (!config.topic_ids.length) errors.push("Select at least one knowledge target.");
+  if (!knowledgeIds(config).length) errors.push("Select at least one knowledge target.");
+  if (knowledgeIds(config).length>30) errors.push("Select at most 30 knowledge targets for this practice.");
   if (!config.question_types.length) errors.push("Select at least one question type.");
   if (!Number.isInteger(config.main_question_count) || config.main_question_count < 2 || config.main_question_count > 4)
     errors.push("Choose 2 to 4 main questions.");
