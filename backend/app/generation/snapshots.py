@@ -128,7 +128,7 @@ def current_blueprint(draft, blueprint_id, revision, config_hash):
         raise DomainError("STRUCTURE_BINDING_EXPIRED", "Configuration changed — review the updated structure.")
     if b.course_version_id != draft.course_version_id:
         raise DomainError("STRUCTURE_BINDING_EXPIRED")
-    validate_blueprint(draft.config, b.payload, draft.course_version.frozen_payload, draft.course_version.evidence_manifest["evidence"])
+    validate_blueprint(draft.config, b.payload, course_projection(draft.course_version), draft.course_version.evidence_manifest["evidence"])
     return b
 
 

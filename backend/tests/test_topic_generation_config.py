@@ -55,4 +55,12 @@ def test_legacy_course_version_supports_a_new_v2_plan_without_rewriting_it(cours
     task=submit_plan(course.owner,course.id,saved.revision,context["context_hash"],"new-plan")
     run_planning(claim_task(task.id))
     task.refresh_from_db();assert task.state=="succeeded"
+    from app.generation.snapshots import confirm_structure,freeze_generation,binding_valid
+    saved.refresh_from_db()
+    confirmed=confirm_structure(course.owner,course.id,saved.blueprint_id,saved.revision,
+        saved.blueprint.revision,saved.config_hash,"confirm-mapped-v2")
+    assert binding_valid(confirmed)
+    frozen=freeze_generation(course.owner,course.id,confirmed.confirmation_id,confirmed.revision,
+        confirmed.config_hash,"freeze-mapped-v2")
+    assert frozen.payload["selected_topics"][0]["topic_id"]==str(topic.id)
     version.refresh_from_db();assert version.frozen_payload==original

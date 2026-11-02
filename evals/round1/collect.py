@@ -20,7 +20,13 @@ def collect_run(run_id,task_ids,*,planned_slot=None,kind="original",retest_of=No
     root=ROOT/"var/evals/round1"
     baselines=[];usage_rows=[]
     for task in tasks:
-        if task.kind in ("analysis","planning","generation"):bind_task(root,run_id,task.kind,task)
+        if task.kind in ("analysis","planning","generation"):
+            stage=task.kind
+            original=root/run_id/(stage+"-task.json")
+            if stage=="analysis" and original.exists() and json.loads(original.read_text())["task_id"]!=str(task.id):
+                # Clarification analysis is a new stage result, never a replacement for its original.
+                stage="analysis-followup-"+str(task.id)
+            bind_task(root,run_id,stage,task)
         snapshot=task.snapshot;data=snapshot.get("input",{})
         baselines.append({k:snapshot[k] for k in ("model","model_settings","prompt_version","schema_hash","schema_hashes","prompts","prompt","pipeline_version","max_calls","task_seconds","max_input_tokens","generation_output_tokens") if k in snapshot})
         record.bindings[str(task.id)]={"kind":task.kind,"state":task.state,"result":task.result,"error":task.error,

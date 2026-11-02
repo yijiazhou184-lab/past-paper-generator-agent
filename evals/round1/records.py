@@ -98,9 +98,10 @@ def summarise_runs(records,rubric=None):
     attempted=[r for r in originals.values() if r.get("task_ids")]
     good=sum(passed(r) for r in originals.values())
     unknown=sum(r.get("usage") is None for r in attempted)
-    return {"planned_total":6,"recorded_originals":len(originals),"attempted":len(attempted),"passed":good,
+    skipped=sorted(s for s,r in originals.items() if r.get("status")=="skipped")
+    return {"planned_total":6,"active_planned_total":6-len(skipped),"skipped_slots":skipped,"recorded_originals":len(originals),"attempted":len(attempted),"passed":good,
         "failed_slots":[s for s,r in originals.items() if r["status"]=="failed"],
-        "not_executed_slots":[f"R{i}" for i in range(1,7) if f"R{i}" not in originals or not originals[f"R{i}"].get("task_ids")],
+        "not_executed_slots":[f"R{i}" for i in range(1,7) if f"R{i}" not in skipped and (f"R{i}" not in originals or not originals[f"R{i}"].get("task_ids"))],
         "planned_success_fraction":good/6,"executed_success_rate":good/len(attempted) if attempted else None,
         "baselines":sorted({r["baseline_version"] for r in attempted if r.get("baseline_version")}),
         "usage_unknown_runs":unknown,"retests":[r["run_id"] for r in extras],

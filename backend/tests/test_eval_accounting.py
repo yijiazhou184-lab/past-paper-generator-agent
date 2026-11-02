@@ -128,3 +128,36 @@ def test_collect_keeps_planning_error_without_a_generation_task(course,tmp_path,
     assert record.status=="failed" and record.bindings[str(task.id)]["error"]==error
     assert record.notes==[{"task_id":str(task.id),"kind":"planning","state":"failed","error":error}]
     assert record.usage is None and record.cost_estimate is None
+
+
+def test_explicit_skip_is_separate_from_failure_or_unexecuted():
+    failed=complete("R1");failed.status="failed"
+    skipped=RunRecord("R2",planned_slot="R2",status="skipped")
+    report=summarise_runs([failed,skipped])
+    assert report["planned_total"]==6 and report["active_planned_total"]==5
+    assert report["skipped_slots"]==["R2"]
+    assert report["failed_slots"]==["R1"] and report["attempted"]==1
+    assert report["not_executed_slots"]==["R3","R4","R5","R6"]
+    assert report["passed"]==0 and report["planned_success_fraction"]==0
+    assert report["all_six_passed"] is False
+
+
+def test_analysis_followup_keeps_original_task_binding(course,tmp_path,monkeypatch):
+    import json
+    from app.core.models import Task
+    from evals.round1 import run
+    from evals.round1.collect import collect_run
+    monkeypatch.setattr(run,"ROOT",tmp_path);monkeypatch.setattr(run,"setup",lambda:None)
+    first=Task.objects.create(course=course,kind="analysis",state="succeeded",snapshot={"context_hash":"first"})
+    first.finished_at=first.created_at;first.save(update_fields=["finished_at"])
+    collect_run("E1",[str(first.id)],kind="extension")
+    binding=tmp_path/"var/evals/round1/E1/analysis-task.json"
+    original=binding.read_bytes()
+    second=Task.objects.create(course=course,kind="analysis",state="succeeded",snapshot={"context_hash":"followup"})
+    second.finished_at=second.created_at;second.save(update_fields=["finished_at"])
+    record,path=collect_run("E1",[str(first.id),str(second.id)],kind="extension")
+    assert binding.read_bytes()==original
+    assert set(record.bindings)=={str(first.id),str(second.id)}
+    extra=binding.parent/("analysis-followup-"+str(second.id)+"-task.json")
+    assert json.loads(extra.read_text())["task_id"]==str(second.id)
+    assert Task.objects.count()==2 and record.status=="awaiting_generation"
