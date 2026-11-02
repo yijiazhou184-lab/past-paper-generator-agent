@@ -23,7 +23,8 @@ def collect_run(run_id,task_ids,*,planned_slot=None,kind="original",retest_of=No
         if task.kind in ("analysis","planning","generation"):bind_task(root,run_id,task.kind,task)
         snapshot=task.snapshot;data=snapshot.get("input",{})
         baselines.append({k:snapshot[k] for k in ("model","model_settings","prompt_version","schema_hash","schema_hashes","prompts","prompt","pipeline_version","max_calls","task_seconds","max_input_tokens","generation_output_tokens") if k in snapshot})
-        record.bindings[str(task.id)]={"kind":task.kind,"snapshot_hash":digest(snapshot),"context_hash":snapshot.get("context_hash"),
+        record.bindings[str(task.id)]={"kind":task.kind,"state":task.state,"result":task.result,"error":task.error,
+            "checkpoint":task.checkpoint,"snapshot_hash":digest(snapshot),"context_hash":snapshot.get("context_hash"),
             "submitted_at":task.created_at,"started_at":task.started_at,"finished_at":task.finished_at,
             "events":list(task.events.order_by("created_at").values("stage","created_at","detail")),
             "course_id":str(task.course_id),"course_version_id":data.get("course_version_id"),"config":data.get("config"),
@@ -31,6 +32,13 @@ def collect_run(run_id,task_ids,*,planned_slot=None,kind="original",retest_of=No
             "history_hash":digest(data["history_papers"]) if "history_papers" in data else None,
             "history_content_ids":data.get("history_content_ids"),"schema_hashes":snapshot.get("schema_hashes"),
             "sources":[{k:s[k] for k in ("id","material_version_id","parse_version_id","physical_page","parse_content_hash","blob_sha256","content_hash") if k in s} for s in data.get("sources",data.get("evidence",[]))]}
+        if task.error:
+            record.notes.append({"task_id":str(task.id),"kind":task.kind,"state":task.state,"error":task.error})
+        if task.kind=="visual_transcription":
+            failed_pages=[p for p in task.result.get("pages",task.checkpoint.get("pages",[])) if p.get("outcome")=="failed"]
+            if failed_pages:
+                record.notes.append({"task_id":str(task.id),"kind":task.kind,"state":task.state,
+                    "partial_failure":True,"failed_pages":failed_pages})
         record.attempts.extend([{"task_id":str(task.id),**a} for a in task.attempts.values("epoch","outcome","usage","created_at","finished_at")])
         for call in task.model_calls.order_by("created_at"):
             result=call.result
@@ -79,7 +87,7 @@ def collect_run(run_id,task_ids,*,planned_slot=None,kind="original",retest_of=No
                 record.checks={"required_passed":False,"report":candidate.check_report.payload if hasattr(candidate,"check_report") else progress_report(candidate)}
         failed=any(t.state in ("failed","cancelled","needs_info") for t in tasks+export_tasks)
         record.status="failed" if failed else "completed" if ready else "incomplete" if generation.finished_at else "running"
-        record.notes.extend([{"task_id":str(t.id),"state":t.state,"error":t.error} for t in tasks+export_tasks if t.error])
+        record.notes.extend([{"task_id":str(t.id),"state":t.state,"error":t.error} for t in export_tasks if t.error])
     else:
         record.status="failed" if any(t.state in ("failed","cancelled","needs_info") for t in tasks) else "awaiting_generation"
     path=write_record(root,record)

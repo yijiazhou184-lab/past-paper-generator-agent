@@ -1,15 +1,15 @@
 # AI Past Paper Generator
 
-## 当前实现：第六批本地能力与验收工具已完成，真实验收待授权（2026-11-02）
+## 当前实现：第六批 A+B 真实起步已执行，完整验收尚未完成（2026-11-02）
 
 工作目录为 C:/Users/Yijia/dev/past_paper_generator；OneDrive 旧副本已停用。
 
 - Materials 支持同课程 Topic 目录、公共/未归属筛选、多章节材料链接、物理页范围、重复上传显式追加链接与冲突比较；来源面板保留筛选。
 - Course profile 提供课程概览和按 Topic 分析/审阅。分析输入由材料版本及明确物理页组成；切章前保存，失败可保留本地草稿；局部确认不会夹带其他 Topic 未审阅编辑。新共同信息会要求受影响章节复核。
 - Generate 提供整课知识树和配置 v2（selected_topic_ids / knowledge_ids）。本批只允许单 Topic；旧 v1 topic_ids 的知识语义和冻结结果保持可读。Task/Papers 使用冻结章节摘要，Papers 可按 Topic 筛选。
-- 本地集成已运行至合成题答和双 PDF。真实 R1–R6/E1 尚未执行，合成成果不占真实验收名额，未宣称两分钟性能或新 Topic 真实质量通过。
+- 本地集成已运行至合成题答和双 PDF。用户已确认 A+B 范围与 rubric：R1 一次规划因题目/小问目标不一致失败；E1 的 12 页转写 11 有效/1 来源字段失败，随后同 22 页课程分析成功保存 Topic 1 新草稿。R1–R6/E1 的本批题答生成、逐题审阅及新双 PDF 尚未执行。
 - 完整后端 318 passed；之后诊断/章节接口/验收记录补测 11 passed，人工声明冻结与证据校验补测 13 passed。前端 31 passed、build/typecheck、Django/迁移检查通过。详细范围、首次失败及修复、实际浏览器命令见 [第六批记录](docs/batch-6-validation.md)。
-- 已本地准备独立 E1 Topic 1 的三份 PDF，22 个选定物理页，其中 12 页待授权转写。课程理解仍须新产生。模型调用总数 173，本批新增真实调用 0。
+- 本次实际 14 次模型调用+1 次计数，95,589 tokens；调用记录 173→188，全部有终态，没有自动重试。验收收集器补齐逐页失败和阶段错误，专项 9 passed；真实页面 6 组只读检查通过。详见 [A+B 实测与剩余事项](docs/batch-6-live-start-2026-11-02.md)。E1 草稿保留 1 项练习惯例选择、p44 转写缺口和 p40 公式待核对，不代表新 Topic 闭环通过。
 
 已有环境启动（本机已应用本批迁移；升级其他已有环境前先备份并确认没有活动任务）：
 
@@ -20,7 +20,7 @@ Set-Location C:/Users/Yijia/dev/past_paper_generator
 
 访问 <http://127.0.0.1:5173>。服务脚本复用当前进程；API 代码更新用 restart-api，后台更新用 restart-workers，后者拒绝在业务任务运行时重启。新真实外发仍受精确预检和授权约束。
 
-[QM Materials](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/materials) · [Course profile](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/profile) · [E1 预检页面](http://127.0.0.1:5173/courses/1aeae0e0-c154-4dae-b3e6-fa9b214840d7/profile?topic=2948d0da-c723-4cea-bb6b-386d0be37caa)。
+[QM Materials](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/materials) · [Course profile](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/profile) · [E1 真实课程草稿](http://127.0.0.1:5173/courses/1aeae0e0-c154-4dae-b3e6-fa9b214840d7/profile?topic=2948d0da-c723-4cea-bb6b-386d0be37caa)。
 
 以下为第五批及之前的实现、验证与操作记录，保留其历史状态。
 

@@ -1,6 +1,28 @@
 # Codex 与 Claude Code 开发交接
 
-## 当前交接：第六批本地实现已提交，真实验收等待范围授权（2026-11-02）
+## 当前交接：A+B 已执行，R1 规划失败、E1 新草稿已保存（2026-11-02）
+
+用户已回复“允许 A+B，并确认验收口径”，此前“等授权”状态已失效。工作目录仍为 C:/Users/Yijia/dev/past_paper_generator，单写者；没有第二轮开发。
+
+- R1 task d08de7d8-643d-4d07-9319-862ccb7314ce：实际一次模型调用返回 parsed，但 Q2 大题目标只有 K5、小问含 K2/K5，QUESTION_COVERAGE_MISMATCH；原失败保留。模型原提案 11 小问/48 分/80 分钟。本地依矩阵整理的 8 小问/30 分/40 分钟提案通过 validate_blueprint/check_matrix，位于 var/evals/round1/R1/reviewed-matrix-proposal.{json,md}，未发布/未确认，不冒充模型成功。
+- E1 转写 task 84b790d4-05d7-45aa-b2ee-cab7af8b1884：精确 12 页、并发 2，11 有效，Lecture 1 物理 p44 的 parse_content_hash 回抄重复导致 MODEL_SOURCE_MISMATCH；任务 succeeded 不代表所有页成功，没有重发。
+- 同 22 页+11 有效转写+原用户声明派生分析 hash be89bce08f32129f049c1987d78b1f51d63f7f59d265d3c947ba09ca25586e69，在 A+B 父范围内重新核对并授权；task 1affd130-d954-4f58-92f8-3f4557b2d940 succeeded。新草稿 fd02fd70-69b9-45b3-bdf1-bcfec7589e08 / revision 1，6 子知识组、9 方法、8 issues、1 needs_confirmation。没有复用 Topic 2 理解/知识 ID，没有自动确认版本。
+- 实际 14 模型+1 计数，输入 65,512、输出 30,077，共 95,589 tokens；记录总数 173→188。全部有终态，无未知/截断/超时、无自动重试，费用 unknown。规划/转写/分析系统墙钟 44.373/116.837/93.950 秒；没有本批 generation+export 性能结论。
+- evals/round1/collect.py 补齐阶段 state/result/error/checkpoint 和内部逐页失败 notes；9 项隔离回归通过（20.67 秒）。真实页面 6 组只读检查通过，0 JS 错误/0 业务写/0 新调用。全库回归未重跑。
+- 原 25 材料/PDF 文件哈希不变；旧 2,438 行中 2,437 原字段保持，唯一变化是获准 R1 save_config 更新的可变 GenerationDraft，不是旧冻结内容损坏。用户已有 docs/multi-course-compatibility-design-v0.1.md、 小学语文课件/ 保留，未处理或提交。
+
+下一步：
+1. 先处理 R1 冗余目标元数据的规划稳健性，再经正常保存/审阅路径采用矩阵；原任务保持 failed，补测独立编号。不得修改旧 Task 为成功。
+2. E1 在产品 Course profile 处理现有惯例选择，建议标准定义并注明差异；不能代用户认证原材料。p44 缺口及 p40 revenue 版式疑点可不选用，不把整章补齐作为统一门槛。p40 页图不在 A+B 12 页图范围内，不可顺手发给 API。
+3. 本次规划/转写/分析授权已用；没有题答生成授权。R1–R6/E1 均无本批真实题答或新 PDF，后续各自确认蓝图和新精确生成范围后执行，逐题审阅和全部页图检查后才能判定通过。
+4. 工程建议（未实施）：planning 摘要目标/coverage 由 parts 确定性派生；转写来源 hash 由服务器绑定，模型只返回页面内容。仍要校验选中范围、实际证据和页版本，不能直接放宽现有来源不匹配检查。改契约须新预检。
+5. rubric/Codex 独立逐作答单元审阅已确认，原 manifest/rubric 哈希保持，人工确认单独保存在 var/evals/round1/approval-2026-11-02-A-B.json。
+
+可操作：[E1 新草稿](http://127.0.0.1:5173/courses/1aeae0e0-c154-4dae-b3e6-fa9b214840d7/profile?topic=2948d0da-c723-4cea-bb6b-386d0be37caa)；[R1 失败任务](http://127.0.0.1:5173/tasks/d08de7d8-643d-4d07-9319-862ccb7314ce)。scripts/local.py start 已复用服务，API/web/worker/dispatcher/本地 PostgreSQL 保留运行，0 活动业务任务。详细证据和复现入口见 [A+B 实测](batch-6-live-start-2026-11-02.md)。
+
+以下保留此前交接状态作为历史，以本节为准。
+
+## 历史交接：第六批本地实现提交后的待授权状态（2026-11-02）
 
 用户已授权依据最新第六批计划开发，常规实施不需逐批确认。工作目录 C:/Users/Yijia/dev/past_paper_generator；主分支单写者。U1–U3 与 Task 11/12 工具已落地，详见 docs/batch-6-validation.md。U4 跨 Topic 混合生成仍留第二轮。
 

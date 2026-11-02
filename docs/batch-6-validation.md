@@ -108,3 +108,12 @@ R1–R3 复用同一蓝图并记录新的 history；R4–R6 按矩阵分别确�
 - 原始来源的浏览器 Back/Forward 补验通过：重新打开同一物理 p2，再前进恢复 Topic/search。
 - scripts/test_topic_material_response.py 实际扣住 Topic A 的旧响应，切换 B 后才放行；B 列表不被覆盖，全程 0 业务写入。
 - 局部确认增加对人工编辑 UserStatement 的完整冻结，并使用本次审阅上下文重新校验证据引用。保留原分析 statements 以区分 AI 当时看到的内容与用户后来编辑的内容；不存在的证据不能确认。topic_confirmation / course_drafts / topic_api 最新定向 13 passed / 24.89 秒。此补充发生在 318 项全库之后，没有声称已经重新跑过增加测试后的整个库。
+
+
+## 2026-11-02 A+B 真实起步结果（当前状态）
+
+用户已确认 A+B 与验收口径。本次 R1 规划失败保留；E1 精确 12 页转写 11 有效/1 来源 hash 失败，同 22 页一次分析成功保存 revision 1 新草稿。未执行 R1–R6/E1 题答生成、新 PDF 或逐题质量验收。上文“待授权/新增调用 0”是此前检查点。
+
+实际 14 模型+1 计数，95,589 tokens，记录总数 188；无未知或自动重放。补齐验收收集器逐页失败与阶段结果，test_eval_accounting.py 实际 9 passed / 20.67 秒；真实页面 6 组只读检查通过。原材料和 PDF 25 文件哈希保持，旧冻结记录保持；R1 正常保存配置有一条已授权可变 GenerationDraft 更新。没有重跑全库测试。
+
+完整任务、输入 hash、逐阶段用量和耗时、错误原因、本地矩阵提案、课程草稿与真实/未执行边界见 [A+B 实测记录](batch-6-live-start-2026-11-02.md)。R1 原位置标为规划失败，R2–R6 未执行，E1 awaiting_generation；第一轮完整验收未完成。
