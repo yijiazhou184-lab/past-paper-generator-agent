@@ -1,5 +1,7 @@
 # Round 1 Batch 6 Acceptance Implementation Plan
 
+实施更新（2026-11-02）：用户已在主聊天授权按本计划开发。U1–U3 本地能力及 Task 11 核心检查、Task 12.1 工具已实现；真实 R1–R6/E1 和最终质量/性能验收待新的范围授权。详细实测、未执行项见 ../../batch-6-validation.md。下文侧聊时的未授权/拟运行描述保留为历史，不表示本轮已验收。
+
 > **For agentic workers:** 按 Task 11/12 的子任务执行与检查，步骤使用 checkbox。遵循主线单写者和实际可用工具；本侧聊仅更新计划，不执行代码或子代理。
 
 **Goal:** 验证首轮真实章节练习的完整流程，保留六次 Topic 2 验收，并增加一次新 Topic 从新材料开始的完整流程记录。
@@ -49,11 +51,11 @@ Task 11 的已有链路故障测试和 12.1 的统计工具不依赖新材料/�
 **文件**：新增 backend/tests/test_round1_recovery.py、test_diagnostics_redaction.py；复用 test_task_lifecycle.py、test_generation_snapshot.py、test_generation_review_budget.py、test_papers.py。发现实际缺陷后才修改对应 core/tasks、generation 或 papers 模块，不先大范围重构。
 **接口**：既有 submit/claim/checkpoint/cancel、生成与 export API；故障注入仅在隔离测试配置，不能提供普通用户故障开关。
 
-- [ ] 写集成断言：双击/双标签提交、未知网络响应后同 key 重试、worker checkpoint 前后退出、旧 epoch 写回、取消与发布竞争；历史数量和内容 hash 正确。
-- [ ] 写失败断言：拒答、截断、输入超限、必要语义未完成、可选项预算不足、一个 PDF 失败/丢失；候选/阶段成果保留，未检查不报通过。
-- [ ] 写日志断言：用合成 secret/全文标记检测泄漏；usage 缺失保持 null，attempt 和 error diagnostic 不丢。
-- [ ] 在独立随机 PostgreSQL 测试库执行，确认缺陷可复现后最小修复，再复跑相关测试。
-- [ ] 无阻塞缺陷后，在主线提交 test: verify round-one recovery and diagnostics。
+- [x] 写集成断言：双击/双标签提交、未知网络响应后同 key 重试、worker checkpoint 前后退出、旧 epoch 写回、取消与发布竞争；历史数量和内容 hash 正确。
+- [x] 写失败断言：拒答、截断、输入超限、必要语义未完成、可选项预算不足、一个 PDF 失败/丢失；候选/阶段成果保留，未检查不报通过。
+- [x] 写日志断言：用合成 secret/全文标记检测泄漏；usage 缺失保持 null，attempt 和 error diagnostic 不丢。
+- [x] 在独立随机 PostgreSQL 测试库执行，确认缺陷可复现后最小修复，再复跑相关测试。
+- [x] 无阻塞缺陷后，在主线提交 test: verify round-one recovery and diagnostics。
 
 **拟命令**：.venv/Scripts/python.exe scripts/test_batch5_backend.py tests/test_round1_recovery.py tests/test_diagnostics_redaction.py -q。
 **完成条件**：错误状态、版本、取消与唯一保存有完整断言；不把合成异常当真实质量。对应 P0-12、AC-14-03，结合各批首轮相关 AC。
@@ -63,12 +65,12 @@ Task 11 的已有链路故障测试和 12.1 的统计工具不依赖新材料/�
 **文件**：新增 scripts/test_round1_flow.py、test_round1_views.py；复用 test_workspace.py、test_course_profile.py、test_generation_workspace.py、test_batch5_browser.py；必要时扩展现有前端组件测试。
 **接口**：真实产品路由与 API；隔离 fixture owner/course，不写入真实课程以制造异常。
 
-- [ ] 检查 Materials → Profile → Generate → Task → Papers → PDFs；来源固定版本/物理页，答案未主动打开时不发答案请求。
-- [ ] 在同 Course 的两个 Topic fixture 验证材料归属、共享文件、保存切章、局部确认、整课知识树、配置确认失效、历史冻结。
+- [x] 检查 Materials → Profile → Generate → Task → Papers → PDFs；来源固定版本/物理页，答案未主动打开时不发答案请求。
+- [x] 在同 Course 的两个 Topic fixture 验证材料归属、共享文件、保存切章、局部确认、整课知识树、配置确认失效、历史冻结。
 - [ ] 核对五视图 empty/loading/error/timeout/success/long-content；1440/1024/768/320px、键盘焦点、aria 状态、颜色对比、公式局部滚动。
-- [ ] 检查刷新/后退/重新登录、迟到响应、服务重启后的原任务和 Paper 找回；无任务时才重启正常服务，故障进程使用测试实例。
+- [x] 检查刷新/后退/重新登录、迟到响应、服务重启后的原任务和 Paper 找回；无任务时才重启正常服务，故障进程使用测试实例。
 - [ ] 使用已有真实材料检查 hash 与来源；用户主动新增版本另记差异，不覆盖历史。检查已生成实际双 PDF 的全页图。
-- [ ] 运行 typecheck/build 和受影响组件测试；主线提交 test: cover topic navigation and end-to-end reading。
+- [x] 运行 typecheck/build 和受影响组件测试；主线提交 test: cover topic navigation and end-to-end reading。
 
 **拟命令**：.venv/Scripts/python.exe scripts/test_round1_flow.py --fixture；.venv/Scripts/python.exe scripts/test_round1_views.py --fixture；pnpm --dir frontend typecheck；pnpm --dir frontend build。
 **完成条件**：完整流程可用，所选 Topic 不串数据，界面与后台能力一致；对应 AC-03-02、AC-06-01/03、AC-07-02、AC-10、AC-11、AC-12 的首轮子集。
@@ -85,10 +87,10 @@ Task 11 的已有链路故障测试和 12.1 的统计工具不依赖新材料/�
 RunRecord 至少包含：
 run_id、planned_slot、baseline_version、course/topic/knowledge/material/parse/blueprint/history/prompt/model/limits IDs/hash、任务/attempt/调用 IDs、状态、各阶段时间、真实 usage 或 null、费用估算与价格来源或 unknown、Paper/Content/PDF hashes、检查报告、逐题复核依据、额外复测关联。
 
-- [ ] 写统计测试：6 个原位置含一次失败仍 planned_total=6；E1 单列；补跑不替换失败；三次同配置为三个新意图，网络重试不变新意图。
-- [ ] 写时间测试：排队/自动重试/修复纳入所属阶段；生成与 PDF 用户等待间隔单列；并行调用时长不相加冒充墙钟时间；缺 PDF 的交付为 incomplete。
-- [ ] 写版本测试：中途换 prompt/模型/限额产生新 baseline_version，不能混成单一冻结基线；未知 token/cost 不记零。
-- [ ] 实现记录/预检/收集/报告工具，复用已有调用与授权校验，禁止自动循环直到成功。
+- [x] 写统计测试：6 个原位置含一次失败仍 planned_total=6；E1 单列；补跑不替换失败；三次同配置为三个新意图，网络重试不变新意图。
+- [x] 写时间测试：排队/自动重试/修复纳入所属阶段；生成与 PDF 用户等待间隔单列；并行调用时长不相加冒充墙钟时间；缺 PDF 的交付为 incomplete。
+- [x] 写版本测试：中途换 prompt/模型/限额产生新 baseline_version，不能混成单一冻结基线；未知 token/cost 不记零。
+- [x] 实现记录/预检/收集/报告工具，复用已有调用与授权校验，禁止自动循环直到成功。
 - [ ] 将下方 R1–R6/E1 以及评分口径写入 manifest/rubric；运行测试，主线提交 feat: record reproducible round-one acceptance runs。
 
 **拟命令**：.venv/Scripts/python.exe scripts/test_batch5_backend.py tests/test_eval_accounting.py -q；.venv/Scripts/python.exe evals/round1/run.py --manifest evals/round1/manifest.yaml --run R1 --preflight。

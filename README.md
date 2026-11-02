@@ -1,5 +1,30 @@
 # AI Past Paper Generator
 
+## 当前实现：第六批本地能力与验收工具已完成，真实验收待授权（2026-11-02）
+
+工作目录为 C:/Users/Yijia/dev/past_paper_generator；OneDrive 旧副本已停用。
+
+- Materials 支持同课程 Topic 目录、公共/未归属筛选、多章节材料链接、物理页范围、重复上传显式追加链接与冲突比较；来源面板保留筛选。
+- Course profile 提供课程概览和按 Topic 分析/审阅。分析输入由材料版本及明确物理页组成；切章前保存，失败可保留本地草稿；局部确认不会夹带其他 Topic 未审阅编辑。新共同信息会要求受影响章节复核。
+- Generate 提供整课知识树和配置 v2（selected_topic_ids / knowledge_ids）。本批只允许单 Topic；旧 v1 topic_ids 的知识语义和冻结结果保持可读。Task/Papers 使用冻结章节摘要，Papers 可按 Topic 筛选。
+- 本地集成已运行至合成题答和双 PDF。真实 R1–R6/E1 尚未执行，合成成果不占真实验收名额，未宣称两分钟性能或新 Topic 真实质量通过。
+- 完整后端 318 passed；之后诊断/章节接口/验收记录补测 11 passed，人工声明冻结与证据校验补测 13 passed。前端 31 passed、build/typecheck、Django/迁移检查通过。详细范围、首次失败及修复、实际浏览器命令见 [第六批记录](docs/batch-6-validation.md)。
+- 已本地准备独立 E1 Topic 1 的三份 PDF，22 个选定物理页，其中 12 页待授权转写。课程理解仍须新产生。模型调用总数 173，本批新增真实调用 0。
+
+已有环境启动（本机已应用本批迁移；升级其他已有环境前先备份并确认没有活动任务）：
+
+~~~powershell
+Set-Location C:/Users/Yijia/dev/past_paper_generator
+& .\.venv\Scripts\python.exe scripts/local.py start
+~~~
+
+访问 <http://127.0.0.1:5173>。服务脚本复用当前进程；API 代码更新用 restart-api，后台更新用 restart-workers，后者拒绝在业务任务运行时重启。新真实外发仍受精确预检和授权约束。
+
+[QM Materials](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/materials) · [Course profile](http://127.0.0.1:5173/courses/68caa35d-6e08-42d7-84bd-70a23e369b1f/profile) · [E1 预检页面](http://127.0.0.1:5173/courses/1aeae0e0-c154-4dae-b3e6-fa9b214840d7/profile?topic=2948d0da-c723-4cea-bb6b-386d0be37caa)。
+
+以下为第五批及之前的实现、验证与操作记录，保留其历史状态。
+
+
 ## 当前实现：第五批已完成（2026-11-01）
 
 第一轮 Task 1–10 已实现。成功任务保持题目阅读和主动开答案，答案区下方的 **Generate PDFs** 启动独立导出并跳转 Papers detail；**Run details** 默认折叠。题答成功即冻结保存，PDF 失败不撤销题答；重试使用同内容且不调用模型。Papers 可找回固定版本和两个文件；Generate another practice 先复核当前课程版本与配置，仍需保存、规划和确认。

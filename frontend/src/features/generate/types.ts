@@ -4,7 +4,7 @@ import type { Payload } from "../profile/types";
 export const responseTypes = ["calculation", "explanation_proof", "applied_optimisation"] as const;
 export type ResponseType = typeof responseTypes[number];
 type ConfigBase = {course_version_id:string;mode:"chapter_practice";difficulty:"foundation"|"exam_standard"|"challenge";main_question_count:number;question_types:ResponseType[]};
-export type Config=ConfigBase & ({schema_version?:"practice-config-v1";topic_ids:string[];knowledge_ids?:never;selected_topic_ids?:never}|{schema_version:"practice-config-v2";selected_topic_ids:string[];knowledge_ids:string[];topic_ids?:never});
+export type Config=ConfigBase & ({schema_version?:undefined;topic_ids:string[];knowledge_ids?:never;selected_topic_ids?:never}|{schema_version:"practice-config-v2";selected_topic_ids:string[];knowledge_ids:string[];topic_ids?:never});
 export const knowledgeIds=(config:Config)=>config.schema_version==="practice-config-v2"?config.knowledge_ids:config.topic_ids;
 export type Plan = { sections: { id: string; title: string; question_ids: string[]; selection: {mode: "all" | "choose"; choose_count: number} }[];
   questions: { id: string; number: number; title: string; objective: string; knowledge_ids: string[]; evidence_ids: string[];

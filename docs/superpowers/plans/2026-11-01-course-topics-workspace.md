@@ -1,5 +1,7 @@
 # Course Topics Workspace Implementation Plan
 
+实施更新（2026-11-02）：用户已在主聊天授权按本计划开发。U1–U3 本地能力及 Task 11 核心检查、Task 12.1 工具已实现；真实 R1–R6/E1 和最终质量/性能验收待新的范围授权。详细实测、未执行项见 ../../batch-6-validation.md。下文侧聊时的未授权/拟运行描述保留为历史，不表示本轮已验收。
+
 > **For agentic workers:** 按任务逐项实施与检查，步骤使用 checkbox。遵守主线单写者规则；本侧聊只规划，不调用子代理、不提交代码。writing-plans 的通用执行模板不覆盖本次侧聊边界。
 
 **Goal:** 将固定 Topic 2 的工作区演进为整门课程的 Topic 目录、材料关联、独立审阅及知识选择。
@@ -45,11 +47,11 @@
 - mapping 必须显式记录旧 node IDs 与 Topic 的已核实对应，不能按课程名或文件名硬编码。
 
 **步骤**：
-- [ ] 写测试：同 owner 同课程 Topic ID 稳定，重名可提示但不靠名称作为身份；另一用户访问 404；过期 revision 409。
-- [ ] 写测试：同 PDF 关联两个 Topic 仅一份 Blob/解析；筛选返回一行；Course-wide/Unassigned 不变成 Topic；页段边界有效。
-- [ ] 写测试：旧 config.topic_ids 原样保留，读取投影正确；旧 course/task/paper hash 与 PDF bytes 不变。
-- [ ] 运行新增测试，确认缺接口时失败；实现最小目录/关联、版本化契约与兼容适配。
-- [ ] 同一命令复跑，通过后检查生成契约及迁移 dry-run；实施主线提交 feat: add course topic catalogue and versioned material assignments。
+- [x] 写测试：同 owner 同课程 Topic ID 稳定，重名可提示但不靠名称作为身份；另一用户访问 404；过期 revision 409。
+- [x] 写测试：同 PDF 关联两个 Topic 仅一份 Blob/解析；筛选返回一行；Course-wide/Unassigned 不变成 Topic；页段边界有效。
+- [x] 写测试：旧 config.topic_ids 原样保留，读取投影正确；旧 course/task/paper hash 与 PDF bytes 不变。
+- [x] 运行新增测试，确认缺接口时失败；实现最小目录/关联、版本化契约与兼容适配。
+- [x] 同一命令复跑，通过后检查生成契约及迁移 dry-run；实施主线提交 feat: add course topic catalogue and versioned material assignments。
 
 **拟命令**：根目录执行 .venv/Scripts/python.exe scripts/test_batch5_backend.py tests/test_topic_catalog.py tests/test_material_topic_assignments.py tests/test_topic_legacy.py -q。
 **完成条件**：后台可登记/查询真实归属，原输入字节和旧结果不变。对应 AC-01-03、AC-03-02、AC-06-03、AC-11-02 的首轮相关部分。
@@ -65,11 +67,11 @@
 
 **接口**：TopicPicker 接收 topics、value、onChange，不提交分析或配置；MaterialTopicEditor 使用 U1 的 Assignment revision；列表查询 key 包含 course、topic、include_shared 及筛选。
 **步骤**：
-- [ ] 写测试：选 Topic B 不再显示 Topic 2 专属文件；公共文件需明确包含；重复关联不重复计数。
-- [ ] 写测试：上传在提交前显示归属；重复上传可链接已有文件；无归属留 Unassigned。
-- [ ] 写测试：source panel 的打开/翻页/关闭保留 Topic/search URL；后退恢复；旧响应不覆盖新筛选。
-- [ ] 移除写死章节卡片，接入可搜索目录、归属编辑和活动记录折叠；UI 空/错/加载使用真实状态。
-- [ ] 运行 vitest 定向测试和浏览器脚本，检查 1440/1024/768/320px 与键盘；实施主线提交 feat: browse course materials by topic。
+- [x] 写测试：选 Topic B 不再显示 Topic 2 专属文件；公共文件需明确包含；重复关联不重复计数。
+- [x] 写测试：上传在提交前显示归属；重复上传可链接已有文件；无归属留 Unassigned。
+- [x] 写测试：source panel 的打开/翻页/关闭保留 Topic/search URL；后退恢复；旧响应不覆盖新筛选。
+- [x] 移除写死章节卡片，接入可搜索目录、归属编辑和活动记录折叠；UI 空/错/加载使用真实状态。
+- [x] 运行 vitest 定向测试和浏览器脚本，检查 1440/1024/768/320px 与键盘；实施主线提交 feat: browse course materials by topic。
 
 **拟命令**：pnpm --dir frontend test --run src/features/materials/MaterialsPage.test.tsx src/features/topics/TopicPicker.test.tsx。
 **完成条件**：同 Course 下可以查看不同 Topic 的 library；不改变源页引用、失败记录和上传成果。对应 AC-02-02/04、AC-03-02 与页面状态要求。
@@ -85,11 +87,11 @@
 
 **接口**：build_topic_analysis_context(course, target_topic_ids, material_selection, base_revision) -> AnalysisContext；material_selection 由确定的版本和页清单构成。输出包含 target_topic_ids、知识归属、共同/局部声明、受影响问题；沿用既有受限预检、grant 与 task。
 **步骤**：
-- [ ] 写非 Topic 2 fixture：输入不包含 K1–K8 或 Mxx 常量仍可形成合法草稿；不凭文件名或教材序号冒充考试事实。
-- [ ] 写授权测试：共享文件只发送显式必要页；新增 Topic/页图/历史参照改变 context hash；浏览列表不会调用模型。
-- [ ] 写合并测试：分析 Topic B 不覆盖 Topic A 的人工编辑；模型意外返回未选 Topic 的修改应拒绝并记录，不自动应用。
-- [ ] 实现动态材料/页选择与按目标分析结果校验，提示词中课程事实从 input 读取；不新增多学科能力包。
-- [ ] 运行隔离测试及既有课程分析回归；实施主线提交 feat: scope course analysis to selected topics。
+- [x] 写非 Topic 2 fixture：输入不包含 K1–K8 或 Mxx 常量仍可形成合法草稿；不凭文件名或教材序号冒充考试事实。
+- [x] 写授权测试：共享文件只发送显式必要页；新增 Topic/页图/历史参照改变 context hash；浏览列表不会调用模型。
+- [x] 写合并测试：分析 Topic B 不覆盖 Topic A 的人工编辑；模型意外返回未选 Topic 的修改应拒绝并记录，不自动应用。
+- [x] 实现动态材料/页选择与按目标分析结果校验，提示词中课程事实从 input 读取；不新增多学科能力包。
+- [x] 运行隔离测试及既有课程分析回归；实施主线提交 feat: scope course analysis to selected topics。
 
 **拟命令**：.venv/Scripts/python.exe scripts/test_batch5_backend.py tests/test_topic_analysis.py tests/test_course_analysis.py tests/test_course_execution.py -q。
 **完成条件**：新 Topic 能从自身资料进入分析/澄清，不套用 Topic 2 的知识；真实能力由后续 E1 验证。对应 AC-04-02/03、AC-05-03。
@@ -107,11 +109,11 @@
 同一 course/draft revision 不同确认子集以 confirmation fingerprint 区分；同请求重放返回同版本。新 CourseVersion 的 topic_manifest 只含实际确认内容及有效保留的旧主题快照。
 
 **步骤**：
-- [ ] 写测试：Topic B 有阻塞问题时 Topic A 仍可确认；共同声明改变影响 A/B 时各自需明确复核。
-- [ ] 写测试：确认 A 不夹带 B 未保存/未审阅编辑；旧 Version hash 不变；同 revision 分别确认 A/B 不违反错误的唯一约束。
-- [ ] 写前端测试：切换前保存成功、保存失败保持草稿、过期响应、刷新和返回；未分析 Topic 不显示 Topic 2 内容。
-- [ ] 实现 Course overview / Topics 选择器、按 Topic 展示与澄清、范围明确的 Review & confirm；调整服务器确认唯一约束并保留旧记录。
-- [ ] 运行确认与保存测试，核查反馈写明 Topic 与版本；实施主线提交 feat: review and confirm course topics independently。
+- [x] 写测试：Topic B 有阻塞问题时 Topic A 仍可确认；共同声明改变影响 A/B 时各自需明确复核。
+- [x] 写测试：确认 A 不夹带 B 未保存/未审阅编辑；旧 Version hash 不变；同 revision 分别确认 A/B 不违反错误的唯一约束。
+- [x] 写前端测试：切换前保存成功、保存失败保持草稿、过期响应、刷新和返回；未分析 Topic 不显示 Topic 2 内容。
+- [x] 实现 Course overview / Topics 选择器、按 Topic 展示与澄清、范围明确的 Review & confirm；调整服务器确认唯一约束并保留旧记录。
+- [x] 运行确认与保存测试，核查反馈写明 Topic 与版本；实施主线提交 feat: review and confirm course topics independently。
 
 **拟命令**：.venv/Scripts/python.exe scripts/test_batch5_backend.py tests/test_topic_confirmation.py tests/test_course_drafts.py -q；pnpm --dir frontend test --run src/features/profile/TopicProfile.test.tsx src/features/profile/useDraftSave.test.ts。
 **完成条件**：切章不丢编辑，局部缺口不误阻塞全课，共同规则不漏复核。对应 AC-06-01/03、AC-04-03、AC-11-02。
@@ -128,11 +130,11 @@
 
 **接口**：PracticeConfig v2 使用 selected_topic_ids / knowledge_ids；validate_topic_selection(config, course_version, capabilities) -> ValidatedSelection。capabilities 来自后端能力状态，U3.3 mixed_topic_practice 为 false；v1 重试不经新配置改写。
 **步骤**：
-- [ ] 写旧配置兼容测试：相同旧内容不新算 hash；新配置拒绝跨版本或跨课程知识 ID。
-- [ ] 写知识树测试：搜索/折叠保留选择；全选跳过不可用项并说明原因；共享知识 ID 去重；浏览操作不使确认失效。
-- [ ] 写配置测试：知识/Topic 改动使蓝图确认失效，改回也不恢复；选择第二个 Topic 时能力未开放则明确不可提交，后端也拒绝。
-- [ ] 接入任意已支持 Topic 的单章规划与生成；当前题型/检查器不适用时返回能力缺口，不按名称套用 QM 优化题。
-- [ ] 实现 Task/Paper 的冻结主题标签与筛选、旧配置复用差异；运行相关测试后提交 feat: select practice knowledge from a course topic tree。
+- [x] 写旧配置兼容测试：相同旧内容不新算 hash；新配置拒绝跨版本或跨课程知识 ID。
+- [x] 写知识树测试：搜索/折叠保留选择；全选跳过不可用项并说明原因；共享知识 ID 去重；浏览操作不使确认失效。
+- [x] 写配置测试：知识/Topic 改动使蓝图确认失效，改回也不恢复；选择第二个 Topic 时能力未开放则明确不可提交，后端也拒绝。
+- [x] 接入任意已支持 Topic 的单章规划与生成；当前题型/检查器不适用时返回能力缺口，不按名称套用 QM 优化题。
+- [x] 实现 Task/Paper 的冻结主题标签与筛选、旧配置复用差异；运行相关测试后提交 feat: select practice knowledge from a course topic tree。
 
 **拟命令**：.venv/Scripts/python.exe scripts/test_batch5_backend.py tests/test_topic_generation_config.py tests/test_generation_snapshot.py tests/test_papers.py -q；pnpm --dir frontend test --run src/features/generate/TopicKnowledgeSelector.test.tsx src/features/generate/config-state.test.ts。
 **完成条件**：产品能浏览整课目录并从不同 Topic 分别生成单章练习；E1 可走正常 UI；不声称跨 Topic 出卷已完成。

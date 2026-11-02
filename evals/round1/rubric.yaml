@@ -1,0 +1,33 @@
+{
+  "schema_version": "round1-rubric-v1",
+  "reviewer": "Codex independent development review",
+  "reviewer_status": "pending_confirmation",
+  "structure": {
+    "required": 1,
+    "paired_answers": 1,
+    "locked_marks_and_parts": 1
+  },
+  "content": {
+    "statuses": [
+      "correct",
+      "minor_issue",
+      "major_issue",
+      "cannot_judge",
+      "not_checked"
+    ],
+    "required_review_coverage": 1,
+    "unresolved_major_errors_allowed": 0,
+    "minor_issues": "Record rationale; cannot conceal incorrect conditions, methods, results or marks."
+  },
+  "sources": {
+    "academic": "Main knowledge grounded in selected teaching; justified small adjacent extensions may pass.",
+    "background": "No course-bound restriction; unverified background is labelled."
+  },
+  "originality": "Same question AND same conclusion facts constitute duplicate; method alone does not.",
+  "performance": {
+    "target_seconds": 120,
+    "miss_does_not_erase_content_success": true
+  },
+  "release": "All necessary checks pass. Optional not_checked remains visible. Zero applicable items yield null, never 100%.",
+  "human_product_approval_required": false
+}

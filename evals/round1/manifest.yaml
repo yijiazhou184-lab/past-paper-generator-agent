@@ -1,0 +1,291 @@
+{
+  "schema_version": "round1-acceptance-v1",
+  "baseline_policy": "Changed prompts, schemas, model or limits create a new baseline; never replace a failed original slot.",
+  "course_id": "68caa35d-6e08-42d7-84bd-70a23e369b1f",
+  "topic_id": "cd42ec16-4828-4f3c-b42e-e62119de2f84",
+  "knowledge": {
+    "K1": "d7139169-c2ed-5b57-8c1c-574f7aabc0ec",
+    "K2": "7acd93eb-7c5c-5533-9b5f-e0f1b9dcc17a",
+    "K3": "9281c698-2453-5eb6-bf4e-44dbd0957a49",
+    "K4": "5eced743-8bd0-5a54-b330-5f2acccfe7b0",
+    "K5": "7e49d38e-5864-5be8-91ae-4bd1b70bd0db",
+    "K6": "a12f1f11-5e19-5f0f-973d-687b1b4492c7",
+    "K7": "f8f2128a-8bd9-5d95-8246-57330ae50d05",
+    "K8": "f224a545-60e5-537c-9940-b8f0699f3096"
+  },
+  "runs": [
+    {
+      "id": "R1",
+      "kind": "original",
+      "difficulty": "exam_standard",
+      "question_count": 3,
+      "parts": [
+        3,
+        2,
+        3
+      ],
+      "marks": [
+        12,
+        8,
+        10
+      ],
+      "minutes": 40,
+      "knowledge": [
+        "K1",
+        "K2",
+        "K3",
+        "K4",
+        "K5"
+      ],
+      "blueprint_group": "standard-3",
+      "question_knowledge": [
+        [
+          "K1",
+          "K2"
+        ],
+        [
+          "K5"
+        ],
+        [
+          "K3",
+          "K4"
+        ]
+      ]
+    },
+    {
+      "id": "R2",
+      "kind": "original",
+      "difficulty": "exam_standard",
+      "question_count": 3,
+      "parts": [
+        3,
+        2,
+        3
+      ],
+      "marks": [
+        12,
+        8,
+        10
+      ],
+      "minutes": 40,
+      "knowledge": [
+        "K1",
+        "K2",
+        "K3",
+        "K4",
+        "K5"
+      ],
+      "blueprint_group": "standard-3",
+      "question_knowledge": [
+        [
+          "K1",
+          "K2"
+        ],
+        [
+          "K5"
+        ],
+        [
+          "K3",
+          "K4"
+        ]
+      ]
+    },
+    {
+      "id": "R3",
+      "kind": "original",
+      "difficulty": "exam_standard",
+      "question_count": 3,
+      "parts": [
+        3,
+        2,
+        3
+      ],
+      "marks": [
+        12,
+        8,
+        10
+      ],
+      "minutes": 40,
+      "knowledge": [
+        "K1",
+        "K2",
+        "K3",
+        "K4",
+        "K5"
+      ],
+      "blueprint_group": "standard-3",
+      "question_knowledge": [
+        [
+          "K1",
+          "K2"
+        ],
+        [
+          "K5"
+        ],
+        [
+          "K3",
+          "K4"
+        ]
+      ]
+    },
+    {
+      "id": "R4",
+      "kind": "original",
+      "difficulty": "foundation",
+      "question_count": 3,
+      "parts": [
+        3,
+        2,
+        3
+      ],
+      "marks": [
+        12,
+        8,
+        10
+      ],
+      "minutes": 35,
+      "knowledge": [
+        "K1",
+        "K2",
+        "K3",
+        "K4",
+        "K5"
+      ],
+      "blueprint_group": "foundation-3",
+      "question_knowledge": [
+        [
+          "K1",
+          "K2"
+        ],
+        [
+          "K5"
+        ],
+        [
+          "K3",
+          "K4"
+        ]
+      ]
+    },
+    {
+      "id": "R5",
+      "kind": "original",
+      "difficulty": "challenge",
+      "question_count": 3,
+      "parts": [
+        3,
+        2,
+        3
+      ],
+      "marks": [
+        12,
+        8,
+        10
+      ],
+      "minutes": 45,
+      "knowledge": [
+        "K1",
+        "K2",
+        "K3",
+        "K4",
+        "K5"
+      ],
+      "blueprint_group": "challenge-3",
+      "question_knowledge": [
+        [
+          "K1",
+          "K2"
+        ],
+        [
+          "K5"
+        ],
+        [
+          "K3",
+          "K4"
+        ]
+      ]
+    },
+    {
+      "id": "R6",
+      "kind": "original",
+      "difficulty": "exam_standard",
+      "question_count": 4,
+      "parts": [
+        3,
+        2,
+        3,
+        2
+      ],
+      "marks": [
+        10,
+        10,
+        10,
+        10
+      ],
+      "minutes": 55,
+      "knowledge": [
+        "K2",
+        "K3",
+        "K4",
+        "K5",
+        "K6",
+        "K7",
+        "K8"
+      ],
+      "blueprint_group": "standard-4",
+      "question_knowledge": [
+        [
+          "K2",
+          "K7"
+        ],
+        [
+          "K5"
+        ],
+        [
+          "K3",
+          "K4",
+          "K8"
+        ],
+        [
+          "K6"
+        ]
+      ]
+    },
+    {
+      "id": "E1",
+      "kind": "extension",
+      "topic_selection_status": "local_materials_reviewed_analysis_not_executed",
+      "course_policy": "new independent course; new analysis; parser cache by hash allowed",
+      "difficulty": "exam_standard",
+      "question_count": 2,
+      "knowledge": [],
+      "blueprint_group": "new-topic",
+      "topic_name": "Functions of a single variable: Limits and continuity",
+      "response_types": [
+        "calculation",
+        "explanation_proof"
+      ],
+      "selected_page_count": 22,
+      "material_plan": "e1-materials.json"
+    }
+  ],
+  "response_types": [
+    "calculation",
+    "explanation_proof",
+    "applied_optimisation"
+  ],
+  "execution": {
+    "automatic_replay": false,
+    "default_action": "preflight",
+    "generation_max_calls": 16,
+    "generation_task_seconds": 900,
+    "repair_rounds": 1,
+    "max_input_tokens": 60000,
+    "question_output_tokens": 20000,
+    "question_call_seconds": 300,
+    "other_output_tokens": 12000,
+    "other_call_seconds": 240,
+    "export_seconds": 120
+  },
+  "rubric": "rubric.yaml",
+  "reviewer_status": "proposed: Codex independent question-by-question review; user confirmation pending"
+}

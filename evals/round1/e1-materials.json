@@ -1,0 +1,57 @@
+{
+  "course_title": "Quantitative Methods · E1 acceptance",
+  "course_code": "MSIN0180",
+  "topic_name": "Functions of a single variable: Limits and continuity",
+  "topic_code": "Topic 1",
+  "scope_provenance": "Copy only the user's existing all-lecture exam-scope declaration; do not copy any course draft, knowledge IDs, blueprint or answers.",
+  "focus": "Finite limits, continuity, and the intermediate value theorem. Calculation and explanation/proof; no optimisation requirement.",
+  "files": [
+    {
+      "path": "Quantitaive methods/lecture slides/MSIN0180 Lecture 1, lecture slides, 11_01_2026.pdf",
+      "roles": [
+        "lecture"
+      ],
+      "pages": [
+        1,
+        26,
+        27,
+        30,
+        31,
+        35,
+        36,
+        38,
+        40,
+        41,
+        43,
+        44
+      ]
+    },
+    {
+      "path": "Quantitaive methods/seminar slides/MSIN0180 Topic 1, seminar 11_01_2026.pdf",
+      "roles": [
+        "seminar"
+      ],
+      "pages": [
+        1,
+        12,
+        15,
+        17,
+        18
+      ]
+    },
+    {
+      "path": "Quantitaive methods/exam resources/MSIN0180 Topic 1, additional questions and answers 04_01_2026.pdf",
+      "roles": [
+        "additional_questions",
+        "answer"
+      ],
+      "pages": [
+        1,
+        16,
+        18,
+        20,
+        22
+      ]
+    }
+  ]
+}

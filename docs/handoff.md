@@ -1,5 +1,29 @@
 # Codex 与 Claude Code 开发交接
 
+## 当前交接：第六批本地实现已提交，真实验收等待范围授权（2026-11-02）
+
+用户已授权依据最新第六批计划开发，常规实施不需逐批确认。工作目录 C:/Users/Yijia/dev/past_paper_generator；主分支单写者。U1–U3 与 Task 11/12 工具已落地，详见 docs/batch-6-validation.md。U4 跨 Topic 混合生成仍留第二轮。
+
+已完成：目录/材料归属、动态页段分析、Topic 隔离的审阅和确认、配置 v2/知识树、冻结章节摘要/Papers 筛选；原 v1 配置和冻结结果保持不变。额外修复 Windows 数学子进程退出竞争及数据库临时故障的可重试脱敏反馈。
+
+验证：完整隔离后端 318 passed / 454.37 秒；随后诊断/章节接口/验收工具 11 passed / 22.41 秒；前端 31 passed 和生产构建。收尾对人工声明冻结/缺失证据拒绝补充了 13 项定向回归，已通过；旧来源 Back/Forward 和迟到响应隔离也已实际验证。合成浏览器流程至题答与双 PDF 成功；五页四屏宽、错误/超时、主动答案、重复追加链接和版本冲突恢复通过。真实 R1–R6/E1 没有执行；不要把 fixture-browser-flow 的 PDF 或旧第五批样本填入名额。
+
+本地 E1：course 1aeae0e0-c154-4dae-b3e6-fa9b214840d7，topic 2948d0da-c723-4cea-bb6b-386d0be37caa，Topic 1 Limits and continuity。三份 PDF 已正常导入并解析，22 页选定，12 页需要转写。仅复用 Lecture 1 同哈希解析，没有复用 Topic 2 理解。精确页段见 evals/round1/e1-materials.json、var/evals/round1/E1/selection.json。
+
+下一步：
+1. 等待用户答复本聊天的范围确认；其可审阅文件 var/batch6-real-preflight.md。申请 A=R1 一次规划，B=E1 12 页转写及同 22 页/转写结果的一次课程分析，同时确认 rubric/审阅者。没有答复就不要真实调用。
+2. A 的 planning context hash 为 e11eec77fdef8a8a5f25c99f09b1fc8634b64c579240c828fcfb3d8cdb22e15d；文件 var/evals/round1/R1/ff9f58ac-969e-42b4-bc84-eff68395ce55/preflight.json。如输入/prompt 变化，重建并比较，不套旧授权。
+3. B 的转写 scope_hash 为 132187abfb75df81d1deb1ffe0a37e180ed67be5ef7542f4d88cc0606c63d5e1；精确 entries 在 var/evals/round1/E1/transcription-preflight.json。必须仅发送所列 12 页，不能 schedule 整章所有待转写页。转写后重新冻结同 22 页派生分析，并记录授权来源/父预检。
+4. 运行 evals/round1/run.py 默认只做预检；真实 --execute 需要当前 AnalysisGrant/PlanningGrant/GenerationGrant ID。R1 规划后经正常产品编辑/确认匹配矩阵的蓝图；R2/R3 必须复用 R1 同蓝图并冻结实际历史。
+5. 七次题答生成仍各自需要已确认结构与相应精确生成授权。记录全部失败/补测/可选未查/实际用量和时间；逐题审阅并全页查看新 PDF 后再写 12.4 退出结论。
+
+重要事实：私有基线 var/batch6/before-u1.dump、before-u1.json；旧 2,438 行原字段与原 25 文件哈希保持。新增元数据列不作为旧内容字段比较。ModelInvocation 仍 173，本批新增真实调用 0。测试 fixture 与 evals 原始证据、材料/.env 都不提交。
+
+服务：API 8000、web 5173、worker/dispatcher 和本地 PostgreSQL 由 scripts/local.py 维护；当前均运行。无活动业务任务时再 restart-workers。start 会复用进程，不另起重复服务。主课程和第五批真实 Paper/PDF 可继续浏览。
+
+保留未纳入本轮的用户文件 docs/multi-course-compatibility-design-v0.1.md。下方为历史交接，状态以本节和第六批验证记录为准。
+
+
 ## 当前实现：第五批已完成（2026-11-01）
 
 第一轮 Task 1–10 已实现。成功任务保持题目阅读和主动开答案，答案区下方的 **Generate PDFs** 启动独立导出并跳转 Papers detail；**Run details** 默认折叠。题答成功即冻结保存，PDF 失败不撤销题答；重试使用同内容且不调用模型。Papers 可找回固定版本和两个文件；Generate another practice 先复核当前课程版本与配置，仍需保存、规划和确认。
