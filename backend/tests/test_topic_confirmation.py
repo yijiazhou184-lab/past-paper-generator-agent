@@ -63,3 +63,19 @@ def test_shared_edit_requires_explicit_review_and_cannot_leak_other_topic_patch(
     second=confirm_topics(course.owner,course.id,draft.revision,str(first.id),[str(a.id)],"review-a")
     assert [m["topic_id"] for m in second.frozen_payload["topic_manifest"]]==[str(a.id)]
     assert first.frozen_payload["target_exam"]["label"]!="Updated exam label"
+
+
+def test_manual_scope_statement_is_frozen_and_missing_evidence_is_rejected(course,two_topics):
+    a,b,draft=two_topics
+    draft,_=save_draft(course.owner,course.id,draft.revision,
+        [{"path":["scope_claims","scope-node-a","text"],"value":"My adopted practice scope"}],"manual-claim",topic_id=str(a.id))
+    version=confirm_topics(course.owner,course.id,draft.revision,None,[str(a.id)],"manual-confirm")
+    claim=version.frozen_payload["scope_claims"][0]
+    assert claim["provenance"]=="user_statement" and claim["authority_status"]=="unverified"
+    assert set(claim["statement_ids"]) <= {s["id"] for s in version.statements}
+    snapshot=version.evidence_manifest["topic_snapshots"][str(a.id)]
+    assert snapshot["context"]["analysis_statements"]!=snapshot["context"]["statements"]
+    draft.payload["knowledge_nodes"][0]["evidence_ids"]=["absent-source"]
+    draft.save()
+    with pytest.raises(DomainError,match="EVIDENCE_REFERENCE_INVALID"):
+        confirm_topics(course.owner,course.id,draft.revision,str(version.id),[str(a.id)],"bad-source")

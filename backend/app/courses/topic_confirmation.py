@@ -7,7 +7,7 @@ from app.core.idempotency import digest, intent
 from .models import Course, CourseDraft, CourseVersion, Topic
 from .topic_state import state_map, topic_slice, topic_base, COLLECTIONS
 from .context import statement_list
-from .schemas import validate_template
+from .schemas import validate_template, validate_payload
 from .clarifications import classify_gaps
 
 
@@ -85,6 +85,11 @@ def confirm_topics(owner,course_id,expected_revision,base_course_version_id,sele
         state=state_map(draft).get(tid)
         if not state:raise DomainError("TOPIC_ANALYSIS_REQUIRED","Analyse this topic before confirming it.")
         payload=topic_slice(draft,tid);base=topic_base(draft,tid)
+        statements=statement_list(course,[tid])
+        # Manual statements are review inputs, not retroactive changes to the original model input.
+        reviewed_context={**copy.deepcopy(base.context),"analysis_statements":copy.deepcopy(base.context["statements"]),
+            "statements":statements,"analysis_task_id":str(base.task_id)}
+        payload=validate_payload(payload,reviewed_context)
         if not payload["knowledge_nodes"] or any(q["impact"]=="blocks_selected_scope" for q in classify_gaps(payload,state["knowledge_ids"])):
             raise DomainError("COURSE_GAPS_BLOCK_CONFIRMATION","Resolve this topic's teaching or scope gaps first.")
         owned={i for ids in state["item_ids"].values() for i in ids}
@@ -96,7 +101,7 @@ def confirm_topics(owner,course_id,expected_revision,base_course_version_id,sele
             raise DomainError("ANSWER_REANALYSIS_REQUIRED","Analyse the new statement for this topic before confirmation.")
         validate_template(payload["template_suggestion"])
         snapshots[tid]={"topic_id":tid,"name":topics[tid].name,"code":topics[tid].code,"payload":payload,
-            "context":copy.deepcopy(base.context),"draft_revision":draft.revision,"common_hash":shared,
+            "context":reviewed_context,"draft_revision":draft.revision,"common_hash":shared,
             "manual_patches":[p for p in draft.manual_patches if len(p["path"])<3 or p["path"][1] in owned],"analysis_mode":base.mode}
     frozen=copy.deepcopy(draft.payload)
     for field in COLLECTIONS:

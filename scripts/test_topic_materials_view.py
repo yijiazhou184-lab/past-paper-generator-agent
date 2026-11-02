@@ -37,6 +37,10 @@ with sync_playwright() as pw:
  expect(page.get_by_role("spinbutton",name="PDF page")).to_have_value("2")
  page.get_by_role("button",name="Close source").click()
  assert page.url==filters
+ page.go_back()
+ expect(page.get_by_role("spinbutton",name="PDF page")).to_have_value("2")
+ page.go_forward()
+ expect(page.get_by_role("button",name="Close source")).to_have_count(0)
  expect(page.locator(".material-row")).to_have_count(1)
  checks.append("Topic/shared filters, search and source version/page persist through refresh and close.")
  page.get_by_role("button",name="Clear filters").click()
