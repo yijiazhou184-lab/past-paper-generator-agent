@@ -1,5 +1,6 @@
 from .config_compat import knowledge_ids
 import itertools
+import copy
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -118,10 +119,34 @@ def schema_version_of(payload):
     raise DomainError("BLUEPRINT_SCHEMA_INVALID", "Every part needs a focus, or none for an earlier structure.", status=400)
 
 
+class PlanningQuestion(Strict):
+    """Model output: only parts carry knowledge targets; question targets are derived."""
+    id: str = Field(min_length=1, max_length=80)
+    number: int = Field(ge=1, le=4, strict=True)
+    title: str = Field(min_length=1, max_length=200)
+    objective: str = Field(min_length=1, max_length=1500)
+    parts: list[Part] = Field(min_length=1, max_length=12)
+    evidence_ids: list[str] = Field(min_length=1, max_length=40)
+
+
+class PlanningBlueprintPayload(Strict):
+    """Provider contract; persisted BlueprintPayload keeps its existing v2 shape."""
+    sections: list[Section] = Field(min_length=1, max_length=4)
+    questions: list[PlanningQuestion] = Field(min_length=2, max_length=4)
+    main_question_count: int = Field(ge=2, le=4, strict=True)
+    subquestion_count: int = Field(ge=2, le=48, strict=True)
+    subquestion_count_locked: bool
+    printed_marks: float = Field(gt=0, le=4800)
+    attempt_marks: float = Field(gt=0, le=4800)
+    suggested_minutes: int = Field(ge=5, le=240, strict=True)
+    differences: list[str] = Field(max_length=20)
+    calibration: Literal["historical_reference", "uncalibrated"]
+
+
 class PlanningOutput(Strict):
     status: Literal["complete", "needs_info", "unable_to_determine", "not_checked"]
     explanation: str = Field(max_length=4000)
-    blueprint: BlueprintPayload | None
+    blueprint: PlanningBlueprintPayload | None
 
 
 def parse_schema(schema, data, code):
@@ -193,13 +218,30 @@ def summarize(payload):
         "coverage": [{"knowledge_id": k, "question_ids": v} for k, v in sorted(coverage.items())]}
 
 
+def derive_knowledge_coverage(payload):
+    """Return a new blueprint with deterministic part unions; never infer extra targets."""
+    plan = copy.deepcopy(payload)
+    for question in plan["questions"]:
+        question["knowledge_ids"] = sorted({kid for part in question["parts"] for kid in part["knowledge_ids"]})
+    plan["coverage"] = summarize(plan)["coverage"]
+    return plan
+
+
+def materialize_planning_blueprint(payload):
+    """Expand the reduced provider output into the existing stored blueprint-v2 contract."""
+    plan = parse_schema(PlanningBlueprintPayload, payload, "BLUEPRINT_SCHEMA_INVALID")
+    return derive_knowledge_coverage(plan)
+
+
 def validate_blueprint(config, payload, course_payload, evidence, *, recalculate=False, schema_version=None):
-    """schema_version pins the expected version: a model plan must be v2, an edit keeps its predecessor's."""
+    """schema_version pins the stored format; edits retain their predecessor's version."""
     config = validate_config(config, course_payload, evidence)
     version = schema_version_of(payload)
     if schema_version and version != schema_version:
         raise DomainError("BLUEPRINT_SCHEMA_VERSION_MISMATCH", "The structure format does not match its saved version.", status=400)
     plan = parse_schema(BlueprintPayload if version == SCHEMA_VERSION else BlueprintPayloadV1, payload, "BLUEPRINT_SCHEMA_INVALID")
+    if recalculate:
+        plan = derive_knowledge_coverage(plan)
     if version == SCHEMA_VERSION:
         for q in plan["questions"]:
             if [p["label"] for p in q["parts"]] != [chr(97 + i) for i in range(len(q["parts"]))]:

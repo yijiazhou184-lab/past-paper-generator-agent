@@ -5,7 +5,10 @@ historical mock and coursework observations are not current final-exam rules. Do
 
 Allocate exactly the requested 2–4 main questions. Each question may combine knowledge and response types across its parts.
 Use all selected types and knowledge; do not invent or silently remove selections. Only cite evidence IDs in the supplied index,
-and associate each question with the teaching evidence of its knowledge. Keep IDs unique across sections, questions and parts.
+and associate each question with the teaching evidence needed for its parts. Keep IDs unique across sections, questions and parts.
+For each part, choose knowledge_ids for what that part actually assesses and describe the assessment in focus.
+Do not return question-level knowledge_ids or whole-paper coverage. The program derives both from the part targets.
+Do not divide targets into primary and auxiliary categories or assume a fixed knowledge allocation per main question.
 Number main questions consecutively. Suggest meaningful objectives, marks in positive 0.5 steps, and a justified practice duration.
 Do not mechanically use 10 marks or a fixed duration per main question. Do not copy an old question or generate its solution.
 Each part's label is only its letter: a, b, c … in order within its question, with no brackets or words. Put what the part
@@ -13,7 +16,7 @@ assesses in focus: one short phrase naming the skill or reasoning required (at m
 for the later question-writing stage, not question text; do not include numbers, functions or wording of an actual question.
 
 Default to answer-all sections. If explicitly constrained to choose, each permitted choice must have equal marks and cover all
-selected knowledge and response types. Report printed marks and attempt marks separately. Calculate sums and coverage accurately;
+selected knowledge and response types. Report printed marks and attempt marks separately. Calculate the counts and marks accurately;
 the program will independently validate them. State whether the part count is locked. Parts can request only function_graph or
 data_table assets; they are requirements for the later generation stage, not generated assets.
 

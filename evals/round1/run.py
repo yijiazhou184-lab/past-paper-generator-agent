@@ -37,11 +37,11 @@ def check_matrix(blueprint,run,knowledge=None):
     if [sum(p["marks"] for p in q["parts"]) for q in questions]!=run["marks"] or blueprint["suggested_minutes"]!=run["minutes"]:
         raise ValueError("The confirmed marks/minutes do not match the acceptance matrix")
     if not blueprint["subquestion_count_locked"]:raise ValueError("Lock the part count before acceptance")
-    if run.get("question_knowledge"):
-        for q,keys in zip(questions,run["question_knowledge"]):
-            expected={knowledge[k] for k in keys}
-            if set(q["knowledge_ids"])!=expected or {kid for part in q["parts"] for kid in part["knowledge_ids"]}!=expected:
-                raise ValueError("The question-level knowledge coverage does not match the acceptance matrix")
+    if knowledge is not None and "knowledge" in run:
+        expected={knowledge[k] for k in run["knowledge"]}
+        actual={kid for q in questions for part in q["parts"] for kid in part["knowledge_ids"]}
+        if actual!=expected:
+            raise ValueError("The whole-paper knowledge coverage does not match the acceptance selection")
 
 def require_grant(stage,reference,course,context_hash):
     from app.courses.models import AnalysisGrant

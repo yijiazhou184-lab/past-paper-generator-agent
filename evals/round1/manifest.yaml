@@ -37,20 +37,7 @@
         "K4",
         "K5"
       ],
-      "blueprint_group": "standard-3",
-      "question_knowledge": [
-        [
-          "K1",
-          "K2"
-        ],
-        [
-          "K5"
-        ],
-        [
-          "K3",
-          "K4"
-        ]
-      ]
+      "blueprint_group": "standard-3"
     },
     {
       "id": "R2",
@@ -75,20 +62,7 @@
         "K4",
         "K5"
       ],
-      "blueprint_group": "standard-3",
-      "question_knowledge": [
-        [
-          "K1",
-          "K2"
-        ],
-        [
-          "K5"
-        ],
-        [
-          "K3",
-          "K4"
-        ]
-      ]
+      "blueprint_group": "standard-3"
     },
     {
       "id": "R3",
@@ -113,20 +87,7 @@
         "K4",
         "K5"
       ],
-      "blueprint_group": "standard-3",
-      "question_knowledge": [
-        [
-          "K1",
-          "K2"
-        ],
-        [
-          "K5"
-        ],
-        [
-          "K3",
-          "K4"
-        ]
-      ]
+      "blueprint_group": "standard-3"
     },
     {
       "id": "R4",
@@ -151,20 +112,7 @@
         "K4",
         "K5"
       ],
-      "blueprint_group": "foundation-3",
-      "question_knowledge": [
-        [
-          "K1",
-          "K2"
-        ],
-        [
-          "K5"
-        ],
-        [
-          "K3",
-          "K4"
-        ]
-      ]
+      "blueprint_group": "foundation-3"
     },
     {
       "id": "R5",
@@ -189,20 +137,7 @@
         "K4",
         "K5"
       ],
-      "blueprint_group": "challenge-3",
-      "question_knowledge": [
-        [
-          "K1",
-          "K2"
-        ],
-        [
-          "K5"
-        ],
-        [
-          "K3",
-          "K4"
-        ]
-      ]
+      "blueprint_group": "challenge-3"
     },
     {
       "id": "R6",
@@ -231,24 +166,7 @@
         "K7",
         "K8"
       ],
-      "blueprint_group": "standard-4",
-      "question_knowledge": [
-        [
-          "K2",
-          "K7"
-        ],
-        [
-          "K5"
-        ],
-        [
-          "K3",
-          "K4",
-          "K8"
-        ],
-        [
-          "K6"
-        ]
-      ]
+      "blueprint_group": "standard-4"
     },
     {
       "id": "E1",
@@ -287,5 +205,6 @@
     "export_seconds": 120
   },
   "rubric": "rubric.yaml",
-  "reviewer_status": "proposed: Codex independent question-by-question review; user confirmation pending"
+  "reviewer_status": "proposed: Codex independent question-by-question review; user confirmation pending",
+  "knowledge_allocation_policy": "Model selects assessed knowledge per part; program derives question and paper unions. No fixed per-question allocation."
 }

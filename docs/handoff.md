@@ -1,5 +1,18 @@
 # Codex 与 Claude Code 开发交接
 
+## 当前局部更新：按小问汇总知识覆盖（2026-11-03）
+
+本侧聊用户明确要求：模型设计每个小问的考核知识，程序汇总大题/整卷；不再分析主考/辅助，也不按旧矩阵固定 Q2=K5 等逐题分配。仅此局部实现，未继续父线程真实任务。
+
+- schemas.py 新增 PlanningQuestion / PlanningBlueprintPayload，模型 schema 不含 question.knowledge_ids 或 coverage；materialize_planning_blueprint 从 parts 稳定去重派生两项，再按旧 blueprint-v2 存储。旧 blueprint-v1/v2 冻结读取验证不自动纠正；编辑保存 recalculate=True 重算汇总。
+- planning.py 冻结 planning-v3-part-coverage / r1-planning-3-part-coverage / part-knowledge-union-v1，并另存 blueprint_schema_version=blueprint-v2。新输出经派生后进入原发布/唯一保存/版本绑定；schema/prompt/hash 已变化，旧预检不能用于新调用。
+- evals/round1 当前 manifest 删除 question_knowledge 固定分配，保留整卷 knowledge 与题数/小问数/分值/时间等原矩阵；check_matrix 只验证整卷知识集合，不规定各大题分配。旧运行快照、授权文件、失败记录不改；这是用户新决定造成的新 manifest 基线，不适用于重写旧成绩。
+- 61 项定向回归通过 / 20.87 秒（planning_coverage、planning_execution、blueprint_rules、generation_snapshot、eval_accounting）。测试使用独立随机库、真实密钥移除和传输阻断。两条已有 accounting 测试的 finished_at 在 create 前生成会偶发早于 created_at，现仅修正测试夹具为确定性时间，不放宽真实时间检查。
+- 原 R1 响应离线回放：旧规则仍复现 QUESTION_COVERAGE_MISMATCH；去掉旧模型汇总字段后按新契约派生，通过正常覆盖/来源校验，原文件哈希不变、原 Task 仍 failed。原提案仍是 11 小问/48 分/80 分钟，未保存/确认，也未符合数值验收矩阵。
+- 调用记录前后均 188；无真实模型调用、业务任务/版本写入、服务重启、新依赖或迁移。工作区其他用户文档及课件未动。
+
+下一步仅供主线程接手：在安全的正常部署/重载节点加载代码并生成新规划预检；原失败不自动恢复。A+B 真实状态和 E1 尚待处理事项见下节。来源哈希回抄问题仍未实施，不与本次知识汇总混为已解决。完整计划/检查见 [本次局部记录](superpowers/plans/2026-11-03-planning-part-coverage.md)。
+
 ## 当前交接：A+B 已执行，R1 规划失败、E1 新草稿已保存（2026-11-02）
 
 用户已回复“允许 A+B，并确认验收口径”，此前“等授权”状态已失效。工作目录仍为 C:/Users/Yijia/dev/past_paper_generator，单写者；没有第二轮开发。

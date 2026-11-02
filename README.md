@@ -1,5 +1,11 @@
 # AI Past Paper Generator
 
+## 当前局部更新：小问知识驱动覆盖汇总（2026-11-03）
+
+模型只为每个小问填写实际考核的 knowledge_ids 和 focus；程序计算大题知识并集与整卷 coverage，不区分主考/辅助，不固定每大题的知识分配。新模型契约 planning-v3-part-coverage / 提示词 r1-planning-3-part-coverage；持久化蓝图仍为 blueprint-v2，旧 v1/v2 冻结记录不改。结构编辑保存时也重算汇总；知识范围、教学证据及所有合法选答的覆盖检查继续保留。
+
+本次定向回归 61 passed / 20.87 秒，Django check 和 git diff --check 通过。原 R1 响应离线转换后覆盖校验通过；原任务仍 failed，11 小问/48 分/80 分钟也未擅自采用。0 真实调用，调用记录保持 188；未提交业务任务或重启服务。实际网站/worker 下次正常重载后使用新契约，须生成新预检，不套旧授权。当前验收 manifest 已移除固定逐题知识分配，旧运行快照保持。详见 [局部实施及验证](docs/superpowers/plans/2026-11-03-planning-part-coverage.md)。
+
 ## 当前实现：第六批 A+B 真实起步已执行，完整验收尚未完成（2026-11-02）
 
 工作目录为 C:/Users/Yijia/dev/past_paper_generator；OneDrive 旧副本已停用。

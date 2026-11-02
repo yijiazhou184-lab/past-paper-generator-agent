@@ -105,7 +105,8 @@ def test_collect_preserves_page_failure_inside_completed_transcription(course,tm
     monkeypatch.setattr(run,"ROOT",tmp_path);monkeypatch.setattr(run,"setup",lambda:None)
     outcome={"pages":[{"evidence_id":"page-a","outcome":"transcribed"},
         {"evidence_id":"page-b","outcome":"failed","code":"MODEL_SOURCE_MISMATCH"}],"transcribed":1,"failed":1}
-    task=Task.objects.create(course=course,kind="visual_transcription",state="succeeded",result=outcome,finished_at=timezone.now())
+    task=Task.objects.create(course=course,kind="visual_transcription",state="succeeded",result=outcome)
+    task.finished_at=task.created_at;task.save(update_fields=["finished_at"])
     record,path=collect_run("E1",[str(task.id)],kind="extension")
     assert record.status=="awaiting_generation" and record.quality_review["status"]=="not_reviewed"
     assert record.bindings[str(task.id)]["result"]==outcome
@@ -121,7 +122,8 @@ def test_collect_keeps_planning_error_without_a_generation_task(course,tmp_path,
     from evals.round1.collect import collect_run
     monkeypatch.setattr(run,"ROOT",tmp_path);monkeypatch.setattr(run,"setup",lambda:None)
     error={"code":"QUESTION_COVERAGE_MISMATCH","message":"Question knowledge must match its parts.","retryable":False}
-    task=Task.objects.create(course=course,kind="planning",state="failed",error=error,finished_at=timezone.now())
+    task=Task.objects.create(course=course,kind="planning",state="failed",error=error)
+    task.finished_at=task.created_at;task.save(update_fields=["finished_at"])
     record,path=collect_run("R1",[str(task.id)])
     assert record.status=="failed" and record.bindings[str(task.id)]["error"]==error
     assert record.notes==[{"task_id":str(task.id),"kind":"planning","state":"failed","error":error}]
