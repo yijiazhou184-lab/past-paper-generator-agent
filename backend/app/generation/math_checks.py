@@ -27,7 +27,15 @@ class MathWorker:
         if process is None:
             return
         if process.poll() is None:
-            process.kill()
+            try:
+                process.kill()
+            except PermissionError as exc:
+                # Windows may report access denied between poll and termination as a child exits.
+                # Only accept a confirmed exit; a still-running inaccessible process remains an error.
+                try:
+                    process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    raise exc
         process.wait(timeout=5)
         if self.reader:
             self.reader.join(timeout=1)
