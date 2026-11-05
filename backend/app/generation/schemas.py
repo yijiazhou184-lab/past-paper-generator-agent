@@ -179,6 +179,8 @@ def validate_config(data, course_payload, evidence):
         node = nodes.get(kid)
         if node is None:
             raise DomainError("KNOWLEDGE_OUTSIDE_SELECTION", "Choose knowledge from this confirmed course version.", status=400)
+        if node.get("node_kind")=="group":
+            raise DomainError("GROUP_NOT_ASSESSABLE","Choose learning objectives instead of a chapter heading.")
         if node["readiness"] != "supported" or not any(
             set(sources.get(eid, {}).get("roles", [])) & TEACHING_ROLES for eid in node["evidence_ids"]
         ):

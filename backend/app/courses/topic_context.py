@@ -69,10 +69,12 @@ def build_topic_analysis_context(course, target_topic_ids, material_selection, b
     attach_visual_evidence(course,evidence)
     prior=topic_slice(draft,tid) if draft else None
     nodes=prior["knowledge_nodes"] if prior else []
+    from .decisions import prior_decisions
     data={"course_title":course.title,"target_topic_ids":[tid],
         "target_topics":[{"id":tid,"name":topic.name,"code":topic.code,"revision":topic.revision}],
         "base_revision":base_revision,"target_ids":[n["id"] for n in nodes],
-        "target_knowledge":[{"id":n["id"],"title":n["title"]} for n in nodes],
+        "target_knowledge":[{"id":n["id"],"title":n["title"],"node_kind":n.get("node_kind","objective")} for n in nodes],
+        "prior_decisions":prior_decisions(prior),
         "materials":materials,"evidence":evidence,"route_rule_version":RULE_VERSION,
         "statements":statement_list(course,[tid]),
         "round1_exclusions":["software_command_answers"],

@@ -4,6 +4,7 @@ import sympy as sp
 from sympy.calculus.util import continuous_domain
 from .expressions import expression, number, VARIABLES
 from .content_schemas import MathCheckSpec
+from .math_diagnostics import diagnose_spec, with_diagnostics
 from .math_bounds import prove
 
 
@@ -148,6 +149,9 @@ def critical_sets(expr,x,domain):
 
 
 def evaluate(raw):
+    findings=diagnose_spec(raw)
+    if findings:
+        return {"result":"not_checked","rationale":findings[0]["message"],"diagnostics":findings}
     # Specifications saved before roles existed are core: no older check is relaxed.
     s=MathCheckSpec.model_validate({**raw,"role":raw.get("role","core")}).model_dump(mode="json")
     x=VARIABLES[s["variable"]]
@@ -250,10 +254,12 @@ def evaluate(raw):
 if __name__=="__main__":
     print(json.dumps({"ready":True}),flush=True)
     for line in sys.stdin:
+        raw={}
         try:
-            output=evaluate(json.loads(line))
+            raw=json.loads(line)
+            output=evaluate(raw)
         except (ValueError,TypeError,KeyError):
             output=result("not_checked","The mathematical specification is invalid or unsupported.")
         except Exception:
             output=result("inconclusive","The symbolic system could not decide this check.")
-        print(json.dumps(output),flush=True)
+        print(json.dumps(with_diagnostics(locals().get("raw",{}),output)),flush=True)

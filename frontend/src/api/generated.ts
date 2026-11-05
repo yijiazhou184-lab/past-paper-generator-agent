@@ -308,6 +308,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/courses/{course_id}/review-selection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["v1_courses_review_selection_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/courses/{course_id}/tasks": {
         parameters: {
             query?: never;
@@ -677,7 +693,12 @@ export interface components {
         AnswerRequest: {
             expected_revision: number;
             question_id: string;
+            /** @default  */
             text: string;
+            option_ids?: string[];
+            definition_hash?: string;
+            /** @default  */
+            note: string;
             /** Format: uuid */
             topic_id?: string | null;
         };
@@ -947,6 +968,12 @@ export interface components {
         };
         RemoveResultSchema: {
             removed: boolean;
+        };
+        ReviewSelectionRequest: {
+            /** Format: uuid */
+            topic_id: string;
+            expected_revision: number;
+            knowledge_ids: string[];
         };
         /**
          * @description * `lecture` - lecture
@@ -1707,6 +1734,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileSchema"];
+                };
+            };
+        };
+    };
+    v1_courses_review_selection_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewSelectionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReviewSelectionRequest"];
+                "multipart/form-data": components["schemas"]["ReviewSelectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftResponse"];
                 };
             };
         };

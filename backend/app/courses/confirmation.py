@@ -20,8 +20,10 @@ def confirm_course(owner, course_id, draft_id, expected_revision, key):
         raise DomainError("DRAFT_REVISION_CONFLICT", "Save and review the latest draft before confirming.")
     if draft.merge_warnings:
         raise DomainError("MERGE_REVIEW_REQUIRED", "Review the preserved edits before confirmation.")
-    questions = classify_gaps(draft.payload, draft.machine_base.context["target_ids"])
-    if any(q["impact"] == "blocks_selected_scope" for q in questions):
+    from .drafts import draft_view
+    view=draft_view(draft);payload=view["payload"];questions=view["clarifications"]
+    if not view["eligibility"]["allowed"] or any(q["impact"]=="blocks_selected_scope" or
+            q["impact"]=="needs_confirmation" and q["status"]!="answered" for q in questions):
         raise DomainError("COURSE_GAPS_BLOCK_CONFIRMATION", "Resolve the selected-topic evidence or scope gaps first.")
     from app.materials.models import MaterialVersion
     for material in draft.machine_base.context.get("materials", []):
@@ -33,17 +35,18 @@ def confirm_course(owner, course_id, draft_id, expected_revision, key):
         if links != material["answer_links"]:
             raise DomainError("MATERIAL_CONTEXT_CHANGED", "Answer links changed. Analyse the updated sources first.")
     used_statements = {s["id"] for s in draft.machine_base.context["statements"]}
-    unanswered_analysis = [s for s in statement_list(course) if s["kind"] in ("exam_scope", "clarification") and s["id"] not in used_statements]
+    from .decisions import needs_analysis
+    unanswered_analysis = [s for s in statement_list(course) if needs_analysis(s,used_statements)]
     if unanswered_analysis:
         raise DomainError("ANSWER_REANALYSIS_REQUIRED", "Analyse your new clarification answer before confirming this course.")
-    validate_template(draft.payload["template_suggestion"])
+    validate_template(payload["template_suggestion"])
     existing = CourseVersion.objects.filter(draft=draft, draft_revision=draft.revision, confirmation_fingerprint="").first()
     if existing:
         version = existing
     else:
         version = CourseVersion.objects.create(course=course, number=course.confirmed_versions.count() + 1,
-            draft=draft, draft_revision=draft.revision, payload_hash=digest(draft.payload),
-            frozen_payload=copy.deepcopy(draft.payload), evidence_manifest={**copy.deepcopy(draft.machine_base.context), "analysis_mode": draft.machine_base.mode},
+            draft=draft, draft_revision=draft.revision, payload_hash=digest(payload),
+            frozen_payload=copy.deepcopy(payload), evidence_manifest={**copy.deepcopy(draft.machine_base.context), "analysis_statements":copy.deepcopy(draft.machine_base.context["statements"]), "statements":statement_list(course), "analysis_mode": draft.machine_base.mode},
             statements=statement_list(course), manual_patches=copy.deepcopy(draft.manual_patches), confirmed_by=owner)
     record.response = {"version_id": str(version.id)}
     record.save(update_fields=["response"])

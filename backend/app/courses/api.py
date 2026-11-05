@@ -64,7 +64,10 @@ class DraftResponse(serializers.Serializer):
 class AnswerRequest(serializers.Serializer):
     expected_revision = serializers.IntegerField(min_value=1)
     question_id = serializers.CharField(max_length=120)
-    text = serializers.CharField(max_length=3000)
+    text = serializers.CharField(max_length=3000,required=False,allow_blank=True,default="")
+    option_ids = serializers.ListField(child=serializers.CharField(max_length=100),required=False,max_length=40)
+    definition_hash = serializers.CharField(max_length=64,required=False)
+    note = serializers.CharField(max_length=1000,required=False,allow_blank=True,default="")
     topic_id = serializers.UUIDField(required=False, allow_null=True)
 
 
@@ -171,7 +174,8 @@ class AnswerView(APIView):
     def post(self, request, course_id):
         data = validate(AnswerRequest, request.data)
         draft = answer_clarification(request.user, course_id, data["question_id"], data["text"],
-            data["expected_revision"], request.headers.get("Idempotency-Key"),topic_id=str(data["topic_id"]) if data.get("topic_id") else None)
+            data["expected_revision"], request.headers.get("Idempotency-Key"),topic_id=str(data["topic_id"]) if data.get("topic_id") else None,
+            option_ids=data.get("option_ids"),definition_hash=data.get("definition_hash"),note=data["note"])
         return Response({"draft": draft_view(draft,str(data["topic_id"]) if data.get("topic_id") else None), "committed_revision": draft.revision})
 
 
@@ -195,3 +199,18 @@ class VersionView(APIView):
     @extend_schema(responses=VersionSchema)
     def get(self, request, course_id, version_id):
         return Response(version_view(get_object_or_404(CourseVersion, pk=version_id, course_id=course_id, course__owner=request.user)))
+
+class ReviewSelectionRequest(serializers.Serializer):
+    topic_id=serializers.UUIDField()
+    expected_revision=serializers.IntegerField(min_value=1)
+    knowledge_ids=serializers.ListField(child=serializers.CharField(max_length=100),min_length=1,max_length=40)
+
+
+class ReviewSelectionView(APIView):
+    @extend_schema(request=ReviewSelectionRequest,responses=DraftResponse)
+    def post(self,request,course_id):
+        data=validate(ReviewSelectionRequest,request.data)
+        from .eligibility import save_review_selection
+        tid=str(data["topic_id"])
+        draft=save_review_selection(request.user,course_id,tid,data["expected_revision"],data["knowledge_ids"],request.headers.get("Idempotency-Key"))
+        return Response({"draft":draft_view(draft,tid),"committed_revision":draft.revision})

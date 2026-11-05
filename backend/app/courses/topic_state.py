@@ -69,4 +69,6 @@ def scoped_merge(payload, previous, context, base):
         "template_suggestion":copy.deepcopy(scoped["template_suggestion"]),"name":target["name"],
         "code":target.get("code",""),"revision":previous.revision+1 if previous else 1}
     prior_warnings=[w for w in previous.merge_warnings if len(w["path"])<3 or w["path"][1] not in owned.get(w["path"][0],[])] if previous else []
+    if previous and "selected_knowledge_ids" in state_map(previous).get(tid,{}):
+        states[tid]["selected_knowledge_ids"]=state_map(previous)[tid]["selected_knowledge_ids"]
     return combined,prior_warnings+warnings,states

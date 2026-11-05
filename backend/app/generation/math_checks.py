@@ -6,6 +6,7 @@ from queue import Queue, Empty
 import subprocess
 import sys
 from threading import Thread
+from .math_diagnostics import diagnostic
 
 
 class MathWorker:
@@ -84,12 +85,15 @@ class MathWorker:
             return result
         except Empty:
             self.close()
-            return {"result": "not_checked", "rationale":
-                    "The symbolic worker exceeded its startup limit." if starting else
-                    "The symbolic check exceeded its calculation time limit."}
+            reason="The symbolic worker exceeded its startup limit." if starting else "The symbolic check exceeded its calculation time limit."
+            return {"result":"not_checked","rationale":reason,"diagnostics":[diagnostic(
+                "SYMBOLIC_STARTUP_TIMEOUT" if starting else "SYMBOLIC_CHECK_TIMEOUT","$",None,reason,
+                category="checker_capability",actionable=False,allowed="A completed isolated check within the frozen time limit.")]}
         except (ValueError, OSError):
             self.close()
-            return {"result": "inconclusive", "rationale": "The isolated symbolic checker returned no usable result."}
+            reason="The isolated symbolic checker returned no usable result."
+            return {"result":"inconclusive","rationale":reason,"diagnostics":[diagnostic(
+                "ISOLATED_CHECKER_ERROR","$",None,reason,category="checker_capability",actionable=False,allowed="A usable isolated checker result.")]}
 
 
 def check_math(spec, timeout_seconds=8):

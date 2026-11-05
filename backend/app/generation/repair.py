@@ -6,6 +6,7 @@ from .generator import generate_groups, persist_candidate
 from .source_policy import source_review_input
 from .review_policy import review_call_bound
 from .originality_policy import POLICY as ORIGINALITY_POLICY
+from .repair_diagnostics import build_repair_failures, validate_repaired_checks
 
 
 def repair_candidate(token,context,candidate,report):
@@ -43,8 +44,27 @@ def repair_candidate(token,context,candidate,report):
         for qid in finding["target_ids"]:
             if qid in ids:
                 requests.setdefault(qid,[]).append({"target_ids":[qid],"issue_codes":[finding["code"]],"instructions":finding["explanation"]})
+    failures_by_question={p["question_id"]:build_repair_failures(p,[c for c in blocked if p["question_id"] in c["target_ids"]]) for p in candidate.payload["pairs"]}
+    # A whole-paper duplicate check targets the paper for reporting, but only the
+    # later question of each duplicated pair is a justified repair target.
+    duplicate_targets=set()
+    for c in blocked:
+        if c["check_id"]==ORIGINALITY_POLICY["check_id"]:
+            for a,b in c.get("duplicate_pairs",[]):
+                qa,qb=part_question.get(a),part_question.get(b)
+                if qa in ids and qb in ids:duplicate_targets.add(max(qa,qb,key=order.index))
+    for qid,failures in failures_by_question.items():
+        for failure in failures:
+            if failure["check_id"]==ORIGINALITY_POLICY["check_id"] and qid not in duplicate_targets:
+                failure["actionable"]=False
+                failure["instructions"]="This paper-level finding is repaired in the later question of the identified duplicate pair. Preserve this question."
+        actions=[f for f in failures if f["actionable"]]
+        if actions:
+            requests.setdefault(qid,[]).extend({"target_ids":[qid],"issue_codes":[f["check_id"]],"instructions":f["instructions"]} for f in actions)
+        elif failures:
+            requests.pop(qid,None)
     if not requests:
-        checkpoint(token,"No justified repair available",{"candidate_id":str(candidate.id)})
+        checkpoint(token,"No justified repair available",{"candidate_id":str(candidate.id),"reason":"No code-owned actionable diagnosis is available; no repair call was made.","unresolved_check_ids":[c["check_id"] for c in blocked]})
         return None
     task=Task.objects.get(pk=token.task_id)
     # Reserve enough of the frozen ceiling for repairs, independent re-solves and a whole-paper review.
@@ -57,7 +77,12 @@ def repair_candidate(token,context,candidate,report):
     targeted={}
     for qid,issues in requests.items():
         duplicate_review=report.payload["duplicate_review"]
-        targeted[qid]={"issues":issues,"previous_pair":pairs[qid],
+        format_error=any(d.get("code")=="UNSUPPORTED_NUMERIC_LITERAL" for f in failures_by_question[qid] for d in f["diagnostics"])
+        targeted[qid]={"issues":[{"target_ids":[qid],"issue_codes":[f["check_id"]],"instructions":f["instructions"]} for f in failures_by_question[qid] if f["actionable"]],
+            "model_suggestions":[] if format_error else issues,"previous_pair":pairs[qid],
+            "failures":failures_by_question[qid],
+            "protected_check_ids":[f["specification"]["id"] for f in failures_by_question[qid] if f.get("specification") and f["specification"].get("role","core")=="core"],
+            "fixed_structure":{"parts":[{k:p[k] for k in ("part_id","marks","knowledge_ids","response_type")} for p in pairs[qid]["parts"]]},
             "local_checks":[c for c in blocked if qid in c["target_ids"]],
             "checker_contract":context["checker_contract"],
             "source_review":source_review_input(context,[pairs[qid]]),
@@ -70,6 +95,9 @@ def repair_candidate(token,context,candidate,report):
                                         for p in candidate.payload["pairs"] if p["question_id"]!=qid]}
     questions=[q for q in context["input"]["questions"] if q["blueprint"]["id"] in requests]
     repaired=generate_groups(token,context,questions,round_number=1,repair_requests=targeted)
+    for group in repaired:
+        qid=group["pair"]["question_id"]
+        validate_repaired_checks(pairs[qid],group["pair"],failures_by_question[qid])
     replacements={g["pair"]["question_id"]:g for g in repaired}
     groups=[replacements.get(p["question_id"],{"pair":p,"assets":[a for a in candidate.payload["assets"] if a["id"] in p["asset_ids"]]})
             for p in candidate.payload["pairs"]]

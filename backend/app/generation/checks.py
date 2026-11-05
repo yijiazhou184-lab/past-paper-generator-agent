@@ -75,6 +75,8 @@ def math_check(spec_id,targets,role,output):
     item=check("math:"+spec_id,targets,"sympy_subprocess",output["result"],output["rationale"],
                required=not (role=="auxiliary" and output["result"]!="fail"))
     item["math_role"]=role
+    if output.get("diagnostics"):
+        item["diagnostics"]=[{**d,"question_id":targets[0],"part_id":targets[1] if len(targets)>1 else None,"check_id":"math:"+spec_id} for d in output["diagnostics"]]
     if undecided:
         item["limitation"]="Auxiliary evidence not decided; recorded without blocking. The written reasoning is judged separately."
     return item

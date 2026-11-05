@@ -152,7 +152,7 @@ def test_changed_originality_policy_requires_new_preflight(course, planned):
     from app.core.idempotency import digest
     from app.generation.runtime import verify_context
     task, context, _ = start(course, planned)
-    assert context["pipeline_version"] == "generation-v6"
+    assert context["pipeline_version"] == "generation-v7-repair-diagnostics"
     assert context["originality_policy"]["version"] == "originality-policy-v2"
     task.snapshot = copy.deepcopy(context)
     task.snapshot["originality_policy"]["max_source_pages_per_part"] = 99

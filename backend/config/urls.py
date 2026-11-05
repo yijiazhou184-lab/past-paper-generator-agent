@@ -4,7 +4,7 @@ from drf_spectacular.views import SpectacularAPIView
 from app.core.api import SessionView, CoursesView, TasksView, TaskView, CancelView, RetryView
 from app.materials.api import (MaterialsView, ClassificationView, RelationsView,
                                RemoveRelationView, SourceView, PageImageView, OriginalView)
-from app.courses.api import (ProfileView, AnalysisPreflightView, AnalyseView, DraftView, AnswerView, ConfirmView, VersionView)
+from app.courses.api import (ProfileView, AnalysisPreflightView, AnalyseView, DraftView, AnswerView, ConfirmView, VersionView, ReviewSelectionView)
 from app.generation.api import (GenerationWorkspaceView, GenerationConfigView, PlanningPreflightView, PlansView,
     BlueprintView, StructureConfirmView, GenerationSnapshotView, SnapshotDetailView, GenerationsView, GenerationPreflightView)
 
@@ -41,6 +41,7 @@ urlpatterns = [
     path("api/v1/courses/<uuid:course_id>/analyses", AnalyseView.as_view()),
     path("api/v1/courses/<uuid:course_id>/draft", DraftView.as_view()),
     path("api/v1/courses/<uuid:course_id>/answers", AnswerView.as_view()),
+    path("api/v1/courses/<uuid:course_id>/review-selection", ReviewSelectionView.as_view()),
     path("api/v1/courses/<uuid:course_id>/confirmations", ConfirmView.as_view()),
     path("api/v1/courses/<uuid:course_id>/versions/<uuid:version_id>", VersionView.as_view()),
     path("api/v1/courses/<uuid:course_id>/materials", MaterialsView.as_view()),

@@ -12,6 +12,7 @@ class Course(UUIDModel):
 
 
 class UserStatement(UUIDModel):
+    decision = models.JSONField(default=dict)
     topic_ids = models.JSONField(default=list)
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="statements")
     text = models.TextField()

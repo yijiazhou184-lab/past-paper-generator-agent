@@ -60,13 +60,12 @@ def test_reanalysis_retains_latest_manual_edit_and_reports_diff(course, draft):
 def test_answer_is_statement_and_does_not_fill_teaching_gap(course, draft):
     draft.payload["knowledge_nodes"][0]["readiness"] = "unsupported"
     draft.save()
-    changed = answer_clarification(course.owner, course.id, "gap-teaching-K1", "I know derivatives", 1, "answer-1")
-    assert changed.revision == 2
-    q = next(q for q in draft_view(changed)["clarifications"] if q["id"] == "gap-teaching-K1")
-    assert q["status"] == "answered" and q["impact"] == "blocks_selected_scope"
-    assert course.statements.filter(kind="clarification").count() == 1
-    with pytest.raises(DomainError, match="COURSE_GAPS_BLOCK_CONFIRMATION"):
-        confirm_course(course.owner, course.id, draft.id, 2, "confirm-gap")
+    with pytest.raises(DomainError,match="ANSWER_ACTION_REQUIRED"):
+        answer_clarification(course.owner, course.id, "gap-teaching-K1", "I know derivatives", 1, "answer-1")
+    assert course.statements.filter(kind="clarification").count()==0
+    draft.refresh_from_db();assert draft.revision==1
+    with pytest.raises(DomainError,match="COURSE_GAPS_BLOCK_CONFIRMATION"):
+        confirm_course(course.owner,course.id,draft.id,1,"confirm-gap")
 
 
 def test_cancelled_analysis_cannot_publish(course, draft):

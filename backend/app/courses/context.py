@@ -17,19 +17,20 @@ from app.materials.transcription import cached, decide, page_entry, signal_pages
 from .models import UserStatement
 from .schemas import AnalysisOutput
 
-PROMPT_VERSION = "r1-course-analysis-4-topics"
+PROMPT_VERSION = "r1-course-analysis-5-decisions"
 ANALYSIS_CALL_SECONDS = 300
 SCHEMA_VERSION = "r1-course-draft-1"
 def statement_list(course, topic_ids=None):
     # An answer is only meaningful with its question, so the question text travels with it.
-    rows = list(course.statements.order_by("created_at", "id").values("id", "text", "kind", "source", "clarification_id", "question", "topic_ids"))
+    from .decisions import effective_statements
+    rows = effective_statements(course,topic_ids)
     if topic_ids is not None:
         rows = [r for r in rows if not r["topic_ids"] or set(r["topic_ids"]).intersection(topic_ids)]
     for row in rows:
         row["id"] = str(row["id"])
     if not rows and course.scope_statement and course.scope_provenance == "user_statement":
         rows = [{"id": str(uuid.uuid5(course.id, "initial-scope")), "text": course.scope_statement,
-                 "kind": "exam_scope", "source": "User's existing course scope declaration", "clarification_id": "", "question": ""}]
+                 "kind": "exam_scope", "source": "User's existing course scope declaration", "clarification_id": "", "question": "", "topic_ids": [], "decision": {}}]
     return rows
 
 
@@ -126,7 +127,7 @@ def inspect_scope(snapshot):
         "visual_pending": [{"evidence_id": e["id"], "material_code": e["material_code"], "physical_page": e["physical_page"],
                             "signals": e["route"]["signals"]} for e in data["evidence"] if e["visual_status"] == "visual_pending"],
         "materials": [{k: m[k] for k in ("code", "filename", "selected_pages", "material_version_id", "sha256")} for m in data["materials"]],
-        "statements": data["statements"], "max_calls": 8, "call_timeout_seconds": snapshot["call_timeout_seconds"],
+        "statements": data["statements"], "prior_decisions":data.get("prior_decisions",[]), "max_calls": 8, "call_timeout_seconds": snapshot["call_timeout_seconds"],
         "admission": {**snapshot["admission"], "local_utf8_bytes": local_bytes(snapshot),
                       "note": "One official token-count request is sent after authorisation; above the limit "
                               "the analysis stops without an analysis request."}}

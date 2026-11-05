@@ -14,6 +14,7 @@ class TargetExam(StrictModel):
 
 
 class KnowledgeNode(StrictModel):
+    node_kind: Literal["group", "objective"] = "objective"
     id: str = Field(max_length=100)
     title: str = Field(min_length=1, max_length=200)
     parent_id: str | None
@@ -57,8 +58,10 @@ class TemplateSummary(StrictModel):
 
 
 class Issue(StrictModel):
+    kind: Literal["processing_gap","source_gap","source_conflict","information","review_required"] = "review_required"
     id: str = Field(max_length=100)
     code: str = Field(max_length=80)
+    coverage_role: Literal["required_content","supporting_example","unknown"] = "unknown"
     severity: Literal["info", "warning", "blocking"]
     affected_ids: list[str] = Field(max_length=40)
     explanation: str = Field(max_length=2000)
@@ -67,11 +70,15 @@ class Issue(StrictModel):
 
 
 class Clarification(StrictModel):
+    kind: Literal["preference","exam_scope","course_fact","source_conflict","review_required"] = "review_required"
+    decision_key: str = Field(default="",max_length=120)
+    selection_mode: Literal["single","multiple"] = "single"
     id: str = Field(max_length=100)
     question: str = Field(max_length=1000)
     reason: str = Field(max_length=2000)
     affected_ids: list[str] = Field(max_length=40)
     impact: Literal["informational", "needs_confirmation", "blocks_selected_scope"]
+    option_actions: list[Literal["practice_preference","adjust_scope","needs_interpretation"]] = Field(default_factory=list,max_length=4)
     suggested_answers: list[str] = Field(max_length=4)
     resolves_issue_ids: list[str] = Field(max_length=30)
     status: Literal["open", "answered", "superseded"]
@@ -139,7 +146,7 @@ def validate_payload(raw, context):
         if (set(node["prerequisite_ids"]) - nodes or set(node["method_ids"]) - methods
                 or (node["parent_id"] and node["parent_id"] not in nodes)):
             raise DomainError("KNOWLEDGE_REFERENCE_INVALID")
-        if not any(TEACHING_ROLES.intersection(evidence[e]["roles"]) for e in node["evidence_ids"]):
+        if node.get("node_kind","objective")!="group" and not any(TEACHING_ROLES.intersection(evidence[e]["roles"]) for e in node["evidence_ids"]):
             node["readiness"] = "unsupported"
         seen, parent = {node["id"]}, node["parent_id"]
         by_id = {n["id"]: n for n in payload["knowledge_nodes"]}
