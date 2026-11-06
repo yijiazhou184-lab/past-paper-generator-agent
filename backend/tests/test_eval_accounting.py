@@ -161,3 +161,23 @@ def test_analysis_followup_keeps_original_task_binding(course,tmp_path,monkeypat
     extra=binding.parent/("analysis-followup-"+str(second.id)+"-task.json")
     assert json.loads(extra.read_text())["task_id"]==str(second.id)
     assert Task.objects.count()==2 and record.status=="awaiting_generation"
+
+
+@pytest.mark.parametrize("confirmed",[True,False])
+def test_analysis_needs_info_is_resolved_only_by_the_papers_actual_confirmed_version(paper,tmp_path,monkeypatch,confirmed):
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from django.utils import timezone
+    from app.core.models import Task
+    from evals.round1 import run
+    from evals.round1.collect import collect_run
+    monkeypatch.setattr(run,"ROOT",tmp_path);monkeypatch.setattr(run,"setup",lambda:None)
+    analysis=Task.objects.create(course=paper.course,kind="analysis",state="needs_info",finished_at=timezone.now())
+    version=SimpleNamespace(id=paper.content.payload["metadata"]["course_version_id"],evidence_manifest={"topic_snapshots":{
+        "topic":{"context":{"analysis_task_id":str(analysis.id) if confirmed else "different-analysis"}}}})
+    with patch("app.courses.models.CourseVersion.objects.get",return_value=version) as lookup:
+        record,path=collect_run("analysis-resolved",[str(analysis.id),str(paper.generation_task_id)],kind="fault_fixture")
+    lookup.assert_called_once_with(pk=version.id,course=paper.course)
+    assert record.status==("incomplete" if confirmed else "failed")  # PDFs are absent in this fixture.
+    assert bool([n for n in record.notes if n.get("resolved_by_course_version")])==confirmed
+    analysis.refresh_from_db();assert analysis.state=="needs_info"  # Never rewrite the actual task outcome.

@@ -19,7 +19,7 @@ from .schemas import AnalysisOutput
 
 PROMPT_VERSION = "r1-course-analysis-5-decisions"
 ANALYSIS_CALL_SECONDS = 300
-SCHEMA_VERSION = "r1-course-draft-1"
+SCHEMA_VERSION = "r1-course-draft-2-strict-decisions"
 def statement_list(course, topic_ids=None):
     # An answer is only meaningful with its question, so the question text travels with it.
     from .decisions import effective_statements

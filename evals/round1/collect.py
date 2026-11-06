@@ -91,7 +91,15 @@ def collect_run(run_id,task_ids,*,planned_slot=None,kind="original",retest_of=No
                 record.outputs={"candidate_version_id":str(candidate.id),"candidate_hash":candidate.payload_hash,
                     "answer_unit_ids":[p["part_id"] for pair in candidate.payload["pairs"] for p in pair["parts"]]}
                 record.checks={"required_passed":False,"report":candidate.check_report.payload if hasattr(candidate,"check_report") else progress_report(candidate)}
-        failed=any(t.state in ("failed","cancelled","needs_info") for t in tasks+export_tasks)
+        resolved_analysis=set()
+        if paper and any(t.kind=="analysis" and t.state=="needs_info" for t in tasks):
+            from app.courses.models import CourseVersion
+            version=CourseVersion.objects.get(pk=paper.content.payload["metadata"]["course_version_id"],course=paper.course)
+            confirmed_analysis={str(s.get("context",{}).get("analysis_task_id"))
+                for s in version.evidence_manifest.get("topic_snapshots",{}).values()}
+            resolved_analysis={str(t.id) for t in tasks if t.kind=="analysis" and t.state=="needs_info" and str(t.id) in confirmed_analysis}
+            record.notes.extend({"task_id":tid,"state":"needs_info","resolved_by_course_version":str(version.id)} for tid in sorted(resolved_analysis))
+        failed=any(t.state in ("failed","cancelled") or t.state=="needs_info" and str(t.id) not in resolved_analysis for t in tasks+export_tasks)
         record.status="failed" if failed else "completed" if ready else "incomplete" if generation.finished_at else "running"
         record.notes.extend([{"task_id":str(t.id),"state":t.state,"error":t.error} for t in export_tasks if t.error])
     else:
