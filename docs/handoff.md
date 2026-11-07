@@ -1,5 +1,44 @@
 # Codex 与 Claude Code 开发交接
 
+## 交给 Codex：重启服务并执行 R6（2026-11-08，Claude Code → Codex）
+
+用户选择由 Codex 重启服务并执行 R6。本次 Claude Code 的两项改动（下两节）已提交并推送；接手按 AGENTS.md 第 6 节先 `git pull --ff-only`。
+
+**目标**：在新代码上完成 R6 真实验收（manifest：exam_standard、4 大题、小问 3/2/3/2、每题 10 分、55 分钟、K2–K8、blueprint_group standard-4），按既有口径记录。
+
+**接手时的状态（Claude Code 只读核对）**
+- web/api/worker/dispatcher 均在运行，0 活动任务，调用记录 255；但运行的是**改动前的旧代码**，需在无活动任务时 `scripts/local.py restart-api` 和 `restart-workers` 加载。
+- **PDF 导出依赖 Playwright Chromium**（`papers/render.py`）。Claude Code 环境中找不到 `ms-playwright`，全库测试 `test_paper_render.py` 两项因此失败；现有服务由 Codex 环境启动，R3 PDF 在该环境导出。因此重启须在 Codex 环境执行，重启后先确认能找到 Chromium，并在 Codex 环境补跑 `test_paper_render.py`。
+- 课程版本 2 中 K2–K8 均 supported，相关依据页均已转写或不需要转写；R6 不需要新页图。10-25 至 10-31 的 7 份真实候选已含 K6–K8 与 `lhopital` 规格，d5a7434f（4 大题）必要项全部通过。
+- 本次改动改变了语义核验 prompt/schema/策略，按 manifest `baseline_policy` 属新基线；R6 记录需注明，不与 R1/R3 做单因素比较。
+
+**下一步**
+1. pull、在 Codex 环境重启 API/worker、确认 Chromium 与 `test_paper_render.py`。
+2. 为 R6 生成**新的规划预检**（不沿用 R1 蓝图），经用户对精确输入授权后规划一次；用户审阅、编辑并确认符合矩阵的结构。
+3. 生成新的精确生成预检并取得授权后运行；独立逐小问审阅、双 PDF 导出与全页目视检查，记录 token、耗时、调用数及是否触发拆分。
+4. 记录写入新的 round-1 R6 报告、README 与本文件；R2 仍 skipped、R4/R5 未执行。
+
+**风险**：4 题卷的必要语义输入此前为 57k–60k（旧投影）；现投影下 3 题为 39k，R6 可能首次真实触发拆分，调用上限 16 次可能吃紧。两分钟目标预计仍不达标。
+
+**未验证**：两项改动未经真实模型运行；前端未改未测；`test_paper_render.py` 需在有 Chromium 的环境复核。未跟踪的 `docs/multi-course-compatibility-design-v0.1.md`（待用户确认的方案）和 `小学语文课件/` 是用户文件，未提交、勿处理。
+
+## Claude Code：可选核验去掉背景引用一项（2026-11-08）
+
+- 用户决定：可选建议核验去掉 `background_references` 一项（此前 R3 中该项因可选输入不含教材摘录而 2 项无法判断）。只做这一项，其他未动。
+- 改动：`review_policy.py`（三项可选类别，`review-policy-v4`）、`content_schemas.py`（`ReviewCheck.category` 去掉该值）、`semantic_review.md`（可选类别说明）、`check_progress.py`（未完成报告的可选占位读取任务冻结策略）；新增两项回归在 `test_generation_check_progress.py`。
+- 不变：题答 `background_references` 字段及其展示、必要核验、来源规则、`PIPELINE_VERSION`；`generation_basis` 不含核验策略，已验证大题仍可跨任务复用。
+- 验证：全部 `test_generation*.py` 加 `test_source_originality.py`、`test_intra_paper_rule.py` 共 **118 passed / 144.81 秒**，Django check 0 issues，`git diff --check` 通过。未跑全库和前端测试（前端未改），未调用真实模型，未重启服务；已随交接提交。
+- 下一步：运行中的 API/worker 仍是旧代码，下一次真实生成前用 `scripts/local.py restart-api` 和 `restart-workers`（无活动任务时）加载，再取新预检；旧预检和授权不能沿用。R4–R6 状态与上一节相同。
+
+### 页图转写来源由服务器绑定（2026-11-08，同一会话，用户要求实施）
+
+- 依据：[A+B 实测](batch-6-live-start-2026-11-02.md)第 63 行的建议（E1 p44 因模型回抄 hash 出错而 `MODEL_SOURCE_MISMATCH`）。
+- 改动：`ai/visual.py` 拆分出模型输出类型 `VisualTranscriptionModelOutput`（无 `source`），`check_transcription` 改为附上服务器来源后校验；`visual_transcription.md` 改为“不要返回来源”；`materials/transcription.py` 用新输出类型调用，抽出 `verify_page` 在发送前和返回后各核对一次，`cached` / `page_states` 接受 `CACHE_COMPATIBLE_VERSIONS` 中的旧版本结果，旧契约排队的页报 `TRANSCRIPTION_CONTRACT_CHANGED` 不发送。版本 `r1-visual-transcription-2-server-source`。输入仍带完整 source，调用记录 metadata 保留来源 hash。
+- 兼容决定（本会话实施时确定，需用户知悉）：旧版本 39 条转写继续当作有效缓存；旧授权不延用到新版本请求。本机只读核对：QM done 27、E1 done 11 / failed 1（p44），调用记录不变。
+- 未改：批次一 `ai/validation.py` 页面核对的来源比对、课程分析与生成流程、前端。
+- 验证：`test_visual_contract.py`、`test_visual_transcription.py`、`test_visual_analysis.py` **51 passed**（新增 6 项：模型 schema 不含 source、服务器来源写入结果与调用记录、模型返回 source 被拒、调用期间页面变化不缓存、旧版本转写仍命中缓存、旧契约排队页不发送）。后端全库（含上方可选核验改动）**376 passed、2 failed / 312.08 秒**：2 项为 `test_paper_render.py` 在本机缺少 Playwright Chromium（`chrome-headless-shell.exe` 不存在）而失败，未安装浏览器，需在有 Chromium 的环境复核。Django check 0 issues，`makemigrations --check` 无变化。前端未改未测。未调用真实模型，未重启服务；已随交接提交。
+- 下一步：E1 p44 或其他未转写页需按新版本取得逐页授权后再发送；API/worker 重启后才加载新代码。
+
 ## 最新真实结果 · R3 两份历史卷去重通过（2026-11-07）
 
 R3 沿用 R1 蓝图并冻结 H0 与 R1-retest-02，3 道全新大题、8 小问，未发现实质重复。56/56 必要项与 8/8 独立逐题审阅通过，完成同版双 PDF。8 次模型和 8 次计数共 147,436 模型 tokens，生成和导出 250.056 秒，未达两分钟目标。R2 仍跳过，三份历史卷场景未覆盖，R4–R6 待执行。验收数据及 PDF 留在本机，服务继续运行。

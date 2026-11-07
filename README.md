@@ -1,5 +1,13 @@
 # AI Past Paper Generator
 
+## 当前实现：页图转写来源由服务器绑定（2026-11-08）
+
+按用户要求实施 2026-11-02 的建议：模型不再逐字回抄来源（含 64 位 hash），只返回页面内容；程序把服务器保存的来源附到结果上再保存，存储格式不变。模型输出类型为 `VisualTranscriptionModelOutput`（无 `source`），提示词和 schema 版本为 `r1-visual-transcription-2-server-source`。来源校验没有放宽：发送前核对解析版本、解析文件、原 PDF 与页图 hash 及逐页授权，模型返回后再次核对解析与原文件；模型若仍返回 source 按 schema 不符拒绝。旧版本 `r1-visual-transcription-1` 的 39 条已保存转写仍作为有效缓存，本机核对 QM 27 页、E1 11 页均显示 done，不会重发；但旧授权只覆盖旧版本请求，在旧契约下排队的页拒绝发送（`TRANSCRIPTION_CONTRACT_CHANGED`），尚未转写的页（含 E1 失败的 p44）需按新版本重新授权。批次一的页面核对命令 `ai_validate` 未改。验证：视觉契约/转写/分析 **51 passed**（新增 6 项回归）；后端全库 **376 passed、2 failed / 312.08 秒**，2 项失败均为 `test_paper_render.py` 因本机缺少 Playwright Chromium 无法启动浏览器，与本次改动无关；Django check 0 issues，迁移无变化。未调用真实模型，未重启服务。
+
+## 当前实现：可选核验去掉背景引用一项（2026-11-08）
+
+按用户决定，可选建议核验不再判断 `background_references`，只保留 wording、alternative_methods、difficulty_detail 三项；版本 `review-policy-v4`。改动在 `review_policy.py`、`content_schemas.py` 的 `ReviewCheck` 类别、`semantic_review.md` 的可选类别说明；`check_progress.py` 的未完成报告按任务冻结的策略生成可选占位，旧任务仍显示原有四项。题答里的 `background_references` 字段、必要核验和来源规则不变；已生成大题的复用依据不含核验策略，仍可复用。新策略改变核验 prompt/schema/策略 hash，下一次真实生成需要新预检，API/worker 重启后才加载。验证：全部 `test_generation*.py` 加 `test_source_originality.py`、`test_intra_paper_rule.py` 共 **118 passed / 144.81 秒**（含新增两项回归），Django check 0 issues；未调用真实模型，未重启服务，前端未改。
+
 ## 最新真实结果 · R3 两份历史卷去重通过（2026-11-07）
 
 R3 沿用 R1 蓝图并冻结 H0 与 R1-retest-02，3 道全新大题、8 小问，未发现实质重复。56/56 必要项与 8/8 独立逐题审阅通过，完成同版双 PDF。8 次模型和 8 次计数共 147,436 模型 tokens，生成和导出 250.056 秒，未达两分钟目标。R2 仍跳过，三份历史卷场景未覆盖，R4–R6 待执行。验收数据及 PDF 留在本机，服务继续运行。

@@ -5,8 +5,11 @@ from pydantic import ValidationError
 from app.core.errors import DomainError
 from .page_review import StrictModel, Finding
 
-PROMPT_VERSION = "r1-visual-transcription-1"
-SCHEMA_VERSION = "r1-visual-transcription-1"
+PROMPT_VERSION = "r1-visual-transcription-2-server-source"
+SCHEMA_VERSION = "r1-visual-transcription-2-server-source"
+# Earlier transcriptions are stored in the same shape, and their copied source passed an exact match,
+# so they remain valid cached results; new consent and new requests use the current versions.
+CACHE_COMPATIBLE_VERSIONS = (("r1-visual-transcription-1", "r1-visual-transcription-1"),)
 LEGACY_SCHEMA_VERSION = "legacy:r1-page-review-1"
 INSTRUCTIONS = (Path(__file__).parent / "prompts/visual_transcription.md").read_text(encoding="utf-8")
 
@@ -70,8 +73,8 @@ class VisualItem(StrictModel):
     text: str | None
 
 
-class VisualTranscriptionOutput(StrictModel):
-    source: VisualSource
+class VisualTranscriptionModelOutput(StrictModel):
+    """What the model returns: page content only. It never copies the source reference."""
     status: Literal["transcribed", "partially_readable", "unsupported_input", "unable_to_determine"]
     page_title: str
     faithful_transcription: str
@@ -81,19 +84,24 @@ class VisualTranscriptionOutput(StrictModel):
     unresolved: list[str]
 
 
+class VisualTranscriptionOutput(VisualTranscriptionModelOutput):
+    """The stored transcription: model content with the server-held source attached."""
+    source: VisualSource
+
+
 # The fields that carry the content of each kind; an item without them transcribes nothing.
 REQUIRED_CONTENT = {"formula": ("latex_as_printed",), "table": ("rows",), "chart": ("axes",),
                     "diagram": ("elements",), "image_text": ("text",), "other": ("text",)}
 
 
-def check_transcription(payload, expected_source):
-    """Business rules the JSON schema cannot express. Violations reject the page, never repair it."""
+def check_transcription(payload, source):
+    """Attach the server-held source to the model's page content, then apply the business rules the
+    JSON schema cannot express. Violations reject the page, never repair it."""
     try:
-        output = VisualTranscriptionOutput.model_validate(payload).model_dump(mode="json")
+        content = VisualTranscriptionModelOutput.model_validate(payload).model_dump(mode="json")
+        output = VisualTranscriptionOutput.model_validate({"source": source, **content}).model_dump(mode="json")
     except ValidationError:
         raise DomainError("VISUAL_SCHEMA_INVALID", "The page transcription does not match its schema.")
-    if output["source"] != expected_source:
-        raise DomainError("MODEL_SOURCE_MISMATCH", "The transcription names a different source.")
     for item in output["items"]:
         # Only an image was supplied; no value in this route can come from native document data.
         if item["value_origin"] == "native_data":

@@ -11,8 +11,8 @@ from django.db import connection, transaction
 from PIL import Image
 from app.ai.contracts import ModelCallSpec
 from app.ai.invocations import run_call
-from app.ai.visual import (INSTRUCTIONS, PROMPT_VERSION, SCHEMA_VERSION, VisualTranscriptionOutput,
-                           check_transcription)
+from app.ai.visual import (INSTRUCTIONS, PROMPT_VERSION, SCHEMA_VERSION, CACHE_COMPATIBLE_VERSIONS,
+                           VisualTranscriptionModelOutput, check_transcription)
 from app.core.errors import DomainError
 from app.core.idempotency import digest
 from app.core.models import Task, ModelInvocation
@@ -102,8 +102,20 @@ def cache_key(entry):
     return tuple(entry[k] for k in KEY_FIELDS)
 
 
+def accepted_versions(entry=None):
+    """(prompt, schema) versions whose stored results answer a page: the entry's own, then compatible earlier ones."""
+    own = (entry["prompt_version"], entry["schema_version"]) if entry else (PROMPT_VERSION, SCHEMA_VERSION)
+    return [own, *(v for v in CACHE_COMPATIBLE_VERSIONS if v != own)]
+
+
 def cached(entry):
-    return VisualTranscription.objects.filter(**{k: entry[k] for k in KEY_FIELDS}).first()
+    fields = {k: entry[k] for k in KEY_FIELDS if k not in ("prompt_version", "schema_version")}
+    for prompt_version, schema_version in accepted_versions(entry):
+        row = VisualTranscription.objects.filter(**fields, prompt_version=prompt_version,
+                                                 schema_version=schema_version).first()
+        if row:
+            return row
+    return None
 
 
 def transcription_policy(course, entries):
@@ -169,8 +181,12 @@ def page_states(course, versions=None):
         for evidence in current_evidence(version):
             decision = decide(evidence, requested, manual)
             key = (str(evidence.id), evidence.parse_version.content_hash, model, PROMPT_VERSION, SCHEMA_VERSION)
-            done = evidence.transcriptions.filter(parse_content_hash=key[1], model=model, prompt_version=PROMPT_VERSION,
-                                                  schema_version=SCHEMA_VERSION).order_by("-created_at").first()
+            done = None
+            for prompt_version, schema_version in accepted_versions():
+                done = evidence.transcriptions.filter(parse_content_hash=key[1], model=model, prompt_version=prompt_version,
+                                                      schema_version=schema_version).order_by("-created_at").first()
+                if done:
+                    break
             state = {"evidence_id": str(evidence.id), "material_version_id": str(version.id),
                      "physical_page": evidence.physical_page, "route": decision, "transcription_id": None,
                      "task_id": None, "error_code": None}
@@ -198,6 +214,16 @@ def source_of(entry):
             "locator": entry["route"]["locator"]}
 
 
+def verify_page(evidence, entry, image=None):
+    """The stored page, its parse and (before sending) the exact image still match the queued entry."""
+    if (str(evidence.parse_version_id) != entry["parse_version_id"]
+            or evidence.parse_version.content_hash != entry["parse_content_hash"]
+            or hashlib.sha256(path_for(evidence.parse_version.document_key).read_bytes()).hexdigest() != entry["parse_content_hash"]
+            or hashlib.sha256(path_for(evidence.material_version.blob.storage_key).read_bytes()).hexdigest() != entry["blob_sha256"]
+            or (image is not None and hashlib.sha256(image).hexdigest() != entry["image_sha256"])):
+        raise DomainError("SOURCE_HASH_MISMATCH", "The page changed after it was queued.")
+
+
 def transcribe_one(token, course, entry):
     with transaction.atomic():
         locked_task(token)  # A cancelled task dispatches no further page.
@@ -206,26 +232,27 @@ def transcribe_one(token, course, entry):
     if evidence is None:
         raise DomainError("EVIDENCE_NOT_FOUND", "The page does not belong to this course.")
     image = model_image(evidence)
-    if (str(evidence.parse_version_id) != entry["parse_version_id"]
-            or evidence.parse_version.content_hash != entry["parse_content_hash"]
-            or hashlib.sha256(path_for(evidence.parse_version.document_key).read_bytes()).hexdigest() != entry["parse_content_hash"]
-            or hashlib.sha256(path_for(evidence.material_version.blob.storage_key).read_bytes()).hexdigest() != entry["blob_sha256"]
-            or hashlib.sha256(image).hexdigest() != entry["image_sha256"]):
-        raise DomainError("SOURCE_HASH_MISMATCH", "The page changed after it was queued.")
+    verify_page(evidence, entry, image)
     if not transcription_policy(course, [entry])[0]:
         raise DomainError("TRANSCRIPTION_CONSENT_REQUIRED", "This page image is not authorised for sending.")
     existing = cached(entry)
     if existing:
         return {"evidence_id": entry["evidence_id"], "outcome": "cached", "transcription_id": str(existing.id)}
+    if (entry["prompt_version"], entry["schema_version"]) != (PROMPT_VERSION, SCHEMA_VERSION):
+        # Consent covers the exact request; a page queued under an earlier contract is not sent with the new one.
+        raise DomainError("TRANSCRIPTION_CONTRACT_CHANGED", "Review the page again under the current transcription contract.")
+    # The source comes from the server-held entry; the model only returns the page content.
     source = source_of(entry)
     call_key = "page:" + entry["evidence_id"]
     spec = ModelCallSpec(stage="visual_transcription", prompt_version=PROMPT_VERSION, schema_version=SCHEMA_VERSION,
                          context_hash=digest(entry), input={"source": source, "extracted_text": evidence.text},
                          max_output_tokens=5000)
-    result = run_call(token, call_key, spec, instructions=INSTRUCTIONS, output_type=VisualTranscriptionOutput,
+    result = run_call(token, call_key, spec, instructions=INSTRUCTIONS, output_type=VisualTranscriptionModelOutput,
                       api_key=os.environ.get("OPENAI_API_KEY", ""), model=entry["model"], image=image)
     if result.status != "parsed":
         raise DomainError(result.error_code or "VISUAL_TRANSCRIPTION_FAILED", "The model returned no usable transcription.")
+    # The attached source must still describe the stored page and parse when the result arrives.
+    verify_page(evidence, entry)
     payload = check_transcription(result.payload, source)
     with transaction.atomic():
         task = locked_task(token)  # A late result after cancellation stays only as its call record.

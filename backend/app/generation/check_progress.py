@@ -50,8 +50,10 @@ def progress_report(candidate):
                  ("paper:intra_duplicates", ids, "intra_paper_rule")]
     for key, targets, method in expected:
         checks.setdefault(key, check(key, targets, method, "not_checked", "This required check has not completed."))
+    # Placeholders follow the task's frozen policy, so older tasks keep their own optional categories.
+    optional = candidate.task.snapshot.get("review_policy", {}).get("optional_categories", OPTIONAL_CATEGORIES)
     for qid in ids:
-        for category in OPTIONAL_CATEGORIES:
+        for category in optional:
             key = f"optional:{qid}:{category}"
             checks.setdefault(key, check(key, [qid], "optional_review", "not_checked",
                                          "Optional check has not run; required checks take priority.", required=False))

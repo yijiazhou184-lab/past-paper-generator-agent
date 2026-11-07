@@ -1,7 +1,8 @@
 import copy
 import pytest
 from django.db import DatabaseError, transaction
-from app.ai.visual import VisualTranscriptionOutput, check_transcription, legacy_to_visual
+from app.ai.visual import (VisualTranscriptionOutput, VisualTranscriptionModelOutput, check_transcription,
+                           legacy_to_visual)
 from app.core.errors import DomainError
 from app.materials.routing import route_page, RULE_VERSION
 
@@ -53,11 +54,18 @@ def strict_objects(schema):
             yield definition
 
 
-def test_schema_is_strict_for_structured_outputs():
-    schema = VisualTranscriptionOutput.model_json_schema()
+@pytest.mark.parametrize("output_type", [VisualTranscriptionModelOutput, VisualTranscriptionOutput])
+def test_schema_is_strict_for_structured_outputs(output_type):
+    schema = output_type.model_json_schema()
     for obj in strict_objects(schema):
         assert obj["additionalProperties"] is False
         assert set(obj["required"]) == set(obj["properties"])
+
+
+def test_model_schema_never_asks_for_the_source():
+    model = VisualTranscriptionModelOutput.model_json_schema()
+    assert "source" not in model["properties"] and "VisualSource" not in model.get("$defs", {})
+    assert set(VisualTranscriptionOutput.model_json_schema()["properties"]) == set(model["properties"]) | {"source"}
 
 
 SOURCE = {"evidence_id": "e1", "material_version_id": "v1", "parse_version_id": "p1", "physical_page": 4,
@@ -75,26 +83,34 @@ def transcription(**items):
             "findings": [], "teaching_use": "Definition", "unresolved": []}
 
 
-def test_valid_transcription_passes_unchanged():
-    assert check_transcription(transcription(), SOURCE) == transcription()
+def content(**items):
+    """The model's part of a transcription: everything except the server-held source."""
+    payload = transcription(**items)
+    payload.pop("source")
+    return payload
+
+
+def test_server_source_is_attached_to_valid_content():
+    assert check_transcription(content(), SOURCE) == transcription()
 
 
 @pytest.mark.parametrize("mutate,code", [
-    (lambda p: p["source"].update(physical_page=5), "MODEL_SOURCE_MISMATCH"),
+    # A model that returns a source (even the correct one) breaks the contract; it is never trusted.
+    (lambda p: p.update(source=copy.deepcopy(SOURCE)), "VISUAL_SCHEMA_INVALID"),
     (lambda p: p["items"][0].update(value_origin="native_data"), "VISUAL_VALUE_ORIGIN_INVALID"),
     (lambda p: p["items"][0].update(latex_as_printed=None), "VISUAL_ITEM_EMPTY"),
     (lambda p: p["items"][0].pop("value_origin"), "VISUAL_SCHEMA_INVALID"),
     (lambda p: p.update(verified=True), "VISUAL_SCHEMA_INVALID"),
 ])
 def test_invalid_transcriptions_are_rejected_not_repaired(mutate, code):
-    payload = transcription()
+    payload = content()
     mutate(payload)
     with pytest.raises(DomainError, match=code):
         check_transcription(payload, SOURCE)
 
 
 def test_unreadable_item_may_be_empty():
-    payload = transcription(latex_as_printed=None, legibility="unreadable")
+    payload = content(latex_as_printed=None, legibility="unreadable")
     assert check_transcription(payload, SOURCE)["items"][0]["latex_as_printed"] is None
 
 

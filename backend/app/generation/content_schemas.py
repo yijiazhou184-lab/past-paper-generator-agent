@@ -144,7 +144,7 @@ class BlindOutput(Strict):
 
 class ReviewCheck(Strict):
     question_id: str
-    category: Literal["clarity", "conditions", "methods", "reasoning", "difficulty", "preferences", "blind_agreement", "math_relevance", "source_alignment", "paper_consistency", "wording", "alternative_methods", "difficulty_detail", "background_references"]
+    category: Literal["clarity", "conditions", "methods", "reasoning", "difficulty", "preferences", "blind_agreement", "math_relevance", "source_alignment", "paper_consistency", "wording", "alternative_methods", "difficulty_detail"]
     result: CheckStatus
     rationale: str = Field(min_length=1, max_length=4000)
     evidence_ids: list[str] = Field(max_length=40)

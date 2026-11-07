@@ -65,6 +65,13 @@ def fixture_payload(source, status="transcribed"):
             "findings": [], "teaching_use": "Definition", "unresolved": []}
 
 
+def model_payload(status="transcribed"):
+    """What the model returns: page content only; the server attaches the source."""
+    payload = fixture_payload(None, status)
+    payload.pop("source")
+    return payload
+
+
 @pytest.fixture
 def model(monkeypatch):
     """Fixture provider: records calls; never reaches the network."""
@@ -84,7 +91,7 @@ def model(monkeypatch):
                 state["after_call"]()
             if spec.input["source"]["physical_page"] in state["fail"]:
                 return ModelCallResult(mode="fixture", status="provider_error", error_code="PROVIDER_RATE_LIMIT")
-            return ModelCallResult(mode="fixture", status="parsed", payload=fixture_payload(spec.input["source"]),
+            return ModelCallResult(mode="fixture", status="parsed", payload=model_payload(),
                                    usage=Usage(input_tokens=10, output_tokens=5, total_tokens=15))
         finally:
             with lock:
@@ -161,17 +168,79 @@ def test_other_course_page_is_rejected(course, model, django_user_model):
     assert model["calls"] == []
 
 
-def test_invalid_model_source_is_not_cached(course, model, monkeypatch):
+def test_model_returning_a_source_is_rejected_not_cached(course, model, monkeypatch):
     parsed_version(course, 1)
     grant_all(course)
     monkeypatch.setattr(invocations, "invoke_official", lambda spec, **kw: ModelCallResult(
-        mode="fixture", status="parsed", payload=fixture_payload({**spec.input["source"], "physical_page": 9})))
+        mode="fixture", status="parsed", payload={**model_payload(), "source": {**spec.input["source"], "physical_page": 9}}))
     task = transcription.schedule(course, "grant")
     call_command("transcribe_visual_one", str(task.id), str(claim_task(task.id).epoch))
     task.refresh_from_db()
-    assert task.state == "failed" and task.error["code"] == "MODEL_SOURCE_MISMATCH"
+    assert task.state == "failed" and task.error["code"] == "VISUAL_SCHEMA_INVALID"
     assert not VisualTranscription.objects.exists()
     assert [s["status"] for s in transcription.page_states(course) if s["status"] != "not_needed"] == ["failed"]
+
+
+def test_stored_source_is_bound_by_the_server_not_copied_by_the_model(course, model, monkeypatch):
+    from app.ai.visual import VisualTranscriptionModelOutput, PROMPT_VERSION, SCHEMA_VERSION
+    parsed_version(course, 1)
+    [entry] = grant_all(course)
+    actual, seen = invocations.invoke_official, []
+    def record(spec, **kwargs):
+        seen.append(kwargs["output_type"])
+        return actual(spec, **kwargs)
+    monkeypatch.setattr(invocations, "invoke_official", record)
+    run(transcription.schedule(course, "grant"))
+    assert seen == [VisualTranscriptionModelOutput]
+    assert "source" not in VisualTranscriptionModelOutput.model_json_schema()["properties"]
+    row = VisualTranscription.objects.get()
+    assert row.payload["source"] == transcription.source_of(entry)
+    assert (row.prompt_version, row.schema_version) == (PROMPT_VERSION, SCHEMA_VERSION)
+    # The full source hashes stay in the frozen request and its call record.
+    call = ModelInvocation.objects.get(call_key="page:" + entry["evidence_id"])
+    assert call.metadata["source"] == transcription.source_of(entry)
+
+
+def test_page_changed_while_the_model_ran_is_not_cached(course, model):
+    version = parsed_version(course, 1)
+    grant_all(course)
+    parse = Evidence.objects.get(material_version=version).parse_version
+    model["after_call"] = lambda: write_bytes(parse.document_key, b'{"changed": true}')
+    with pytest.raises(DomainError, match="SOURCE_HASH_MISMATCH"):
+        run(transcription.schedule(course, "grant"))
+    assert not VisualTranscription.objects.exists() and len(model["calls"]) == 1
+
+
+EARLIER_CONTRACT = {"prompt_version": "r1-visual-transcription-1", "schema_version": "r1-visual-transcription-1"}
+
+
+def test_earlier_contract_transcription_still_answers_the_page(course, model):
+    parsed_version(course, 1)
+    [entry] = transcription.visual_candidates(course)
+    evidence = Evidence.objects.get(pk=entry["evidence_id"])
+    row = VisualTranscription.objects.create(
+        evidence=evidence, parse_content_hash=entry["parse_content_hash"], image_sha256=entry["image_sha256"],
+        model=entry["model"], route=entry["route"], status="transcribed", origin="fixture",
+        payload=fixture_payload(transcription.source_of(entry)), **EARLIER_CONTRACT)
+    assert transcription.cached(entry) == row
+    assert transcription.visual_candidates(course) == []
+    assert [s["status"] for s in transcription.page_states(course)] == ["done"]
+    assert model["calls"] == []
+
+
+def test_page_queued_under_earlier_contract_is_not_sent(course, model):
+    parsed_version(course, 1)
+    [entry] = transcription.visual_candidates(course)
+    old = {**entry, **EARLIER_CONTRACT}
+    TranscriptionGrant.objects.create(course=course, scope_hash="earlier", granted_by=course.owner, scope=[old], source="test")
+    # The earlier consent does not cover a request under the current contract.
+    assert transcription.page_states(course)[0]["status"] == "awaiting_consent"
+    task = Task.objects.create(course=course, kind="visual_transcription", deadline_at=timezone.now() + timedelta(minutes=5),
+                               snapshot={"purpose": "visual_transcription", "pages": [old], "policy": "per_page_grant",
+                                         "concurrency": 1, "max_calls": 1, "trigger": "test"})
+    with pytest.raises(DomainError, match="TRANSCRIPTION_CONTRACT_CHANGED"):
+        run(task)
+    assert model["calls"] == [] and not VisualTranscription.objects.exists()
 
 
 def test_cancel_stops_dispatch_and_late_result_is_not_published(course, model, monkeypatch):
