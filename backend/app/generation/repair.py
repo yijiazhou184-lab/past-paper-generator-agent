@@ -53,11 +53,17 @@ def repair_candidate(token,context,candidate,report):
             for a,b in c.get("duplicate_pairs",[]):
                 qa,qb=part_question.get(a),part_question.get(b)
                 if qa in ids and qb in ids:duplicate_targets.add(max(qa,qb,key=order.index))
+    # A whole-paper semantic check also targets every question for reporting; the review's
+    # repair requests name the questions that must change, and only those are repaired.
+    review_targets={qid for r in report.payload["repair_requests"] for qid in r["target_ids"] if qid in ids}
     for qid,failures in failures_by_question.items():
         for failure in failures:
             if failure["check_id"]==ORIGINALITY_POLICY["check_id"] and qid not in duplicate_targets:
                 failure["actionable"]=False
                 failure["instructions"]="This paper-level finding is repaired in the later question of the identified duplicate pair. Preserve this question."
+            elif failure["check_id"].startswith("semantic:paper:") and qid not in review_targets:
+                failure["actionable"]=False
+                failure["instructions"]="This paper-level finding is repaired in the questions the review named. Preserve this question."
         actions=[f for f in failures if f["actionable"]]
         if actions:
             requests.setdefault(qid,[]).extend({"target_ids":[qid],"issue_codes":[f["check_id"]],"instructions":f["instructions"]} for f in actions)

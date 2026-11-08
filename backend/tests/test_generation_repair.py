@@ -63,3 +63,52 @@ def test_persistent_required_failure_never_publishes(course,planned):
     task.refresh_from_db()
     assert task.state=="failed" and not task.result["allowed"]
     assert task.candidates.count()==2
+
+
+def paper_failure(target=None):
+    """A review whose only failure is the whole-paper check, optionally with a request naming one question."""
+    calls=[0]
+    def review(pairs):
+        result=fixture_review(pairs)
+        calls[0]+=1
+        if calls[0]==1:
+            paper=next(c for c in result["checks"] if c["question_id"]=="paper")
+            paper["result"]="fail"; paper["rationale"]="The blueprint's paper-level note is not addressed."
+            if target:
+                result["repair_requests"]=[{"target_ids":[target],"issue_codes":["paper_note"],"instructions":"Address the note in this question."}]
+        return result
+    return review
+
+
+def test_paper_level_failure_repairs_only_the_questions_the_review_named(course,planned):
+    task,context,token=start(course,planned)
+    ids=[q["blueprint"]["id"] for q in context["input"]["questions"]]
+    target=ids[-1]
+    with patch("app.generation.reviewer.fixture_review",side_effect=paper_failure(target)):
+        run_generation(token)
+    task.refresh_from_db()
+    assert task.state=="succeeded"
+    original,repaired=list(CandidateVersion.objects.filter(task=task).order_by("revision"))
+    # Only the named question was rewritten; the whole-paper target list did not widen the repair.
+    assert [a.key for a in task.generation_artifacts.filter(key__startswith="r1:pair:")]==[f"r1:pair:{target}"]
+    assert original.payload["pairs"][:-1]==repaired.payload["pairs"][:-1]
+
+
+def test_paper_level_failure_without_a_named_question_spends_no_repair_call(course,planned):
+    task,context,token=start(course,planned)
+    with patch("app.generation.reviewer.fixture_review",side_effect=paper_failure()):
+        run_generation(token)
+    task.refresh_from_db()
+    assert task.state=="failed" and task.result["blocking_check_ids"]==["semantic:paper:paper_consistency"]
+    assert task.candidates.count()==1
+    assert not task.generation_artifacts.filter(key__startswith="r1:pair:").exists()
+    assert task.events.filter(stage="No justified repair available").exists()
+
+
+def test_question_writer_receives_the_paper_level_planning_notes(course,planned):
+    from app.generation.generator import question_input
+    _,context,_=start(course,planned)
+    notes=context["input"]["blueprint"]["differences"]
+    assert notes
+    for q in context["input"]["questions"]:
+        assert question_input(context,q,[])["paper_planning_notes"]==notes

@@ -23,6 +23,8 @@ def question_input(context,q,earlier):
         "background_context":{"issues":copy.deepcopy(q.get("issues",[])),
                               "scope":context["input"]["course"]["scope_claims"]},
         "academic_source_ids":q["blueprint"]["evidence_ids"],
+        # The confirmed blueprint's paper-level notes; the whole-paper review checks them, so the writer sees them too.
+        "paper_planning_notes":copy.deepcopy(context["input"]["blueprint"].get("differences",[])),
         "source_policy":context.get("source_policy",SOURCE_POLICY),
         "sources":[s for s in context["input"]["sources"] if s["id"] in ids],
         "earlier_question_summaries":earlier,

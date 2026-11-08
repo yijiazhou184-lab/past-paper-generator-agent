@@ -1,5 +1,9 @@
 # AI Past Paper Generator
 
+## 当前实现 · 整卷规划说明传给出题、整卷检查按审阅点名修复（2026-11-09）
+
+用户手动运行的 f7c7532e（混合练习 3 题 9 问）58/59 必要项通过，唯一阻塞是 `semantic:paper:paper_consistency`：确认蓝图的整卷说明 `differences` 要求覆盖“二阶导数为 0 时检验无法判断”，但出题模型此前只收到本题蓝图，看不到这条说明，而核验模型看得到。审阅只请求修 q3，修复代码却把整卷检查算到三道题上，最坏 10 次调用超过剩余 9 次而放弃修复。现修两处：出题和修复输入新增 `paper_planning_notes`（冻结蓝图的 `differences`），`question_pairs.md` 说明只处理与本题相关的说明且不改冻结结构；`repair.py` 对 `semantic:paper:*` 失败只修复审阅 `repair_requests` 点名的题，未点名的题保持不变，均未点名则不花修复调用。版本 `generation-v8-paper-notes`。出题输入与 prompt 变化，旧大题不再跨任务复用，下一次真实生成需新预检。对 f7c7532e 保存的报告离线回放：新逻辑只修 q3，最坏 6 次在剩余 9 次内，未写入任何记录。验证：后端全库 **399 passed、5 failed / 258.50 秒**：5 项都是 PDF 导出（`test_paper_render.py` 2 项、`test_mock_exam_generation.py` 2 项、`test_multi_topic_generation.py` 1 项），因本机缺少 Playwright Chromium，其中混合练习一项在改动前代码上同样失败；新增 3 项回归通过，暂时撤回 repair 改动时其中 2 项失败。Django check 0 issues，迁移无新增。未调用真实模型，未重启服务。
+
 ## 当前实现 · 通用完整模拟卷（2026-11-09）
 
 每门课在 Course profile 的 Course overview 保存并确认自己的考试模板。Generate 的 Mock exam 从已确认课程版本读取分区、分值、时长及必答或选答规则，使用现有规划、题答、核验和双 PDF 流程。当前运行能力为 2–4 道大题；可用题型由课程和现有生成能力共同决定。

@@ -1,5 +1,5 @@
 """Code-owned release requirements, frozen with every new generation context."""
-PIPELINE_VERSION = "generation-v7-repair-diagnostics"
+PIPELINE_VERSION = "generation-v8-paper-notes"
 REQUIRED_CATEGORIES = ("clarity", "conditions", "methods", "reasoning", "difficulty",
                        "preferences", "originality", "blind_agreement", "source_alignment", "math_relevance")
 MODEL_REQUIRED_CATEGORIES = tuple(c for c in REQUIRED_CATEGORIES if c != "originality")

@@ -1,5 +1,13 @@
 # Codex 与 Claude Code 开发交接
 
+## Claude Code：generation-v8-paper-notes（2026-11-09）
+
+- 起因：用户手动真实运行 f7c7532e-7a9f-495d-a9cf-fee6140ae2bb（11-08 22:41，混合练习 3 题 9 问 45 分）failed / REQUIRED_CHECKS_BLOCKED。58/59 必要项通过，唯一阻塞 `semantic:paper:paper_consistency`：蓝图 `differences[4]` 要求覆盖二阶导数为 0 的情形，出题输入不含该整卷说明。审阅仅请求修 q3，但 `build_repair_failures` 把整卷检查分到 q1–q3，最坏 2×3+4=10 次 > 剩余 9 次，`Repair budget insufficient`。原任务和候选未改。
+- 改动：`generator.py` 的 `question_input` 加 `paper_planning_notes`（冻结蓝图 `differences`，出题与修复共用）；`question_pairs.md` 增一句使用说明；`repair.py` 对 `semantic:paper:*` 失败只在审阅 `repair_requests` 点名的题上可修，其余题标为不可修并保持；`PIPELINE_VERSION` → `generation-v8-paper-notes`，两处测试断言同步。新增 3 项回归在 `test_generation_repair.py`（点名单题只修该题、未点名不花修复调用、出题输入含整卷说明）；暂时撤回 repair 改动时前两项失败，恢复后通过。
+- 离线回放 f7c7532e 报告：新逻辑修复目标为 q3，未触发预算不足；调用记录、事件、候选数不变。
+- 验证：后端全库 399 passed、5 failed / 258.50 秒；5 项均为 PDF 导出在本机找不到 Playwright Chromium（`test_paper_render.py` ×2、`test_mock_exam_generation.py` ×2、`test_multi_topic_generation.py` ×1，后者在改动前代码上同样失败），需在有 Chromium 的 Codex 环境复核。Django check 0 issues，`makemigrations --check` 无新增，`git diff --check` 通过。未调用真实模型，未重启服务、未执行待迁移的 0010。
+- 下一步：按上一节部署步骤（任务空闲、migrate、restart-api/workers）加载后，用户如需重跑 f7c7532e 的配置，需取新预检并授权；旧大题因出题输入变化不会复用。
+
 ## 接手入口 · 通用完整模拟卷（2026-11-09）
 
 **当前交付**　Course overview 可录入、保存并确认课程级考试模板；Mock exam 使用确认版本里的模板，沿用组卷、核验、历史和双 PDF。普通选答保持卷面分与应答分分开，等分路径由服务端检查。通用出题依据补绑会为遗漏的已确认知识点补入现有教学证据；数学检查的 points 接受受限的有限实常量表达式。旧记录继续按原快照读取。R4 的实质重复问题与 R5 其余能力缺口仍单独跟踪。
