@@ -30,7 +30,7 @@ class MathCheckSpec(Strict):
     domain: Domain | None
     at: str | None
     direction: Literal["+", "-", "+-"]
-    points: list[str] = Field(max_length=20)
+    points: list[str | Expression] = Field(max_length=20)
     optimum: Literal["min", "max"] | None
     # core: the part's final answer or a result the part explicitly asks for; auxiliary: supporting evidence.
     role: Literal["core", "auxiliary"]

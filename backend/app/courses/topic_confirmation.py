@@ -9,6 +9,7 @@ from .topic_state import state_map, topic_slice, topic_base, COLLECTIONS
 from .context import statement_list
 from .schemas import validate_template, validate_payload
 from .clarifications import classify_gaps
+from .exam_template import current_exam_template
 
 
 def common_hash(course,payload,frozen_statements=None):
@@ -36,6 +37,7 @@ def version_topics(version):
     result={}
     for m in legacy_mapping(version):
         ids=set(m["knowledge_ids"]);payload=copy.deepcopy(version.frozen_payload)
+        payload.pop("exam_template", None)
         for key in COLLECTIONS:
             payload[key]=[i for i in payload[key] if (i["id"] in ids if key=="knowledge_nodes" else bool(ids.intersection(i.get("subject_ids",i.get("affected_ids",[])))))]
         result[m["topic_id"]]={"topic_id":m["topic_id"],"name":m["name"],"code":m["code"],"payload":payload,
@@ -77,14 +79,17 @@ def topic_status(draft,topic_id,latest=None):
 
 
 @transaction.atomic
-def confirm_topics(owner,course_id,expected_revision,base_course_version_id,selected_topic_ids,key):
+def confirm_topics(owner,course_id,expected_revision,base_course_version_id,selected_topic_ids,key,*,include_exam_template=False):
     course=get_object_or_404(Course.objects.select_for_update(),pk=course_id,owner=owner)
-    if not isinstance(selected_topic_ids,list) or not selected_topic_ids or len(selected_topic_ids)!=len(set(selected_topic_ids)):
+    if (not isinstance(selected_topic_ids,list) or (not selected_topic_ids and not include_exam_template)
+            or len(selected_topic_ids)!=len(set(selected_topic_ids))):
         raise DomainError("TOPIC_SELECTION_INVALID",status=400)
     selected=sorted(str(i) for i in selected_topic_ids)
     topics={str(t.id):t for t in Topic.objects.filter(course=course,id__in=selected,archived=False)}
     if len(topics)!=len(selected):raise DomainError("TOPIC_NOT_FOUND",status=404)
     request={"revision":expected_revision,"base_course_version_id":str(base_course_version_id) if base_course_version_id else None,"selected_topic_ids":selected}
+    if include_exam_template:
+        request["include_exam_template"] = True
     record=intent(owner,f"confirm-topics:{course.id}",key,request)
     if record.response:return CourseVersion.objects.get(pk=record.response["version_id"],course=course)
     draft=get_object_or_404(CourseDraft.objects.select_for_update(),course=course)
@@ -125,7 +130,12 @@ def confirm_topics(owner,course_id,expected_revision,base_course_version_id,sele
         snapshots[tid]={"topic_id":tid,"name":topics[tid].name,"code":topics[tid].code,"payload":payload,
             "context":reviewed_context,"draft_revision":draft.revision,"confirmed_knowledge_ids":eligibility["objective_ids"],"common_hash":shared,
             "manual_patches":[p for p in draft.manual_patches if len(p["path"])<3 or p["path"][1] in owned],"analysis_mode":base.mode}
+    if not snapshots:
+        raise DomainError("TOPIC_CONFIRMATION_REQUIRED", "Confirm at least one topic before adopting this exam template.")
     frozen=copy.deepcopy(draft.payload)
+    template = current_exam_template(draft, latest, include=include_exam_template)
+    if template:
+        frozen["exam_template"] = template
     for field in COLLECTIONS:
         rows={}
         for snap in snapshots.values():
@@ -137,7 +147,7 @@ def confirm_topics(owner,course_id,expected_revision,base_course_version_id,sele
         "knowledge_ids":s.get("confirmed_knowledge_ids",[n["id"] for n in s["payload"]["knowledge_nodes"]]),"confirmed_draft_revision":s["draft_revision"],
         "template_suggestion":s["payload"]["template_suggestion"]} for tid,s in snapshots.items()]
     # The topic-specific template travels in the manifest; a whole-course template is not inferred.
-    frozen["template_suggestion"]=snapshots[selected[0]]["payload"]["template_suggestion"] if len(snapshots)==1 else None
+    frozen["template_suggestion"]=next(iter(snapshots.values()))["payload"]["template_suggestion"] if len(snapshots)==1 else None
     contexts=[s["context"] for s in snapshots.values()]
     def union(field):
         values={}

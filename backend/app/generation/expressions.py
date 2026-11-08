@@ -4,6 +4,7 @@ import sympy as sp
 
 CHECKER_CONTRACT = {
     "literals":"Numbers: signed decimals up to 8 digits on either side, or signed integer fractions with 1-8 digit numerator and positive nonzero 1-8 digit denominator. No executable strings.",
+    "points":"Each points entry is a numeric literal or a restricted expression object for a finite real constant without variables, such as div(2, sqrt(3)). Use numeric literals for at and finite domain bounds.",
     "arity":"add/mul: 2-4 arguments; sub/div/pow: exactly 2; sin/cos/exp/log/sqrt/abs: exactly 1; number/variable: no arguments.",
     "bounds":"Domain lower null or -inf means negative infinity; upper null or inf means positive infinity. Other bounds are numeric literals. Infinity is not an expression number.",
     "limits":"At most 80 AST nodes and depth 12; powers numeric with absolute exponent <=12. Single real variable x,y,t,q per check. No implicit multi-variable constraint solver.",
@@ -26,7 +27,7 @@ def number(value):
     raise ValueError("Only bounded decimal or nonzero-denominator fractional literals are supported.")
 
 
-def expression(node):
+def expression(node, *, constant=False):
     count = [0]
     def visit(item, depth):
         count[0] += 1
@@ -40,6 +41,8 @@ def expression(node):
                 raise ValueError("Leaf cannot have arguments.")
             if op == "number":
                 return number(val)
+            if constant:
+                raise ValueError("A point expression cannot contain variables.")
             if val not in VARIABLES:
                 raise ValueError("Unknown variable.")
             return VARIABLES[val]
@@ -68,6 +71,8 @@ def expression(node):
             raise ValueError("Unsupported operator or arity.")
         if result.has(sp.zoo, sp.nan, sp.oo, -sp.oo) or sp.count_ops(result)>100:
             raise ValueError("Invalid or excessive expression.")
+        if constant and (result.is_real is not True or result.is_finite is not True):
+            raise ValueError("A point expression must contain only finite real values.")
         if result.is_Rational and max(abs(int(result.p)).bit_length(), int(result.q).bit_length()) > 512:
             raise ValueError("Numeric constant too large.")
         if any(p.exp.is_number and p.exp.is_real is True and abs(p.exp)>24 for p in result.atoms(sp.Pow)):

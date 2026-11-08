@@ -1,17 +1,25 @@
+import type {ResponseType} from "../generate/types";
+
 export type Patch = { path: string[]; value: unknown };
 export type Claim = { id: string; text: string; subject_ids: string[]; applicability: string; provenance: string;
   authority_status: string; evidence_ids: string[]; statement_ids: string[]; status: string; disposition: string };
 export type Template = { label: "suggested"; calibration: string; question_types: string[];
   sections: { title: string; main_questions: number; marks_per_question: number; selection: string; choose_count: number }[];
   duration_minutes: number; total_marks: number; rationale: string };
-export type Payload = { topic_manifest?:{topic_id:string;name:string;code:string;knowledge_ids:string[];template_suggestion?:Template|null}[]; title: string; target_exam: { label: string | null; academic_year: string | null };
+export type ExamTemplate = {
+  sections: {id: string; title: string; question_marks: number[]; selection: {mode: "all"|"choose"; choose_count: number}}[];
+  duration_minutes: number; question_types: ResponseType[];
+  permitted_aids: string | null; origin: "current_instruction"|"historical_reference"|"user_entry";
+  sources: {material_version_id: string; physical_page: number; classification_revision?: number}[];
+};
+export type Payload = { exam_template?: ExamTemplate | null; topic_manifest?:{topic_id:string;name:string;code:string;knowledge_ids:string[];template_suggestion?:Template|null}[]; title: string; target_exam: { label: string | null; academic_year: string | null };
   knowledge_nodes: { id: string; title: string; requirements: string; depth: number; node_kind?: "group"|"objective"; readiness: string; evidence_ids: string[] }[];
   scope_claims: Claim[]; method_rules: Claim[]; historical_style: Claim[]; template_suggestion: Template | null };
 export type Question = { id: string; question: string; reason: string; impact: string; status: string;
   answer?: { text: string; reanalysis_required: boolean; application_status?:string; option_ids?:string[] }; affected_ids: string[]; evidence_ids: string[]; suggested_answers?: string[];
   kind?:string;decision_key?:string;definition_hash?:string;selection_mode?:"single"|"multiple";allows_free_text?:boolean;options?:{id:string;text:string}[];decision_status?:string;
   action_kind: "clarification" | "review_existing_sources" | "evidence_note" | "review_required" };
-export type Draft = { topic_id?:string|null; topic_name?:string|null; topic_status?:string|null; id: string; revision: number; payload: Payload; mode: string; manual_patches: Patch[];
+export type Draft = { exam_template_status?: string; exam_template_suggestion?: Template | null; topic_id?:string|null; topic_name?:string|null; topic_status?:string|null; id: string; revision: number; payload: Payload; mode: string; manual_patches: Patch[];
   merge_warnings: { path: string[]; message: string; machine_value: unknown; manual_value: unknown }[];
   clarifications: Question[]; blocking_count: number; answers_need_analysis: boolean; analysis_task_id: string; confirmed_revision: number | null;
   latest_version_id: string | null; target_ids: string[];selected_knowledge_ids?:string[];eligibility?:{allowed:boolean;objective_ids:string[];dependency_ids:string[];blockers:unknown[]};

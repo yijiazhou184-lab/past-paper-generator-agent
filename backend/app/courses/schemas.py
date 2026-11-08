@@ -3,6 +3,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.core.errors import DomainError
 
+ResponseType = Literal["calculation", "explanation_proof", "applied_optimisation"]
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -50,7 +52,7 @@ class TemplateSection(StrictModel):
 class TemplateSummary(StrictModel):
     label: Literal["suggested"]
     calibration: Literal["not_calibrated_to_current_exam"]
-    question_types: list[Literal["calculation", "explanation_proof", "applied_optimisation"]] = Field(min_length=1, max_length=3)
+    question_types: list[ResponseType] = Field(min_length=1, max_length=3)
     sections: list[TemplateSection] = Field(min_length=1, max_length=4)
     duration_minutes: int = Field(ge=5, le=240)
     total_marks: int = Field(ge=1, le=200)

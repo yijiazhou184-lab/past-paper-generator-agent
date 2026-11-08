@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Blueprint, CourseVersion, Plan } from "./types";
 import { typeLabels } from "./types";
+import { TopicCoverageSummary } from "./TopicCoverageSummary";
 
 export function StructureSummary({courseId, blueprint, version, edited, disabled, onEdit}: {
   courseId: string; blueprint: Blueprint; version: CourseVersion; edited: Plan | null; disabled: boolean; onEdit: (plan: Plan) => void;
@@ -18,6 +19,7 @@ export function StructureSummary({courseId, blueprint, version, edited, disabled
       <div><strong>{plan.printed_marks}</strong><span>Printed marks</span></div>
       <div><strong>{plan.attempt_marks}</strong><span>Attempt marks</span></div>
     </div>
+    {blueprint.topic_coverage&&<TopicCoverageSummary coverage={blueprint.topic_coverage} plan={blueprint.payload} saved={!!edited}/>}
     {edited && <p role="status">Structure edits are unsaved. Totals will be recalculated when you save.</p>}
     <fieldset disabled={disabled} className="structure-controls"><label>Suggested minutes<input type="number" min={5} max={240} value={plan.suggested_minutes} onChange={e=>change(p=>{p.suggested_minutes=Number(e.target.value);})}/></label>
       <label className="check-line"><input type="checkbox" checked={plan.subquestion_count_locked} onChange={e=>change(p=>{p.subquestion_count_locked=e.target.checked;})}/>Lock part count</label></fieldset>

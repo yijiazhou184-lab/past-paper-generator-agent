@@ -5,7 +5,7 @@ import { ArrowRight, BookOpen, CheckCircle2, SlidersHorizontal } from "lucide-re
 import { useCourse } from "../../app/router";
 import { api } from "../../api/client";
 import { Dialog } from "../../components/Dialog";
-import { ConfigController, currentBlueprint, defaults, configErrors } from "./config-state";
+import { ConfigController, currentBlueprint, defaults, configErrors, reuseSettings, mockExamDefaults } from "./config-state";
 import { GenerationLaunch } from "./GenerationLaunch";
 import { StructureSummary } from "./StructureSummary";
 import { useAction } from "./useAction";
@@ -57,25 +57,26 @@ function Planner({workspace, refresh}: {workspace: Workspace; refresh: ()=>void}
   const running=!!workspace.latest_task && ["queued","processing"].includes(workspace.latest_task.state);
   const busy=action.running || !!action.pending || state.saving;
   const confirmed=valid && server?.confirmed && !running;
+  const mock=state.config.mode === "mock_exam";
+  const canMock=workspace.capabilities?.mock_exam && !version.mock_exam_blocker && !!version.payload.exam_template;
   const errors=configErrors(state.config);
+  if(mock && !canMock) errors.push(version.mock_exam_blocker || "Confirm an exam template in Course profile.");
   const change=(config:Config)=>{controller.edit(config);setEdited(null);setAuthorized(false);};
   const retrySave=async()=>{await controller.save();refresh();};
   const base=`/courses/${course.id}`;
+  const reusable=reuse.data?.paper.course_id===course.id ? reuseSettings(reuse.data.paper.metadata.config,workspace.versions[0]) : null;
+  const canMix=workspace.capabilities?.mixed_topic_practice && (version.payload.topic_manifest??[]).filter(topic=>
+    topic.knowledge_ids.length&&(!workspace.topics?.length||workspace.topics.some(t=>t.id===topic.topic_id&&t.readiness==="confirmed"&&!t.archived))).length>=2;
   return <>
     {fromPaper && <section className="panel paper-config-reuse"><h2>Start another practice</h2>
       {reuse.isPending ? <p>Loading the saved configuration…</p> : reuse.isError ? <p role="alert">{reuse.error.message}</p> : reuse.data && reuse.data.paper.course_id===course.id ? <>
         <p>The previous paper stays unchanged. Its configuration used course version {reuse.data.paper.metadata.course_version_number}; the latest confirmed version is {workspace.versions[0].number}.</p>
         <p>Apply these settings to review them against the latest course. Save, plan and confirm a new structure before generating.</p>
-        {knowledgeIds(reuse.data.paper.metadata.config).some(id=>!workspace.versions[0].payload.knowledge_nodes.some(n=>n.id===id && n.readiness==="supported")) && <p className="review-note" role="status">Some previously selected topics are no longer supported in the latest confirmed course. Those topics will be left out. Review and select supported topics below before saving.</p>}
-        <button disabled={busy || running} onClick={()=>{
-          const previous=reuse.data!.paper.metadata.config;
-          const latest=workspace.versions[0];
-          const available=new Set(latest.payload.knowledge_nodes.filter(n=>n.readiness==="supported").map(n=>n.id));
-          const initial=defaults(latest);
-          const ids=knowledgeIds(previous).filter(id=>available.has(id));
-          change(initial.schema_version==="practice-config-v2"?{...initial,difficulty:previous.difficulty,main_question_count:previous.main_question_count,question_types:previous.question_types,knowledge_ids:ids.filter(id=>latest.payload.topic_manifest?.find(m=>m.topic_id===initial.selected_topic_ids[0])?.knowledge_ids.includes(id))}:{...previous,course_version_id:latest.id,topic_ids:ids,schema_version:undefined,knowledge_ids:undefined,selected_topic_ids:undefined});
-          setParams({});
-        }}>Use settings with latest course</button></> : <p role="alert">This paper belongs to another course.</p>}
+        {reusable && (knowledgeIds(reusable).length!==knowledgeIds(reuse.data.paper.metadata.config).length ||
+          (reusable.selected_topic_ids?.length??0)<(reuse.data.paper.metadata.config.selected_topic_ids?.length??0)) &&
+          <p className="review-note" role="status">Some saved targets or topics need review in the latest version. Check the resulting selection before saving.</p>}
+        <button disabled={busy || running || !reusable} onClick={()=>{if(reusable){change(reusable);setParams({});}}}>Use settings with latest course</button></> : <p role="alert">This paper belongs to another course.</p>}
+      {reusable?.mode==="mock_exam"&&workspace.versions[0].mock_exam_blocker&&<p className="review-note">{workspace.versions[0].mock_exam_blocker}</p>}
       <p><button onClick={()=>setParams({})}>Keep current configuration</button></p></section>}
     <div className="generation-meta"><span className="profile-tag">Course version {version.number} confirmed</span><span>{version.mode === "fixture" ? "Fixture data · no model call" : version.mode === "live" ? "Based on a real model draft" : "Analysis provenance not recorded"}</span><Link to={`${base}/profile`}>Review course</Link></div>
     {requested && requested.id !== state.config.course_version_id && <p className="review-note">You arrived from course version {requested.number}. This saved practice uses another version; choose the intended version below.</p>}
@@ -84,17 +85,35 @@ function Planner({workspace, refresh}: {workspace: Workspace; refresh: ()=>void}
     {(action.error || action.pending) && <section className="error-box" role="alert"><p>{action.error || (action.running ? `${action.pending?.label}…` : "An earlier action may have completed. Recover its saved request.")}</p>{action.pending && !action.running && <button onClick={action.retry}>Retry last action safely</button>}{!action.pending && <button onClick={refresh}>Refresh saved state</button>}</section>}
     <div className="generation-grid"><section className="panel generation-config"><div className="config-heading"><SlidersHorizontal size={20}/><h2>This practice</h2></div><p>Choose a focus. These settings do not change your course defaults.</p>
       <fieldset disabled={busy}><label>Confirmed course version<select value={state.config.course_version_id} onChange={e=>change(defaults(workspace.versions.find(v=>v.id===e.target.value)!))}>{workspace.versions.map(v=><option key={v.id} value={v.id}>Version {v.number}{v.mode==="fixture" ? " (fixture)" : ""}</option>)}</select></label>
-        <label>Practice mode<select value="chapter_practice" disabled><option value="chapter_practice">Chapter practice</option></select></label>
+        <label>Practice mode<select value={state.config.mode} disabled={!canMix&&!canMock&&state.config.mode==="chapter_practice"} onChange={e=>{
+          const config=state.config;
+          if(e.target.value==="mock_exam"){
+            const next=mockExamDefaults(version);
+            if(next?.schema_version==="practice-config-v2") change({...next,difficulty:config.difficulty,
+              ...(config.schema_version==="practice-config-v2" ? {selected_topic_ids:config.selected_topic_ids,knowledge_ids:config.knowledge_ids} : {})});
+            return;
+          }
+          if(config.schema_version!=="practice-config-v2")return;
+          if(e.target.value==="mixed_topic_practice"){change({...config,mode:"mixed_topic_practice"});return;}
+          const topic=version.payload.topic_manifest?.find(t=>t.topic_id===config.selected_topic_ids[0]);
+          change({...config,mode:"chapter_practice",selected_topic_ids:topic?[topic.topic_id]:[],
+            knowledge_ids:config.knowledge_ids.filter(id=>topic?.knowledge_ids.includes(id))});
+        }}><option value="chapter_practice">Chapter practice</option><option value="mixed_topic_practice" disabled={!canMix}>Mixed-topic practice</option><option value="mock_exam" disabled={!canMock}>Mock exam</option></select>
+          {!canMock&&version.mock_exam_blocker&&<small>{version.mock_exam_blocker} <Link to={base+"/profile"}>Review template</Link></small>}
+          {mock&&canMock&&<small>Based on the confirmed exam template. Select the topics and knowledge this paper may assess.</small>}
+          {!canMix&&<small>Mixed-topic practice needs two confirmed topics in this course version.</small>}
+          {state.config.mode==="mixed_topic_practice"&&<small>Switching to chapter practice keeps the first selected topic.</small>}
+        </label>
         <TopicKnowledgeSelector version={version} topics={workspace.topics??[]} config={state.config} onChange={change} disabled={busy}/>
         <label>Difficulty<select aria-label="Difficulty" value={state.config.difficulty} onChange={e=>change({...state.config,difficulty:e.target.value as Config["difficulty"]})}><option value="foundation">Foundation</option><option value="exam_standard">Exam-standard</option><option value="challenge">Challenge</option></select></label>
         <label>Main questions<input type="number" min={2} max={4} value={state.config.main_question_count} onChange={e=>change({...state.config,main_question_count:Number(e.target.value)})}/><small>2–4 main questions. Each can cover several targets.</small></label>
-        <h3>Question types</h3>{responseTypes.map(type=><label className="check-line" key={type}><input type="checkbox" checked={state.config.question_types.includes(type)} onChange={e=>change({...state.config,question_types:e.target.checked ? [...state.config.question_types,type] : state.config.question_types.filter(t=>t!==type)})}/>{typeLabels[type]}</label>)}
+        <h3>Question types</h3>{responseTypes.filter(type=>!mock||version.payload.exam_template?.question_types.includes(type)).map(type=><label className="check-line" key={type}><input type="checkbox" checked={state.config.question_types.includes(type)} onChange={e=>change({...state.config,question_types:e.target.checked ? [...state.config.question_types,type] : state.config.question_types.filter(t=>t!==type)})}/>{typeLabels[type]}</label>)}
       </fieldset>
       {errors.length>0 && <ul className="field-errors" role="alert">{errors.map(e=><li key={e}>{e}</li>)}</ul>}
       {state.error && <p role="alert">{state.error}</p>}
       <div className="config-save-status" role="status">{state.saving ? "Saving configuration…" : state.dirty ? "Unsaved configuration" : `Configuration saved · revision ${server?.revision}`}</div>
       <button disabled={busy || state.conflict || !state.dirty || !!errors.length} onClick={retrySave}>Save configuration</button>
-      <button className="primary" disabled={busy || running || state.dirty || !!edited || !server || state.conflict} onClick={()=>{setAuthorized(false);setScope(true);}}>Review structure <ArrowRight size={16}/></button>
+      <button className="primary" disabled={busy || running || state.dirty || !!edited || !server || state.conflict || !!errors.length} onClick={()=>{setAuthorized(false);setScope(true);}}>Review structure <ArrowRight size={16}/></button>
     </section><section className="panel generation-structure">
       {workspace.latest_task && <div className="planning-status" role="status"><strong>{workspace.latest_task.stage}</strong><span>{workspace.latest_task.elapsed_seconds.toFixed(1)}s · {workspace.latest_task.state}</span><Link to={`/tasks/${workspace.latest_task.id}`}>View {workspace.latest_task.kind === "generation" ? "generation" : "planning"} task{running ? " or cancel" : ""}</Link>
         {workspace.latest_task.target_exceeded && <p>Longer than the 2-minute target{running ? " — still processing." : "."}</p>}
@@ -127,6 +146,6 @@ export function GeneratePage() {
   return <><title>Generate practice · Past Paper Generator</title><div className="page-heading"><div><p className="breadcrumb">Generate</p><h1>Plan a focused practice.</h1><p>Set your targets, review the structure, and keep the inputs together.</p></div><CheckCircle2 size={30}/></div>
     {query.isPending && <section className="panel empty-state" role="status">Loading your saved practice configuration…</section>}
     {query.isError && <section className="error-box" role="alert">{query.error.message}<button onClick={()=>query.refetch()}>Retry</button></section>}
-    {query.data && !query.data.versions.length && <section className="panel empty-state"><BookOpen size={36}/><h2>Confirm your course first</h2><p>Your Topic 2 course draft still needs review. A confirmed course version is required before planning a real practice.</p><Link className="button primary" to={`/courses/${course.id}/profile`}>Review course profile</Link><p>No model request has been made from this page.</p></section>}
+    {query.data && !query.data.versions.length && <section className="panel empty-state"><BookOpen size={36}/><h2>Confirm your course first</h2><p>Your course draft still needs review. A confirmed course version is required before planning a real practice.</p><Link className="button primary" to={`/courses/${course.id}/profile`}>Review course profile</Link><p>No model request has been made from this page.</p></section>}
     {query.data && query.data.versions.length>0 && <Planner key={course.id} workspace={query.data} refresh={()=>{void query.refetch();}}/>}</>;
 }

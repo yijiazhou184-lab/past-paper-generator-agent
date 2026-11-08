@@ -8,6 +8,7 @@ from app.core.errors import DomainError
 from app.core.idempotency import digest, intent
 from app.core.models import Task
 from app.core.tasks import submit_task
+from .config_compat import COMPARISON_ROLES, mixed_topic_inputs
 from .models import GenerationDraft, GenerationSnapshot, GenerationGrant
 from .snapshots import owned_course, require_confirmation, freeze_generation
 from .expressions import CHECKER_CONTRACT
@@ -17,7 +18,6 @@ from .originality_policy import POLICY as ORIGINALITY_POLICY
 
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "ai/prompts"
 PROMPTS = ("question_pairs", "blind_solver", "semantic_review", "repair")
-COMPARISON_ROLES = {"past_paper", "practice", "seminar", "revision", "additional_questions", "assessment"}
 
 
 def source_content(e):
@@ -33,7 +33,15 @@ def build_generation_context(snapshot):
     frozen = snapshot.payload
     if digest(frozen) != snapshot.payload_hash or digest(frozen["course"]) != frozen["course_payload_hash"] or digest(frozen["blueprint"]) != frozen["blueprint_hash"]:
         raise DomainError("GENERATION_SNAPSHOT_HASH_MISMATCH")
-    evidence = {e["id"]: e for e in frozen["evidence_manifest"]["evidence"]}
+    course, statements = copy.deepcopy(frozen["course"]), frozen["statements"]
+    evidence_rows = frozen["evidence_manifest"]["evidence"]
+    mock = frozen["config"]["mode"] == "mock_exam"
+    mixed = frozen["config"]["mode"] in ("mixed_topic_practice", "mock_exam")
+    if not mock:
+        course.pop("exam_template", None)
+    if mixed:
+        course, evidence_rows, statements = mixed_topic_inputs(frozen["config"], course, frozen["evidence_manifest"], statements)
+    evidence = {e["id"]: e for e in evidence_rows}
     questions = []
     required = set()
     for q in frozen["blueprint"]["questions"]:
@@ -42,10 +50,11 @@ def build_generation_context(snapshot):
             raise DomainError("EVIDENCE_REFERENCE_INVALID")
         required.update(ids)
         questions.append({"blueprint": copy.deepcopy(q),
-            "knowledge": [copy.deepcopy(n) for n in frozen["course"]["knowledge_nodes"] if n["id"] in q["knowledge_ids"]],
-            "methods": copy.deepcopy(frozen["course"]["method_rules"]),
-            "issues": copy.deepcopy(frozen["course"]["issues"])})
-    comparison_ids = sorted(e["id"] for e in evidence.values() if set(e.get("roles", [])) & COMPARISON_ROLES)
+            "knowledge": [copy.deepcopy(n) for n in course["knowledge_nodes"] if n["id"] in q["knowledge_ids"]],
+            "methods": copy.deepcopy(course["method_rules"]),
+            "issues": copy.deepcopy(course["issues"])})
+    comparison_ids = sorted(e["id"] for e in evidence.values() if set(e.get("roles", [])) & COMPARISON_ROLES
+                            and (not mixed or (e.get("visual_status") != "visual_pending" and (e.get("text") or e.get("visual")))))
     required.update(comparison_ids)
     sources = []
     for eid in sorted(required):
@@ -61,7 +70,7 @@ def build_generation_context(snapshot):
     data = {"snapshot_id": str(snapshot.id), "snapshot_hash": snapshot.payload_hash,
         "selected_topics":copy.deepcopy(frozen.get("selected_topics",[])),
         "course_version_id": frozen["course_version_id"], "config": frozen["config"], "blueprint": frozen["blueprint"],
-        "course": frozen["course"], "statements": frozen["statements"], "questions": questions,
+        "course": course, "statements": statements, "questions": questions,
         "sources": sources,
         "background_source_catalog": [{k: copy.deepcopy(e[k]) for k in
             ("id","material_code","material_version_id","physical_page") if k in e}

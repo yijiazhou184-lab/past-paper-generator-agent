@@ -61,7 +61,7 @@ def topic_view(topic):
 def list_topics(owner, course_id):
     course = get_object_or_404(Course, pk=course_id, owner=owner)
     return {"topics": [topic_view(t) for t in course.topics.order_by("order", "created_at", "id")],
-            "capabilities": {"mixed_topic_practice": False, "mock_exam": False}}
+            "capabilities": {"mixed_topic_practice": True, "mock_exam": False}}
 
 
 @transaction.atomic

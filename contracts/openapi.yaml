@@ -1365,7 +1365,9 @@ components:
           items:
             type: string
             format: uuid
-          minItems: 1
+        include_exam_template:
+          type: boolean
+          default: false
         base_course_version_id:
           type: string
           format: uuid

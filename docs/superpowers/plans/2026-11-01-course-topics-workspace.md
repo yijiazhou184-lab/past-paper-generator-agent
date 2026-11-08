@@ -141,6 +141,9 @@
 
 ## U4：跨 Topic 混合练习（第二轮首批）
 
+2026-11-09 本地实施状态。已完成配置、覆盖、来源范围、页面和双 PDF 兼容，后端 49 项、前端 37 项及生产构建通过。正常入口的隔离流程验证位于 backend/tests/test_multi_topic_generation.py。当前真实 QM 版本仅有 Topic 2，待第二章确认和两阶段精确授权后执行真实多章节验收。
+
+
 **依赖**：U1–U3、第一轮第六批记录。不是本次文档任务授权执行的内容。
 **文件**：
 - 修改 generation/schemas.py、planning.py、execution_context.py 与规划提示词，新增 backend/app/generation/topic_coverage.py。

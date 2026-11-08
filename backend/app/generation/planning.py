@@ -1,4 +1,4 @@
-from .config_compat import course_projection, selected_topics
+from .config_compat import course_projection, mixed_topic_inputs, selected_topics
 import copy
 import os
 from pathlib import Path
@@ -12,9 +12,11 @@ from app.core.errors import DomainError
 from app.core.idempotency import digest, intent
 from app.core.models import Task, TaskAttempt, TaskEvent
 from app.core.tasks import submit_task, locked_task, checkpoint, finish_task
+from app.courses.schemas import TEACHING_ROLES
+from app.courses.exam_template import require_current_exam_template
 from .models import GenerationDraft, Blueprint, PlanningGrant
 from .schemas import PlanningOutput, SCHEMA_VERSION, validate_config, validate_blueprint, materialize_planning_blueprint
-from .snapshots import owned_course, require_revision, structure_diff
+from .snapshots import owned_course, require_revision, structure_diff, exam_template_changes
 
 
 PLANNING_SCHEMA_VERSION = "planning-v3-part-coverage"
@@ -23,23 +25,51 @@ PROMPT_VERSION = "r1-planning-3-part-coverage"
 
 def build_context(draft):
     version = draft.course_version
-    validate_config(draft.config, course_projection(version), version.evidence_manifest["evidence"])
+    course = course_projection(version)
+    evidence = version.evidence_manifest["evidence"]
+    statements = version.statements
+    validate_config(draft.config, course, evidence)
+    mock = draft.config["mode"] == "mock_exam"
+    mixed = draft.config["mode"] == "mixed_topic_practice"
+    if mock:
+        require_current_exam_template(version)
+    else:
+        course.pop("exam_template", None)
+    analysis_mode = version.evidence_manifest.get("analysis_mode")
+    if mixed or mock:
+        course, evidence, statements = mixed_topic_inputs(draft.config, course, version.evidence_manifest, statements)
+        snapshots = version.evidence_manifest.get("topic_snapshots", {})
+        modes = {snapshots.get(tid, {}).get("analysis_mode", analysis_mode) for tid in draft.config["selected_topic_ids"]}
+        if len(modes) != 1 or "mixed" in modes:
+            raise DomainError("MIXED_TOPIC_ANALYSIS_MODE", "Choose topics with matching analysis provenance.")
+        analysis_mode = modes.pop()
     if digest(version.frozen_payload) != version.payload_hash:
         raise DomainError("COURSE_VERSION_HASH_MISMATCH")
     prompt = (Path(__file__).resolve().parents[1] / "ai/prompts/blueprint.md").read_text(encoding="utf-8")
+    if mixed:
+        prompt += (" For mixed-topic practice, distribute the selected topics and their knowledge across the paper. "
+                   "A question may connect topics. Every permitted answer path must cover the chosen topics and knowledge. "
+                   "If the requested size cannot support meaningful coverage, return needs_info and identify the conflict.")
+    if mock:
+        prompt += (" The following mock-exam rules take precedence over the chapter-practice defaults above. "
+                   "For a mock exam, use only the selected knowledge; you may leave some selected knowledge untested. "
+                   "Put each requested response type somewhere on the printed paper. Follow the confirmed exam template's "
+                   "section order, titles, number of questions, marks per question, selection rules and duration when its "
+                   "question count matches the requested count. If the requested count changes, propose a revised structure "
+                   "and describe the effects on marks, selection and timing. Do not claim official calibration.")
     snapshot = {"prompt_version": PROMPT_VERSION, "schema_version": PLANNING_SCHEMA_VERSION, "prompt": prompt,
         "blueprint_schema_version": SCHEMA_VERSION, "coverage_policy": "part-knowledge-union-v1",
         "schema_hash": digest(PlanningOutput.model_json_schema()), "limits_version": "r1-limits-proposal-1",
         "adapter_version": "official-responses-v1", "model_settings": {"reasoning_effort": "medium", "max_input_tokens": 60000,
             "max_output_tokens": 12000, "sdk_max_retries": 0, "task_deadline_seconds": 180, "call_timeout_seconds": 150},
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses", "store": False,
-        "mode": "fixture" if version.evidence_manifest.get("analysis_mode") == "fixture" else "live",
+        "mode": "fixture" if analysis_mode == "fixture" else "live",
         "input": {"course_version_id": str(version.id), "course_payload_hash": version.payload_hash,
-            "course": course_projection(version), "config": copy.deepcopy(draft.config),
+            "course": course, "config": copy.deepcopy(draft.config),
             "selected_topics": selected_topics(draft.config,version),
-            "statements": copy.deepcopy(version.statements),
+            "statements": copy.deepcopy(statements),
             "evidence": [{k: e[k] for k in ("id", "material_version_id", "physical_page", "material_code", "roles", "fidelity_status") if k in e}
-                         for e in version.evidence_manifest["evidence"]],
+                         for e in evidence],
             "capabilities": {"response_types": ["calculation", "explanation_proof", "applied_optimisation"],
                 "asset_types": ["function_graph", "data_table"], "software_answers": False, "question_count": [2, 4]}}}
     snapshot["context_hash"] = digest(snapshot)
@@ -109,10 +139,18 @@ def publish_plan(token, payload):
     previous = draft.blueprint
     origin = Blueprint.objects.filter(family=previous.family, task__isnull=False).select_related("task").first() if previous else None
     old_config = origin.task.snapshot["input"]["config"] if origin else None
+    differences = structure_diff(previous.payload if previous else None, payload, old_config, frozen["config"])
+    if frozen["config"]["mode"] == "mock_exam":
+        template = frozen["course"]["exam_template"]
+        changes = exam_template_changes(template, payload)
+        template_count = sum(len(section["question_marks"]) for section in template["sections"])
+        if changes and template_count == frozen["config"]["main_question_count"]:
+            raise DomainError("EXAM_TEMPLATE_STRUCTURE_MISMATCH", " ".join(changes), status=400)
+        differences = [*(changes or ["Uses the confirmed exam template."]), *differences]
     blueprint = Blueprint.objects.create(draft=draft, course_version_id=frozen["course_version_id"],
         config_revision=snapshot["config_revision"], config_hash=snapshot["config_hash"], task=task,
         payload=payload, payload_hash=digest(payload), context_hash=snapshot["context_hash"], mode=snapshot["mode"],
-        differences=structure_diff(previous.payload if previous else None, payload, old_config, frozen["config"]))
+        differences=differences)
     current = (draft.revision == snapshot["config_revision"] and draft.config_hash == snapshot["config_hash"]
                and draft.latest_task_id == task.id and str(draft.course_version_id) == frozen["course_version_id"])
     if current:
@@ -149,8 +187,11 @@ def run_planning(token):
                             "message": "Configuration changed before planning started. No model call was made."})
         return
     if snapshot["mode"] == "fixture":
-        from .fixtures import fixture_blueprint
-        payload = fixture_blueprint(snapshot["input"]["config"], snapshot["input"]["course"])
+        from .fixtures import fixture_blueprint, apply_fixture_exam_template
+        config, course = snapshot["input"]["config"], snapshot["input"]["course"]
+        payload = fixture_blueprint(config, course)
+        if config["mode"] == "mock_exam":
+            payload = apply_fixture_exam_template(payload, course["exam_template"])
         checkpoint(token, "Building synthetic fixture structure (no model call)")
     else:
         if not PlanningGrant.objects.filter(course=task.course, context_hash=snapshot["context_hash"]).exists():
@@ -164,5 +205,19 @@ def run_planning(token):
             needs_information(token, output.status, output.explanation)
             return
         payload = materialize_planning_blueprint(output.blueprint.model_dump(mode="json"))
+        frozen = snapshot["input"]
+        teaching_sources = {e["id"] for e in frozen["evidence"] if set(e.get("roles", [])) & TEACHING_ROLES}
+        evidence_by_target = {
+            node["id"]: [eid for eid in node["evidence_ids"] if eid in teaching_sources]
+            for node in frozen["course"]["knowledge_nodes"]
+        }
+        for question in payload["questions"]:
+            cited = set(question["evidence_ids"])
+            for target in question["knowledge_ids"]:
+                eligible = evidence_by_target.get(target, [])
+                if eligible and not cited.intersection(eligible):
+                    source_id = eligible[0]
+                    question["evidence_ids"].append(source_id)
+                    cited.add(source_id)
     checkpoint(token, "Checking marks, coverage, sources and answer selection")
     publish_plan(token, payload)

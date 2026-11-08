@@ -79,17 +79,28 @@ def document_html(content, kind):
     title = "Mark scheme" if answers else "Question paper"
     plan = m["blueprint"]
     banner = "Synthetic fixture - not a real model result" if m["mode"] == "fixture" else "AI-generated practice"
-    parts = [f'<header><p class="eyebrow">{escaped(m["course_code"])} / {escaped(m["course_title"])}</p><h1>{title}</h1>',
+    topics = m.get("selected_topics", [])
+    topic_names = " / ".join(" · ".join(filter(None, (t.get("code"), t["name"]))) for t in topics)
+    mixed_summary = f'<p>Mixed-topic practice · {escaped(topic_names)}</p>' if m["config"].get("mode") == "mixed_topic_practice" else ""
+    exam = m.get("exam_template")
+    if exam:
+        mixed_summary = f'<p>Mock exam · {escaped(topic_names)}</p>'
+    parts = [f'<header><p class="eyebrow">{escaped(m["course_code"])} / {escaped(m["course_title"])}</p><h1>{title}</h1>{mixed_summary}',
         f'<p>{escaped(m["config"]["difficulty"].replace("_"," ").title())} / {len(payload["pairs"])} main questions / {sum(len(p["parts"]) for p in payload["pairs"])} subquestions</p>',
         f'<p>{escaped(plan["attempt_marks"])} attempt marks / {escaped(plan["suggested_minutes"])} suggested minutes</p>',
         f'<p class="small">{banner}. Difficulty and timing are not calibrated to an official exam.</p>',
         f'<p class="small">Content version: {content.id}<br>Course version: {escaped(m["course_version_number"])}</p></header>']
+    if exam:
+        status = "Uncalibrated to the current exam" if exam["calibration"] == "uncalibrated" else "Based on a linked current exam instruction"
+        parts.append(f'<p>{escaped(plan["printed_marks"])} printed marks · {status}</p>')
+        if exam["permitted_aids"]:
+            parts.append(f'<p>Permitted aids: {escaped(exam["permitted_aids"])}</p>')
     if answers:
         parts.append('<p class="notice">Suggested marking guidance. This is not an official mark scheme.</p>')
-    else:
+    if not answers or exam:
         for section in plan.get("sections", []):
             selection = section["selection"]
-            rule = "Answer all questions" if selection["mode"] == "all" else f'Answer {selection["choose_count"]} questions'
+            rule = "Answer all questions" if selection["mode"] == "all" else f'Answer {selection["choose_count"]} of {len(section["question_ids"])} questions' if exam else f'Answer {selection["choose_count"]} questions'
             numbers = [str(i+1) for i,p in enumerate(payload["pairs"]) if p["question_id"] in section["question_ids"]]
             parts.append(f'<p class="notice">{escaped(section["title"])}: {escaped(rule)} ({", ".join(numbers)}).</p>')
     for index, pair in enumerate(payload["pairs"]):

@@ -7,12 +7,16 @@ from .models import Course, CourseDraft, CourseVersion
 from .clarifications import classify_gaps
 from .context import statement_list
 from .schemas import validate_template
+from .exam_template import current_exam_template
 
 
 @transaction.atomic
-def confirm_course(owner, course_id, draft_id, expected_revision, key):
+def confirm_course(owner, course_id, draft_id, expected_revision, key, *, include_exam_template=False):
     course = get_object_or_404(Course.objects.select_for_update(), pk=course_id, owner=owner)
-    record = intent(owner, f"confirm:{course.id}", key, {"draft_id": str(draft_id), "revision": expected_revision})
+    request = {"draft_id": str(draft_id), "revision": expected_revision}
+    if include_exam_template:
+        request["include_exam_template"] = True
+    record = intent(owner, f"confirm:{course.id}", key, request)
     if record.response:
         return CourseVersion.objects.get(pk=record.response["version_id"], course=course)
     draft = get_object_or_404(CourseDraft.objects.select_for_update(), pk=draft_id, course=course)
@@ -21,7 +25,8 @@ def confirm_course(owner, course_id, draft_id, expected_revision, key):
     if draft.merge_warnings:
         raise DomainError("MERGE_REVIEW_REQUIRED", "Review the preserved edits before confirmation.")
     from .drafts import draft_view
-    view=draft_view(draft);payload=view["payload"];questions=view["clarifications"]
+    view=draft_view(draft);payload=copy.deepcopy(view["payload"]);questions=view["clarifications"]
+    payload.pop("exam_template", None)
     if not view["eligibility"]["allowed"] or any(q["impact"]=="blocks_selected_scope" or
             q["impact"]=="needs_confirmation" and q["status"]!="answered" for q in questions):
         raise DomainError("COURSE_GAPS_BLOCK_CONFIRMATION", "Resolve the selected-topic evidence or scope gaps first.")
@@ -40,12 +45,17 @@ def confirm_course(owner, course_id, draft_id, expected_revision, key):
     if unanswered_analysis:
         raise DomainError("ANSWER_REANALYSIS_REQUIRED", "Analyse your new clarification answer before confirming this course.")
     validate_template(payload["template_suggestion"])
-    existing = CourseVersion.objects.filter(draft=draft, draft_revision=draft.revision, confirmation_fingerprint="").first()
+    latest = course.confirmed_versions.order_by("-number").first()
+    template = current_exam_template(draft, latest, include=include_exam_template)
+    if template:
+        payload["exam_template"] = template
+    fingerprint = digest(template) if template else ""
+    existing = CourseVersion.objects.filter(draft=draft, draft_revision=draft.revision, confirmation_fingerprint=fingerprint).first()
     if existing:
         version = existing
     else:
         version = CourseVersion.objects.create(course=course, number=course.confirmed_versions.count() + 1,
-            draft=draft, draft_revision=draft.revision, payload_hash=digest(payload),
+            draft=draft, draft_revision=draft.revision, confirmation_fingerprint=fingerprint, payload_hash=digest(payload),
             frozen_payload=copy.deepcopy(payload), evidence_manifest={**copy.deepcopy(draft.machine_base.context), "analysis_statements":copy.deepcopy(draft.machine_base.context["statements"]), "statements":statement_list(course), "analysis_mode": draft.machine_base.mode},
             statements=statement_list(course), manual_patches=copy.deepcopy(draft.manual_patches), confirmed_by=owner)
     record.response = {"version_id": str(version.id)}

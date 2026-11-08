@@ -76,7 +76,15 @@ def test_edit_recalculates_stale_summaries_but_frozen_validation_stays_strict(bl
     assert len(result["coverage"])==3 and full==before
 
 
-def test_new_planning_output_is_expanded_before_normal_publication(course,config,monkeypatch):
+@pytest.mark.parametrize(("references", "teaching_available", "expected_error"), [
+    (["e1"], True, None),
+    (["e3"], True, None),
+    (["e3"], False, "SELECTED_KNOWLEDGE_NOT_READY"),
+    (["foreign-source"], True, "EVIDENCE_REFERENCE_INVALID"),
+])
+def test_new_planning_output_is_expanded_before_normal_publication(
+    course, config, monkeypatch, references, teaching_available, expected_error
+):
     from app.ai.contracts import ModelCallResult
     from app.core.tasks import claim_task
     from app.generation.fixtures import fixture_blueprint
@@ -88,18 +96,33 @@ def test_new_planning_output_is_expanded_before_normal_publication(course,config
     assert context["schema_version"]=="planning-v3-part-coverage"
     assert context["blueprint_schema_version"]=="blueprint-v2"
     full=fixture_blueprint(config,context["input"]["course"])
-    raw=provider_payload(full);before=copy.deepcopy(raw)
+    raw = provider_payload(full)
+    raw["questions"][0]["evidence_ids"] = references
+    if not teaching_available:
+        next(source for source in context["input"]["evidence"] if source["id"] == "e1")["roles"] = ["past_paper"]
+    before = copy.deepcopy(raw)
     result=ModelCallResult(mode="fixture",status="parsed",payload={"status":"complete","explanation":"","blueprint":raw})
     monkeypatch.setenv("OPENAI_API_KEY","synthetic-test-key-not-real")
     with patch("app.generation.planning.build_context",return_value=context):
         task=submit_plan(course.owner,course.id,saved.revision,context["context_hash"],"part-plan",authorize=True)
-    with patch("app.generation.planning.run_call",return_value=result) as call:
-        run_planning(claim_task(task.id))
-    task.refresh_from_db();assert task.state=="succeeded"
-    assert call.call_count==1 and raw==before
-    stored=Blueprint.objects.get(task=task)
-    assert stored.payload["questions"][0]["knowledge_ids"]==["K1"]
-    assert stored.payload["coverage"]==full["coverage"]
+    with patch("app.generation.planning.run_call", return_value=result) as call:
+        token = claim_task(task.id)
+        if expected_error:
+            with pytest.raises(DomainError, match=expected_error):
+                run_planning(token)
+        else:
+            run_planning(token)
+    assert call.call_count == 1 and raw == before
+    if expected_error:
+        assert not Blueprint.objects.filter(task=task).exists()
+        return
+    task.refresh_from_db()
+    assert task.state == "succeeded"
+    stored = Blueprint.objects.get(task=task)
+    assert stored.payload["questions"][0]["knowledge_ids"] == ["K1"]
+    assert stored.payload["questions"][0]["evidence_ids"] == list(dict.fromkeys([*references, "e1"]))
+    assert stored.payload["questions"][1:] == full["questions"][1:]
+    assert stored.payload["coverage"] == full["coverage"]
 
 
 def test_matrix_allows_model_distribution_and_checks_whole_paper(blueprint_inputs):

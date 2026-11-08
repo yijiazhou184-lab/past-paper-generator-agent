@@ -5,7 +5,7 @@ import { useAction } from "./useAction";
 import type { ConfigDraft } from "./types";
 
 type Scope = { context_hash: string; mode: string; model: string; max_calls: number; call_seconds: number; generation_call_seconds?: number; task_seconds: number;
-  input: {snapshot_id: string; history_papers?: {paper_id:string}[]; sources: {id: string; material_code?: string; physical_page?: number}[]}; [key: string]: unknown };
+  input: {snapshot_id: string; selected_topics?: {topic_id:string;name:string;code:string}[]; history_papers?: {paper_id:string}[]; sources: {id: string; material_code?: string; physical_page?: number}[]}; [key: string]: unknown };
 type Preflight = {scope: Scope; authorized: boolean; api_key_configured: boolean};
 
 export function GenerationLaunch({courseId, draft, disabled, refresh}: {
@@ -35,6 +35,7 @@ export function GenerationLaunch({courseId, draft, disabled, refresh}: {
     {preflight && <Dialog labelledBy="generation-scope-title" onClose={()=>{if(!action.running)setPreflight(null);}}>
       <h2 id="generation-scope-title">Review generation inputs</h2>
       <p>{live ? "Generate questions and answers, independently solve them, review them, and repair at most once." : "Synthetic fixture · runs locally without model calls. This does not validate real question quality."}</p>
+      {!!preflight.scope.input.selected_topics?.length&&<p>{preflight.scope.input.selected_topics.map(t=>t.name).join(" / ")}</p>}
       <p>{preflight.scope.input.sources.length} frozen source pages · no new page images.</p>
       {!!preflight.scope.input.history_papers?.length && <p>{preflight.scope.input.history_papers.length} saved practices are included as frozen comparison references. Up to three relevant question excerpts per new question help avoid repetition; these are not teaching evidence.</p>}
       {live && <><p>{preflight.scope.model} · Official OpenAI API · store:false</p>

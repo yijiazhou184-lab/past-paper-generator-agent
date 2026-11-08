@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import {useState} from "react";
 import {afterEach,expect,it,vi} from "vitest";
 import {cleanup,render,screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -22,4 +23,20 @@ it("select all only selects supported knowledge and never submits AI",async()=>{
  expect(screen.getByRole("checkbox",{name:/Missing proof/}).hasAttribute("disabled")).toBe(true);
  await userEvent.click(screen.getAllByRole("checkbox",{name:"Select all eligible knowledge"})[0]);
  expect(change).toHaveBeenCalledWith({...config,knowledge_ids:["a"]});
+});
+
+
+it("adds a second topic in mixed mode and keeps hidden selections during search",async()=>{
+ function Harness(){
+  const [selected,setSelected]=useState<Config>({...config,mode:"mixed_topic_practice"});
+  return <TopicKnowledgeSelector version={version} topics={[]} config={selected} onChange={setSelected}/>;
+ }
+ const user=userEvent.setup();
+ render(<Harness/>);
+ await user.type(screen.getByRole("searchbox"),"Beta");
+ await user.click(screen.getByRole("checkbox",{name:"Accumulation"}));
+ expect(screen.getByText("2 topics · 2 knowledge points selected")).toBeTruthy();
+ expect(screen.getByText("Rates")).toBeTruthy();
+ await user.click(screen.getByRole("button",{name:"Remove Accumulation"}));
+ expect(screen.getByText("1 topic · 1 knowledge point selected")).toBeTruthy();
 });

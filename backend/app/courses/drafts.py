@@ -6,6 +6,7 @@ from app.core.errors import DomainError
 from app.core.idempotency import intent
 from .models import Course, CourseDraft, UserStatement
 from .schemas import CourseDraftPayload, validate_template
+from .exam_template import exam_template_view, validate_exam_template
 from .clarifications import classify_gaps
 from .context import statement_list
 
@@ -58,9 +59,10 @@ def draft_view(draft, topic_id=None):
     if draft is None:return None
     from .decisions import attach_answers,needs_analysis,reviewed_payload
     from .eligibility import objective_ids,eligible_targets
+    from .topic_state import state_map
     original=draft;selected=None
     if topic_id is not None:
-        from .topic_state import topic_slice,topic_base,state_map
+        from .topic_state import topic_slice,topic_base
         from .topic_confirmation import topic_status
         from .models import Topic
         topic=get_object_or_404(Topic,pk=topic_id,course=draft.course)
@@ -98,7 +100,12 @@ def draft_view(draft, topic_id=None):
     pending=any(needs_analysis(s,used) and relevant(s) for s in statements)
     blocks=[q for q in questions if q["impact"]=="blocks_selected_scope" or
         q["impact"]=="needs_confirmation" and q["status"]!="answered"]
+    template, template_status = exam_template_view(original, latest)
+    if topic_id is None:
+        payload = {**payload, "exam_template": template}
     return {"id":str(draft.id),"revision":draft.revision,"payload":payload,
+        "exam_template_status": template_status,
+        "exam_template_suggestion": payload["template_suggestion"] if topic_id is None and not state_map(original) else None,
         "topic_id":str(topic_id) if topic_id else None,"topic_name":topic.name if topic_id else None,
         "topic_status":topic_status(original,str(topic_id),latest) if topic_id else None,
         "manual_patches":draft.manual_patches,"merge_warnings":draft.merge_warnings,
@@ -136,6 +143,12 @@ def save_draft(owner, course_id, expected_revision, patches, key, acknowledge_me
         path = patch["path"]
         if not all(isinstance(p, str) for p in path):
             raise DomainError("PATCH_INVALID", status=400)
+        if path == ["exam_template"] and topic_id is None:
+            value = None if patch["value"] is None else validate_exam_template(patch["value"], course)
+            previous = draft.exam_template["value"] if draft.exam_template else None
+            if value != previous:
+                draft.exam_template = {"value": value, "revision": draft.revision + 1} if value is not None else None
+            continue
         if topic_id is not None and (len(path)<3 or str(topic_id) not in patch_topics(draft,path)):
             if path!=["template_suggestion"]:
                 raise DomainError("PATCH_OUTSIDE_TOPIC","Edit course-wide facts from Course overview.",status=400)

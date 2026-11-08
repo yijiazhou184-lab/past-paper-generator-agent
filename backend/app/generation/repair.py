@@ -77,7 +77,8 @@ def repair_candidate(token,context,candidate,report):
     targeted={}
     for qid,issues in requests.items():
         duplicate_review=report.payload["duplicate_review"]
-        format_error=any(d.get("code")=="UNSUPPORTED_NUMERIC_LITERAL" for f in failures_by_question[qid] for d in f["diagnostics"])
+        format_error=any(d.get("code") in ("UNSUPPORTED_NUMERIC_LITERAL", "INVALID_POINT_EXPRESSION")
+                         for f in failures_by_question[qid] for d in f["diagnostics"])
         targeted[qid]={"issues":[{"target_ids":[qid],"issue_codes":[f["check_id"]],"instructions":f["instructions"]} for f in failures_by_question[qid] if f["actionable"]],
             "model_suggestions":[] if format_error else issues,"previous_pair":pairs[qid],
             "failures":failures_by_question[qid],

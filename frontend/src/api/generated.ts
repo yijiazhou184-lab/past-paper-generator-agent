@@ -721,6 +721,8 @@ export interface components {
             /** Format: uuid */
             draft_id: string;
             selected_topic_ids?: string[];
+            /** @default false */
+            include_exam_template: boolean;
             /** Format: uuid */
             base_course_version_id?: string | null;
             expected_revision: number;

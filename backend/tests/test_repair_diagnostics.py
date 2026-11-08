@@ -49,6 +49,7 @@ def test_repair_failure_has_original_spec_even_without_model_request():
     assert failures[0]["specification"]==s
     assert failures[0]["diagnostics"][0]["field_path"]=="points[0]"
     assert "parentheses" in failures[0]["instructions"]
+    assert "restricted expression object" in failures[0]["instructions"]
 
 
 def test_unknown_math_failure_does_not_invent_an_action():

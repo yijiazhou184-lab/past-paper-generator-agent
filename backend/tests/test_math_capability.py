@@ -1,7 +1,9 @@
 """Mathematical capability: interval domain proofs, absolute-value kinks, and core/auxiliary gate rules."""
+import pytest
 import sympy as sp
 from app.generation.math_bounds import prove
 from app.generation.math_worker import evaluate
+from app.generation.math_checks import check_math
 from app.generation.checks import math_check, release_gate, coverage_summary
 
 X = sp.Symbol("x", real=True)
@@ -70,6 +72,41 @@ def test_stationary_points_exclude_kinks():
     # |x| + (x-2)^2 on [-1, 3]: derivative 1 + 2(x-2) = 0 at x = 3/2 on the right piece; none on the left piece.
     result = evaluate(spec("stationary_points", shape, None, lower="-1", upper="3", points=["3/2"]))
     assert result["result"] == "pass"
+
+
+def test_exact_stationary_points_require_the_complete_set():
+    shape = op("sub", op("pow", x(), num(3)), op("mul", num(4), x()))
+    root = op("sqrt", num(3))
+    points = [op("div", num(-2), root), op("div", num(2), root)]
+    check = spec("stationary_points", shape, None, lower="-2", upper="2", points=points)
+    assert check_math(check)["result"] == "pass"
+    assert evaluate({**check, "points": points[:1]})["result"] == "fail"
+    assert evaluate({**check, "points": [*points, "0"]})["result"] == "fail"
+
+
+def test_bounded_optimum_accepts_exact_points_with_legacy_endpoint_literals():
+    shape = op("sub", op("pow", x(), num(3)), op("mul", num(4), x()))
+    root = op("sqrt", num(3))
+    point = op("div", num(2), root)
+    minimum = op("mul", num("-16/9"), root)
+    check = spec("bounded_optimum", shape, minimum, lower="0", upper="2",
+                 points=["0", point, "2"], optimum="min")
+    assert evaluate(check)["result"] == "pass"
+    assert evaluate({**check, "points": [point, "2"]})["result"] == "fail"
+
+
+@pytest.mark.parametrize("point", [
+    op("sub", x(), x()),
+    op("sqrt", num(-1)),
+    op("div", num(1), num(0)),
+])
+def test_invalid_exact_points_report_the_field_instead_of_a_wrong_answer(point):
+    shape = op("pow", x(), num(2))
+    result = evaluate(spec("stationary_points", shape, None, lower="-2", upper="2", points=[point]))
+    assert result["result"] == "not_checked"
+    diagnostic = result["diagnostics"][0]
+    assert diagnostic["code"] == "INVALID_POINT_EXPRESSION"
+    assert diagnostic["field_path"] == "points[0]"
 
 
 def outcome(result): return {"result": result, "rationale": "Test."}

@@ -73,7 +73,8 @@ class AnswerRequest(serializers.Serializer):
 
 class ConfirmRequest(serializers.Serializer):
     draft_id = serializers.UUIDField()
-    selected_topic_ids = serializers.ListField(child=serializers.UUIDField(), required=False, min_length=1)
+    selected_topic_ids = serializers.ListField(child=serializers.UUIDField(), required=False)
+    include_exam_template = serializers.BooleanField(required=False, default=False)
     base_course_version_id = serializers.UUIDField(required=False, allow_null=True)
     expected_revision = serializers.IntegerField(min_value=1)
 
@@ -186,13 +187,15 @@ class ConfirmView(APIView):
         if "selected_topic_ids" in data:
             draft=get_object_or_404(CourseDraft,pk=data["draft_id"],course_id=course_id,course__owner=request.user)
             return Response(version_view(confirm_topics(request.user,course_id,data["expected_revision"],data.get("base_course_version_id"),
-                [str(i) for i in data["selected_topic_ids"]],request.headers.get("Idempotency-Key"))))
+                [str(i) for i in data["selected_topic_ids"]],request.headers.get("Idempotency-Key"),
+                  include_exam_template=data["include_exam_template"])))
         draft=get_object_or_404(CourseDraft,pk=data["draft_id"],course_id=course_id,course__owner=request.user)
         from .topic_state import state_map
         if state_map(draft):
             from app.core.errors import DomainError
             raise DomainError("TOPIC_CONFIRMATION_REQUIRED","Select which topics you reviewed before confirming.")
-        return Response(version_view(confirm_course(request.user, course_id, data["draft_id"], data["expected_revision"], request.headers.get("Idempotency-Key"))))
+        return Response(version_view(confirm_course(request.user, course_id, data["draft_id"], data["expected_revision"], request.headers.get("Idempotency-Key"),
+                                                   include_exam_template=data["include_exam_template"])))
 
 
 class VersionView(APIView):

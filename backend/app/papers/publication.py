@@ -44,6 +44,10 @@ def freeze_content(task, candidate, report):
         "candidate_hash": candidate.payload_hash, "report_hash": report.payload_hash,
         "snapshot_hash": snapshot.payload_hash,
     }
+    if "topic_coverage" in snapshot.payload:
+        metadata["topic_coverage"] = copy.deepcopy(snapshot.payload["topic_coverage"])
+    if metadata["config"]["mode"] == "mock_exam":
+        metadata["exam_template"] = copy.deepcopy(version.frozen_payload["exam_template"])
     payload = {"schema_version": "paper-content-v1", "metadata": metadata,
                "content": copy.deepcopy(candidate.payload), "report": copy.deepcopy(report.payload),
                "context": copy.deepcopy(task.snapshot)}

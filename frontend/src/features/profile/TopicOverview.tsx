@@ -1,10 +1,13 @@
-import {useState} from "react";
+import {useMemo,useState} from "react";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
+import {api, requestKey} from "../../api/client";
+import {ExamTemplateCard} from "./ExamTemplateCard";
 import {Link} from "react-router-dom";
 import {Dialog} from "../../components/Dialog";
 import type {Topic} from "../topics/types";
 import {topicLabel} from "../topics/types";
 import {DraftSaveController,useDraftSave} from "./useDraftSave";
-import type {Draft} from "./types";
+import type {Draft, ExamTemplate, Version} from "./types";
 export async function saveBeforeSwitch(controller:DraftSaveController){
  await controller.save();
  while(controller.state.status==="unsaved")await controller.save();
@@ -27,6 +30,18 @@ export function TopicOverview({courseId,topics,draft,onChange}:{courseId:string;
 }
 function CommonEditor({courseId,topics,draft,onChange}:{courseId:string;topics:Topic[];draft:Draft;onChange:(id:string)=>void}){
  const {controller,state,payload}=useDraftSave(courseId,draft);
+ const cache=useQueryClient();
+ const confirmKey=useMemo(requestKey,[state.server.revision,draft.latest_version_id]);
+ const confirm=useMutation({
+   mutationFn:()=>api<Version>("/courses/"+courseId+"/confirmations", {method:"POST",headers:{"Idempotency-Key":confirmKey},
+     body:JSON.stringify({draft_id:state.server.id,expected_revision:state.server.revision,base_course_version_id:draft.latest_version_id,
+       ...(topics.length ? {selected_topic_ids:[]} : {}),include_exam_template:true})}),
+   onSuccess:()=>{void cache.invalidateQueries({queryKey:["profile",courseId]});void cache.invalidateQueries({queryKey:["generation",courseId]});},
+ });
+ async function saveTemplate(value:ExamTemplate) {
+   controller.edit(["exam_template"], value);
+   return saveBeforeSwitch(controller);
+ }
  return <><TopicReviewNavigation topics={topics} value="" onChange={onChange} controller={controller}/>
  <section className="panel"><h2>Course-wide information</h2><p>Changes here affect the topics that use this information. Review affected topics before generating a new practice.</p>
  <label>Course title<input value={payload.title} onChange={e=>controller.edit(["title"],e.target.value)}/></label>
@@ -36,5 +51,10 @@ function CommonEditor({courseId,topics,draft,onChange}:{courseId:string;topics:T
  {state.error&&<p role="alert">{state.error}</p>}
  {state.status==="conflict"&&<div className="actions"><button onClick={()=>controller.resolve(false)}>Use server version</button><button onClick={()=>controller.resolve(true)}>Keep my edits on latest version</button></div>}
  <button disabled={state.status==="saved"||state.status==="saving"} onClick={()=>controller.save()}>Save changes</button>
- <h3>User-provided scope and statements</h3>{state.server.statements.filter(s=>!(s.topic_ids?.length)).map(s=><p key={s.id}>{s.text}<small> · {s.source} · User-provided</small></p>)}</section></>;
+ <h3>User-provided scope and statements</h3>{state.server.statements.filter(s=>!(s.topic_ids?.length)).map(s=><p key={s.id}>{s.text}<small> · {s.source} · User-provided</small></p>)}</section>
+ <ExamTemplateCard courseId={courseId} saved={state.server.payload.exam_template??null}
+   suggestion={state.server.exam_template_suggestion} status={draft.exam_template_status}
+   canConfirm={!!draft.latest_version_id&&state.status==="saved"} busy={state.status==="saving"||confirm.isPending}
+   error={confirm.error?.message} onSave={saveTemplate}
+   onConfirm={()=>{if(state.status==="saved")confirm.mutate();}}/></>;
 }

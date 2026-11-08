@@ -56,10 +56,13 @@ def test_group_projection_keeps_only_target_blind_solutions_and_knowledge(course
 def test_unsupported_check_retains_original_ast_for_diagnosis():
     from app.generation.review_input import compact_pair
     raw=op("sub",var())
-    pair={"answers":[{"checks":[{"expression":raw,"expected":num(1),"denominator":None,"domain":{"lower":"0"}}]}]}
+    pair={"answers":[{"checks":[{"expression":raw,"expected":num(1),"denominator":None,"domain":{"lower":"0"},
+                                "points":["1/2",op("div",num(2),op("sqrt",num(3))),raw]}]}]}
     before=copy.deepcopy(pair)
     projected=compact_pair(pair)
     assert pair==before
     spec=projected["answers"][0]["checks"][0]
     assert spec["expression"]==raw and spec["projection_warnings"]
     assert spec["expected"]=="1" and spec["domain"]=={"lower":"0"}
+    assert spec["points"]==["1/2","(2 / sqrt(3))",raw]
+    assert any(w.startswith("points[2]:") for w in spec["projection_warnings"])

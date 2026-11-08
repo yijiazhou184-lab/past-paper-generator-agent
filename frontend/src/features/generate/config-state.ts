@@ -8,13 +8,42 @@ export function defaults(version: CourseVersion): Config {
   const suggested=template?.question_types?.filter((t):t is Config["question_types"][number]=>["calculation","explanation_proof","applied_optimisation"].includes(t));
   const base={course_version_id:version.id,mode:"chapter_practice" as const,difficulty:"exam_standard" as const,main_question_count:3,
     question_types:suggested?.length?suggested:["calculation","explanation_proof"] as Config["question_types"]};
-  const nodes=version.payload.knowledge_nodes.filter(n=>n.readiness==="supported").map(n=>n.id);
+  const nodes=version.payload.knowledge_nodes.filter(n=>n.readiness==="supported"&&n.node_kind!=="group").map(n=>n.id);
   return topic?{...base,schema_version:"practice-config-v2",selected_topic_ids:[topic.topic_id],knowledge_ids:nodes.filter(id=>topic.knowledge_ids.includes(id))}:{...base,topic_ids:nodes};
 }
+export function mockExamDefaults(version: CourseVersion): Config | null {
+  const initial = defaults(version);
+  const template = version.payload.exam_template;
+  if (!template || initial.schema_version !== "practice-config-v2") return null;
+  return {...initial, mode:"mock_exam", question_types:template.question_types,
+    main_question_count:template.sections.reduce((total,s)=>total+s.question_marks.length,0)};
+}
+export function reuseSettings(previous: Config, version: CourseVersion): Config {
+  const available = new Set(version.payload.knowledge_nodes.filter(n=>n.readiness==="supported"&&n.node_kind!=="group").map(n=>n.id));
+  const ids = knowledgeIds(previous).filter(id=>available.has(id));
+  const initial = previous.mode === "mock_exam" ? mockExamDefaults(version) ?? defaults(version) : defaults(version);
+  const settings = {difficulty:previous.difficulty,main_question_count:previous.main_question_count,question_types:previous.question_types};
+  if (initial.schema_version !== "practice-config-v2") return {...initial,...settings,topic_ids:ids};
+  const manifest = version.payload.topic_manifest ?? [];
+  const preferred = previous.schema_version === "practice-config-v2" ? previous.selected_topic_ids : manifest.map(topic=>topic.topic_id);
+  const matched = manifest.filter(topic=>preferred.includes(topic.topic_id)&&topic.knowledge_ids.some(id=>ids.includes(id)));
+  const mode = previous.mode;
+  const mixed = mode !== "chapter_practice";
+  const topics = mixed ? matched : matched.slice(0,1);
+  const allowed = new Set(topics.flatMap(topic=>topic.knowledge_ids));
+  if (mode === "mock_exam" && version.payload.exam_template) {
+    const allowedTypes = version.payload.exam_template.question_types;
+    settings.question_types = settings.question_types.filter(t => allowedTypes.includes(t));
+  }
+  return {...initial,...settings,mode,selected_topic_ids:topics.map(topic=>topic.topic_id),knowledge_ids:ids.filter(id=>allowed.has(id))};
+}
+
 export function configErrors(config: Config) {
   const errors: string[] = [];
   if (!knowledgeIds(config).length) errors.push("Select at least one knowledge target.");
   if (knowledgeIds(config).length>30) errors.push("Select at most 30 knowledge targets for this practice.");
+  if (config.mode==="mixed_topic_practice" && config.selected_topic_ids.length<2)
+    errors.push("Choose knowledge from at least two confirmed topics.");
   if (!config.question_types.length) errors.push("Select at least one question type.");
   if (!Number.isInteger(config.main_question_count) || config.main_question_count < 2 || config.main_question_count > 4)
     errors.push("Choose 2 to 4 main questions.");

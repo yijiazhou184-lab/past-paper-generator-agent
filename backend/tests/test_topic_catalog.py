@@ -23,7 +23,7 @@ def test_topic_api_owner_and_invalid_fields(course, django_user_model):
     assert response.status_code == 201
     tid = response.json()["id"]
     assert client.patch(f"{url}/{tid}", {"expected_revision": 1, "order": -2}, format="json").status_code == 400
-    assert client.get(url).json()["capabilities"]["mixed_topic_practice"] is False
+    assert client.get(url).json()["capabilities"]["mixed_topic_practice"] is True
     other = django_user_model.objects.create_user(username="other")
     client.force_authenticate(other)
     assert client.get(url).status_code == 404

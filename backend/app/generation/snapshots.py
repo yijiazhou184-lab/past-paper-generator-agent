@@ -5,8 +5,10 @@ from django.utils import timezone
 from app.core.errors import DomainError
 from app.core.idempotency import digest, intent
 from app.courses.models import Course, CourseVersion
+from app.courses.exam_template import require_current_exam_template
 from .models import GenerationDraft, Blueprint, StructureConfirmation, GenerationSnapshot
-from .config_compat import course_projection, knowledge_ids, selected_topics
+from .config_compat import course_projection, knowledge_ids, mixed_topic_inputs, selected_topics
+from .topic_coverage import validate_topic_coverage
 from .schemas import parse_config, parse_schema, validate_config, validate_blueprint, schema_version_of
 
 
@@ -38,8 +40,12 @@ def binding_valid(draft):
 def draft_view(draft):
     if draft is None:
         return None
+    blueprint = blueprint_view(draft.blueprint)
+    if (blueprint and draft.config["mode"] in ("mixed_topic_practice", "mock_exam")
+            and blueprint["config_revision"] == draft.revision and blueprint["config_hash"] == draft.config_hash):
+        blueprint["topic_coverage"] = validate_topic_coverage(draft.config, blueprint["payload"], course_projection(draft.course_version))
     return {"id": str(draft.id), "revision": draft.revision, "config": draft.config, "config_hash": draft.config_hash,
-        "blueprint": blueprint_view(draft.blueprint), "confirmation_id": str(draft.confirmation_id) if draft.confirmation_id else None,
+        "blueprint": blueprint, "confirmation_id": str(draft.confirmation_id) if draft.confirmation_id else None,
         "confirmed": binding_valid(draft), "latest_task_id": str(draft.latest_task_id) if draft.latest_task_id else None}
 
 
@@ -62,6 +68,8 @@ def save_config(owner, course_id, expected_revision, payload, key):
     config = validate_config(payload, course_projection(version), version.evidence_manifest["evidence"])
     from app.courses.topic_confirmation import assert_topic_generation_current
     assert_topic_generation_current(version,config)
+    if config["mode"] == "mock_exam":
+        require_current_exam_template(version)
     if draft is None:
         draft = GenerationDraft(course=course)
     else:
@@ -89,6 +97,28 @@ def structure_diff(previous, payload, old_config=None, new_config=None):
     return changes or ["The suggested structure is unchanged. Confirm it for this configuration revision."]
 
 
+def exam_template_changes(template, plan):
+    marks = {q["id"]: sum(p["marks"] for p in q["parts"]) for q in plan["questions"]}
+    sections = [{"title": s["title"], "selection": s["selection"],
+                 "question_marks": [marks[qid] for qid in s["question_ids"]]} for s in plan["sections"]]
+    original = [{k: s[k] for k in ("title", "selection", "question_marks")} for s in template["sections"]]
+    changes = []
+    if sections != original:
+        changes.append("Sections, question marks or answer rules differ from the confirmed exam template.")
+    if plan["suggested_minutes"] != template["duration_minutes"]:
+        changes.append(f"Suggested time changes from {template['duration_minutes']} to {plan['suggested_minutes']} minutes.")
+    return changes
+
+
+def validate_draft_blueprint(draft, payload, **options):
+    version = draft.course_version
+    course = course_projection(version)
+    evidence = version.evidence_manifest["evidence"]
+    if draft.config["mode"] in ("mixed_topic_practice", "mock_exam"):
+        course, evidence, _ = mixed_topic_inputs(draft.config, course, version.evidence_manifest, version.statements)
+    return validate_blueprint(draft.config, payload, course, evidence, **options)
+
+
 @transaction.atomic
 def edit_blueprint(owner, course_id, blueprint_id, config_revision, expected_revision, payload, key):
     course = owned_course(owner, course_id)
@@ -104,13 +134,14 @@ def edit_blueprint(owner, course_id, blueprint_id, config_revision, expected_rev
     if draft.blueprint_id != previous.id or previous.revision != expected_revision or previous.config_revision != draft.revision:
         raise DomainError("BLUEPRINT_REVISION_CONFLICT", "This structure is no longer current. Review the saved configuration and structure.")
     version = draft.course_version
-    validated = validate_blueprint(draft.config, payload, course_projection(version), version.evidence_manifest["evidence"],
-                                   recalculate=True, schema_version=schema_version_of(previous.payload))
+    validated = validate_draft_blueprint(draft, payload, recalculate=True, schema_version=schema_version_of(previous.payload))
     # Provider explanations are not used as a programmatic diff, even on edited plans.
     validated["differences"] = previous.payload["differences"]
     draft.blueprint = Blueprint.objects.create(draft=draft, course_version=version, config_revision=draft.revision,
         config_hash=draft.config_hash, family=previous.family, revision=previous.revision + 1,
-        payload=validated, payload_hash=digest(validated), differences=structure_diff(previous.payload, validated),
+        payload=validated, payload_hash=digest(validated), differences=[
+            *(exam_template_changes(version.frozen_payload["exam_template"], validated) if draft.config["mode"] == "mock_exam" else []),
+            *structure_diff(previous.payload, validated)],
         mode=previous.mode, context_hash=previous.context_hash)
     draft.confirmation = None
     draft.save()
@@ -128,7 +159,9 @@ def current_blueprint(draft, blueprint_id, revision, config_hash):
         raise DomainError("STRUCTURE_BINDING_EXPIRED", "Configuration changed — review the updated structure.")
     if b.course_version_id != draft.course_version_id:
         raise DomainError("STRUCTURE_BINDING_EXPIRED")
-    validate_blueprint(draft.config, b.payload, course_projection(draft.course_version), draft.course_version.evidence_manifest["evidence"])
+    if draft.config["mode"] == "mock_exam":
+        require_current_exam_template(draft.course_version)
+    validate_draft_blueprint(draft, b.payload)
     return b
 
 
@@ -158,6 +191,8 @@ def require_confirmation(draft, confirmation_id, revision, config_hash):
         raise DomainError("PLANNING_IN_PROGRESS", "Wait for the current plan before preparing generation.")
     if str(draft.confirmation_id) != str(confirmation_id) or not binding_valid(draft) or draft.config_hash != config_hash:
         raise DomainError("STRUCTURE_BINDING_EXPIRED", "Confirm the current structure before preparing generation.")
+    if draft.config["mode"] == "mock_exam":
+        require_current_exam_template(draft.course_version)
 
 
 @transaction.atomic
@@ -185,6 +220,8 @@ def freeze_generation(owner, course_id, confirmation_id, config_revision, config
             "history_status": "not_available_before_paper_storage", "limits_version": "r1-limits-6",
             "generation_limits": {"calls": 16, "deadline_seconds": 900, "repair_rounds": 1},
             "analysis_mode": version.evidence_manifest.get("analysis_mode", "unknown"), "planning_mode": draft.blueprint.mode}
+        if draft.config["mode"] in ("mixed_topic_practice", "mock_exam"):
+            payload["topic_coverage"] = validate_topic_coverage(draft.config, payload["blueprint"], course_projection(version))
         snapshot = GenerationSnapshot.objects.create(course=course, confirmation=draft.confirmation, payload=payload,
             payload_hash=digest(payload), mode=draft.blueprint.mode)
     record.response = {"snapshot_id": str(snapshot.id)}

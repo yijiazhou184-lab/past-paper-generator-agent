@@ -25,3 +25,24 @@ def fixture_blueprint(config, course_payload):
         "subquestion_count_locked": True, "suggested_minutes": {2: 25, 3: 40, 4: 55}[len(questions)],
         "differences": ["Synthetic fixture; no live model call."], "calibration": "uncalibrated"}
     return {**payload, **summarize(payload)}
+
+
+def apply_fixture_exam_template(payload, template):
+    """Keep synthetic planning on the same structural path as a real plan."""
+    questions = payload["questions"]
+    if sum(len(s["question_marks"]) for s in template["sections"]) != len(questions):
+        return payload
+    sections = []
+    index = 0
+    for section in template["sections"]:
+        ids = []
+        for marks in section["question_marks"]:
+            question = questions[index]
+            units, extra = divmod(int(marks * 2), len(question["parts"]))
+            for part_index, part in enumerate(question["parts"]):
+                part["marks"] = (units + (part_index < extra)) / 2
+            ids.append(question["id"])
+            index += 1
+        sections.append({"id": section["id"], "title": section["title"], "question_ids": ids, "selection": section["selection"]})
+    payload.update(sections=sections, suggested_minutes=template["duration_minutes"])
+    return {**payload, **summarize(payload)}

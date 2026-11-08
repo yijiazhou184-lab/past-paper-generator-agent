@@ -1,13 +1,12 @@
 from .config_compat import knowledge_ids
+from .topic_coverage import answer_paths, validate_topic_coverage
 import itertools
 import copy
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.core.errors import DomainError
-from app.courses.schemas import TEACHING_ROLES
-
-ResponseType = Literal["calculation", "explanation_proof", "applied_optimisation"]
+from app.courses.schemas import TEACHING_ROLES, ResponseType
 
 
 class Strict(BaseModel):
@@ -26,7 +25,7 @@ class GenerationConfig(Strict):
 class GenerationConfigV2(Strict):
     schema_version: Literal["practice-config-v2"]
     course_version_id: UUID
-    mode: Literal["chapter_practice"]
+    mode: Literal["chapter_practice", "mixed_topic_practice", "mock_exam"]
     selected_topic_ids: list[str] = Field(min_length=1,max_length=30)
     knowledge_ids: list[str] = Field(min_length=1,max_length=30)
     difficulty: Literal["foundation","exam_standard","challenge"]
@@ -173,6 +172,12 @@ def validate_config(data, course_payload, evidence):
     validate_topic_selection(config,course_payload)
     unique(knowledge_ids(config))
     unique(config["question_types"])
+    if config["mode"] == "mock_exam":
+        template = course_payload.get("exam_template")
+        if not template:
+            raise DomainError("EXAM_TEMPLATE_REQUIRED", "Confirm an exam template in Course profile.", status=400)
+        if not set(config["question_types"]) <= set(template["question_types"]):
+            raise DomainError("EXAM_QUESTION_TYPE_UNAVAILABLE", "Use question types allowed by the confirmed exam template.", status=400)
     nodes = {n["id"]: n for n in course_payload["knowledge_nodes"]}
     sources = {e["id"]: e for e in evidence}
     for kid in knowledge_ids(config):
@@ -284,9 +289,17 @@ def validate_blueprint(config, payload, course_payload, evidence, *, recalculate
             raise DomainError("COVERAGE_MISMATCH", "Declared coverage does not match the planned parts.", status=400)
     plan.update(totals)
     by_id = {q["id"]: q for q in questions}
-    choices = [list(itertools.combinations(s["question_ids"], s["selection"]["choose_count"])) for s in plan["sections"]]
-    for attempt in itertools.product(*choices):
-        parts = [p for group in attempt for qid in group for p in by_id[qid]["parts"]]
+    if config["mode"] == "mixed_topic_practice":
+        validate_topic_coverage(config, plan, course_payload)
+    if config["mode"] == "mock_exam":
+        if {p["response_type"] for q in questions for p in q["parts"]} != set(config["question_types"]):
+            raise DomainError("QUESTION_TYPE_MISSING", "Use each requested question type somewhere on the printed paper.", status=400)
+        if any(s["selection"]["mode"] == "choose" and s["selection"]["choose_count"] == len(s["question_ids"])
+               for s in plan["sections"]):
+            raise DomainError("INVALID_SELECTION", "Use Answer all when every question in the section is required.", status=400)
+        return plan
+    for attempt in answer_paths(plan):
+        parts = [p for qid in attempt for p in by_id[qid]["parts"]]
         if {p["response_type"] for p in parts} != set(config["question_types"]):
             raise DomainError("QUESTION_TYPE_MISSING", "Every permitted attempt must cover all selected question types.", status=400)
         if {k for p in parts for k in p["knowledge_ids"]} != set(knowledge_ids(config)):

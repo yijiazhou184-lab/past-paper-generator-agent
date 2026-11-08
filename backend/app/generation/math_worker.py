@@ -4,7 +4,7 @@ import sympy as sp
 from sympy.calculus.util import continuous_domain
 from .expressions import expression, number, VARIABLES
 from .content_schemas import MathCheckSpec
-from .math_diagnostics import diagnose_spec, with_diagnostics
+from .math_diagnostics import POINT_FORMAT, diagnose_spec, diagnostic, with_diagnostics
 from .math_bounds import prove
 
 
@@ -154,6 +154,14 @@ def evaluate(raw):
         return {"result":"not_checked","rationale":findings[0]["message"],"diagnostics":findings}
     # Specifications saved before roles existed are core: no older check is relaxed.
     s=MathCheckSpec.model_validate({**raw,"role":raw.get("role","core")}).model_dump(mode="json")
+    points = []
+    for i, value in enumerate(s["points"]):
+        try:
+            points.append(number(value) if isinstance(value, str) else expression(value, constant=True))
+        except (ValueError, TypeError) as exc:
+            reason = str(exc)
+            return {**result("not_checked", reason), "diagnostics": [
+                diagnostic("INVALID_POINT_EXPRESSION", f"points[{i}]", value, reason, allowed=POINT_FORMAT)]}
     x=VARIABLES[s["variable"]]
     expr=expression(s["expression"])
     expected=expression(s["expected"]) if s["expected"] else None
@@ -232,7 +240,7 @@ def evaluate(raw):
     sets=critical_sets(expr,x,domain)
     if isinstance(sets,dict): return sets
     roots,corners=sets
-    supplied=sp.FiniteSet(*[number(p) for p in s["points"]])
+    supplied=sp.FiniteSet(*points)
     if kind=="stationary_points":
         return result("pass" if supplied==roots else "fail","Compared the complete stationary-point set in the stated domain.")
     if kind=="bounded_optimum":

@@ -4,6 +4,9 @@ import re
 NUMERIC_FORMAT = "A bounded signed decimal or integer fraction with a nonzero denominator; expression strings are unsupported."
 
 
+POINT_FORMAT = "A bounded signed decimal, integer fraction with a nonzero denominator, or a restricted expression object for a finite real constant without variables."
+
+
 def literal(value):
     if not isinstance(value,str): return False
     if re.fullmatch(r"-?[0-9]{1,8}(?:\.[0-9]{1,8})?",value): return True
@@ -27,7 +30,9 @@ def diagnose_spec(raw):
             found.append(diagnostic("UNSUPPORTED_NUMERIC_LITERAL",path,value,
                 "This numeric field accepts decimals or integer fractions, not formulas."))
     for i,value in enumerate(raw.get("points",[]) if isinstance(raw.get("points",[]),list) else []):
-        numeric(value,f"points[{i}]")
+        if not isinstance(value, dict) and not literal(value):
+            found.append(diagnostic("UNSUPPORTED_NUMERIC_LITERAL", f"points[{i}]", value,
+                "Supply a numeric literal or a structured constant for this point.", allowed=POINT_FORMAT))
     numeric(raw.get("at"),"at",True,optional=raw.get("kind") not in ("value","limit","lhopital"))
     domain=raw.get("domain")
     if isinstance(domain,dict):

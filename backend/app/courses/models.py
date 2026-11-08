@@ -44,6 +44,7 @@ class CourseMachineBase(UUIDModel):
 
 
 class CourseDraft(UUIDModel):
+    exam_template = models.JSONField(blank=True, null=True)
     topic_state = models.JSONField(default=dict)
     course = models.OneToOneField(Course, on_delete=models.PROTECT, related_name="draft")
     revision = models.PositiveIntegerField(default=1)

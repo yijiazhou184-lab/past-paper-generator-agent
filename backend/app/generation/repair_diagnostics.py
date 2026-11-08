@@ -23,7 +23,12 @@ def build_repair_failures(pair,checks):
             "part_id":spec["part_id"] if spec else next((i for i in c.get("target_ids",[]) if i!=pair["question_id"]),None),
             "check_id":c["check_id"]} for d in diagnostics]
         instructions=c.get("rationale","")
-        if any(d.get("code")=="UNSUPPORTED_NUMERIC_LITERAL" for d in diagnostics):
+        if any(d.get("code") in ("UNSUPPORTED_NUMERIC_LITERAL", "INVALID_POINT_EXPRESSION")
+               and d.get("field_path", "").startswith("points[") for d in diagnostics):
+            instructions = ("Use a numeric literal or a restricted expression object for the identified point. "
+                "Adding parentheses to a formula string is not a fix. Preserve exact values and the complete set. "
+                "Point expressions must be finite real constants without variables. Do not remove or demote the required check.")
+        elif any(d.get("code")=="UNSUPPORTED_NUMERIC_LITERAL" for d in diagnostics):
             instructions=("Use only numeric literals in the identified field. Adding parentheses, or spelling the same formula differently, is not a fix. "
                 "Preserve the correct answer. If exact values cannot use that field, use a supported equivalent core specification under the frozen contract "
                 "with the same final-answer coverage and a justified completeness argument. If no equivalent check exists, report unsupported capability. "

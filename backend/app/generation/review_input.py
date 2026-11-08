@@ -45,15 +45,20 @@ def compact_pair(pair, *, include_checks=True):
             answer.pop("checks", None)
             continue
         for spec in answer["checks"]:
+            def project(node, path):
+                try:
+                    return compact_expression(node)
+                except ValueError:
+                    spec.setdefault("projection_warnings", []).append(
+                        path + ": retained original AST; compact representation is unsupported.")
+                    return node
+
             for field in ("expression", "expected", "denominator"):
                 if spec.get(field) is not None:
-                    try:
-                        spec[field] = compact_expression(spec[field])
-                    except ValueError:
-                        # Keep the exact unsupported specification for diagnosis/repair.
-                        # Never simplify it, silently drop it, or turn a local failure into pass.
-                        spec.setdefault("projection_warnings", []).append(
-                            field + ": retained original AST; compact representation is unsupported.")
+                    spec[field] = project(spec[field], field)
+            for i, point in enumerate(spec.get("points", [])):
+                if isinstance(point, dict):
+                    spec["points"][i] = project(point, f"points[{i}]")
     return result
 
 

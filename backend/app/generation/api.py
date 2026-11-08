@@ -8,7 +8,8 @@ from app.core.api import task_view
 from app.core.schemas import TaskSchema
 from app.core.errors import DomainError
 from app.courses.api import validate
-from app.courses.models import Course, CourseVersion
+from app.courses.models import Course, CourseDraft, CourseVersion
+from app.courses.exam_template import exam_template_blocker
 from .config_compat import course_projection
 from app.courses.topics import list_topics
 from .models import GenerationDraft, PlanningGrant, Blueprint, GenerationSnapshot
@@ -76,12 +77,15 @@ class GenerationWorkspaceView(APIView):
     def get(self, request, course_id):
         course = get_object_or_404(Course, pk=course_id, owner=request.user)
         draft = GenerationDraft.objects.select_related("blueprint", "confirmation", "latest_task").filter(course=course).first()
-        versions = [{"id": str(v.id), "number": v.number, "mode": v.evidence_manifest.get("analysis_mode", "unknown"),
+        course_draft = CourseDraft.objects.filter(course=course).select_related("course").first()
+        versions = [{"id": str(v.id), "number": v.number, "mock_exam_blocker": exam_template_blocker(v, course_draft), "mode": v.evidence_manifest.get("analysis_mode", "unknown"),
             "payload": course_projection(v), "evidence": [{k: e[k] for k in ("id", "material_code", "material_version_id", "physical_page") if k in e}
                                                       for e in v.evidence_manifest["evidence"]]}
                     for v in CourseVersion.objects.filter(course=course).order_by("-number")]
+        catalog = list_topics(request.user,course_id)
+        catalog["capabilities"]["mock_exam"] = True
         return Response({"draft": draft_view(draft), "versions": versions, "generation_available": True,
-            **list_topics(request.user,course_id),
+            **catalog,
             "latest_task": task_view(draft.latest_task) if draft and draft.latest_task_id else None,
             "snapshots": [{"id": str(s.id), "mode": s.mode, "created_at": s.created_at,
                 "confirmation_id": str(s.confirmation_id), "payload_hash": s.payload_hash}
