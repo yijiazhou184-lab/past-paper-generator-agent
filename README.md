@@ -1,5 +1,9 @@
 # AI Past Paper Generator
 
+## 最新真实结果 · f7c7532e 配置在 generation-v8 下重跑通过（2026-11-10）
+
+用户授权以 f7c7532e 的配置新预检并运行一次。先应用待迁移的 `courses.0010_exam_template`，用 `restart-api` / `restart-workers` 加载 c16af6d。新预检 context `1fa9138c…` 与原任务冻结快照相同（147dcd0c，24 个来源页、6 份历史卷、同一课程版本、配置与蓝图），差别只有流水线版本和出题 prompt。任务 [9b948991](http://127.0.0.1:5173/tasks/9b948991-2a7f-428e-93d7-ef874a0c8702) **succeeded**：首轮 61 项必要项 60 通过，整卷一致性这次通过（q3-b 出题时已加入“一阶、二阶导数都为 0 时检验说明什么”）；唯一阻塞是 `semantic:q3:math_relevance`（题目要求 P″，但没有核心检查覆盖）。审阅只点名 q3，修复只改 q3、题面不变、补一项 P″ 的核心导数检查，q1/q2 原样保留；终轮 **62/62 必要项通过**，可选 9 通过 1 不适用。10 次模型 + 10 次计数全部完成并解析，243,989 tokens，482.6 秒，未达两分钟目标；未拆分。本次修复的是逐题检查，整卷检查按点名修复的路径未在真实运行中触发。未导出 PDF，未做独立逐小问人工审阅。
+
 ## 当前实现 · 整卷规划说明传给出题、整卷检查按审阅点名修复（2026-11-09）
 
 用户手动运行的 f7c7532e（混合练习 3 题 9 问）58/59 必要项通过，唯一阻塞是 `semantic:paper:paper_consistency`：确认蓝图的整卷说明 `differences` 要求覆盖“二阶导数为 0 时检验无法判断”，但出题模型此前只收到本题蓝图，看不到这条说明，而核验模型看得到。审阅只请求修 q3，修复代码却把整卷检查算到三道题上，最坏 10 次调用超过剩余 9 次而放弃修复。现修两处：出题和修复输入新增 `paper_planning_notes`（冻结蓝图的 `differences`），`question_pairs.md` 说明只处理与本题相关的说明且不改冻结结构；`repair.py` 对 `semantic:paper:*` 失败只修复审阅 `repair_requests` 点名的题，未点名的题保持不变，均未点名则不花修复调用。版本 `generation-v8-paper-notes`。出题输入与 prompt 变化，旧大题不再跨任务复用，下一次真实生成需新预检。对 f7c7532e 保存的报告离线回放：新逻辑只修 q3，最坏 6 次在剩余 9 次内，未写入任何记录。验证：后端全库 **399 passed、5 failed / 258.50 秒**：5 项都是 PDF 导出（`test_paper_render.py` 2 项、`test_mock_exam_generation.py` 2 项、`test_multi_topic_generation.py` 1 项），因本机缺少 Playwright Chromium，其中混合练习一项在改动前代码上同样失败；新增 3 项回归通过，暂时撤回 repair 改动时其中 2 项失败。Django check 0 issues，迁移无新增。未调用真实模型，未重启服务。

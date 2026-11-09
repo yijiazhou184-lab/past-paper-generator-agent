@@ -1,5 +1,13 @@
 # Codex 与 Claude Code 开发交接
 
+## Claude Code：f7c7532e 配置重跑通过，服务已由 Claude Code 重启（2026-11-10）
+
+- 用户授权：以 f7c7532e 的配置新预检并授权一次付费运行。已执行，GenerationGrant `ebacb096…`，context `1fa9138c1f0ffdd7a58f873cff20acd05fbf001692d46c13a6f9a372536165bc`，预检保存在本机 `var/reruns/f7c7532e-v8/preflight.json`。
+- 部署：确认 0 活动任务、工作区干净后，`migrate` 应用 `courses.0010_exam_template`（仅 AddField），`restart-api`、`restart-workers` 加载 c16af6d；5173/8000 均 HTTP 200。
+- **注意 PDF**：API/worker 现由 Claude Code 环境启动，该环境找不到 Playwright Chromium，**PDF 导出预计会失败**。导出前请在 Codex 环境无活动任务时再执行一次 `restart-api` / `restart-workers`。
+- 结果：任务 9b948991-2a7f-428e-93d7-ef874a0c8702 succeeded，候选 rev 2 放行。首轮 60/61（整卷一致性通过；阻塞 `semantic:q3:math_relevance`，P″ 无核心检查），只修 q3（题面不变，加 P″ 核心导数检查），终轮 62/62 必要、可选 9 pass / 1 not_applicable。10 模型 + 10 计数，243,989 tokens，482.6 秒，调用记录 342→362，无未知或重放。
+- 未验证：整卷检查按点名修复的路径本次未触发（修复源于逐题检查）；未导出 PDF；未做独立逐小问审阅；原 f7c7532e 记录未改。
+
 ## Claude Code：generation-v8-paper-notes（2026-11-09）
 
 - 起因：用户手动真实运行 f7c7532e-7a9f-495d-a9cf-fee6140ae2bb（11-08 22:41，混合练习 3 题 9 问 45 分）failed / REQUIRED_CHECKS_BLOCKED。58/59 必要项通过，唯一阻塞 `semantic:paper:paper_consistency`：蓝图 `differences[4]` 要求覆盖二阶导数为 0 的情形，出题输入不含该整卷说明。审阅仅请求修 q3，但 `build_repair_failures` 把整卷检查分到 q1–q3，最坏 2×3+4=10 次 > 剩余 9 次，`Repair budget insufficient`。原任务和候选未改。
