@@ -7,6 +7,8 @@
 - **注意 PDF**：API/worker 现由 Claude Code 环境启动，该环境找不到 Playwright Chromium，**PDF 导出预计会失败**。导出前请在 Codex 环境无活动任务时再执行一次 `restart-api` / `restart-workers`。
 - 结果：任务 9b948991-2a7f-428e-93d7-ef874a0c8702 succeeded，候选 rev 2 放行。首轮 60/61（整卷一致性通过；阻塞 `semantic:q3:math_relevance`，P″ 无核心检查），只修 q3（题面不变，加 P″ 核心导数检查），终轮 62/62 必要、可选 9 pass / 1 not_applicable。10 模型 + 10 计数，243,989 tokens，482.6 秒，调用记录 342→362，无未知或重放。
 - 未验证：整卷检查按点名修复的路径本次未触发（修复源于逐题检查）；未导出 PDF；未做独立逐小问审阅；原 f7c7532e 记录未改。
+- 交出（2026-11-10）：Claude Code 侧改动全部提交推送，工作区干净。此前未跟踪的 [多课程兼容方案 v0.1](multi-course-compatibility-design-v0.1.md) 随本次提交入库，状态仍为**推荐方案、待用户确认**，不改变 OPT-03“仅登记，暂不实施”，不作为实施依据。交出时 0 活动任务，调用记录 362，5173/8000 HTTP 200，服务保持运行（Claude Code 环境启动，见上方 PDF 注意）。
+- 下一步：导出 9b948991 的 PDF 前先在 Codex 环境重启 API/worker；如需第一轮收尾，R2 仍 skipped，R4/R5 缺口见 [R4/R5 报告](round-1-live-r4-r5-2026-11-08.md)；完整模拟卷真实运行仍待用户准备其余 Topic 与整卷模板（见下方“接手入口 · 通用完整模拟卷”）。
 
 ## Claude Code：generation-v8-paper-notes（2026-11-09）
 
