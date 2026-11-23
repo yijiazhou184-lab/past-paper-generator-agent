@@ -1,5 +1,11 @@
 # Codex 与 Claude Code 开发交接
 
+## Codex · 第一条待办已完成（2026-11-24）
+
+`9b948991` 已完成双 PDF 导出及 9/9 小问独立审阅，题卷 4 页、答案 12 页，16 页均已查看。详细证据与限制见 [交付补验报告](generation-v8-delivery-validation-2026-11-24.md)。补齐匹配 Chromium 后此前五项 PDF 测试全部通过，离线必要程序／数学检查 26/26 通过，网页下载与版本核对通过。本次新增模型调用 0，调用记录 362。
+
+使用 `scripts/local.py start` 恢复服务，结束时 5173/8000 session 均 HTTP 200、0 活动任务，服务保持运行。原先缺 Chromium 的导出环境问题已解决。未完成事项仍有整卷检查点名修复的真实路径覆盖、R2 skipped、R4/R5 缺口与 QM 真实完整模拟卷。多课程方案继续待确认。下方为历史交接记录。
+
 ## Claude Code：f7c7532e 配置重跑通过，服务已由 Claude Code 重启（2026-11-10）
 
 - 用户授权：以 f7c7532e 的配置新预检并授权一次付费运行。已执行，GenerationGrant `ebacb096…`，context `1fa9138c1f0ffdd7a58f873cff20acd05fbf001692d46c13a6f9a372536165bc`，预检保存在本机 `var/reruns/f7c7532e-v8/preflight.json`。
