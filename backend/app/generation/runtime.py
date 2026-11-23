@@ -12,7 +12,7 @@ from app.materials.models import VisualTranscription
 from app.ai.visual import legacy_to_visual
 from .models import GenerationArtifact, GenerationSnapshot, GenerationGrant
 from .content_schemas import schema_hashes
-from .expressions import CHECKER_CONTRACT
+from app.capabilities.generation import checker_contract
 from .source_policy import SOURCE_POLICY
 from .review_policy import REVIEW_POLICY, PIPELINE_VERSION
 from .originality_policy import POLICY as ORIGINALITY_POLICY
@@ -25,7 +25,7 @@ def verify_context(task):
     context=task.snapshot
     if digest({k:v for k,v in context.items() if k!="context_hash"}) != context["context_hash"]:
         raise DomainError("GENERATION_CONTEXT_HASH_MISMATCH")
-    if context.get("checker_contract") != CHECKER_CONTRACT:
+    if context.get("checker_contract") != checker_contract():
         raise DomainError("GENERATION_CHECKER_CHANGED", "Start a new preflight using the current mathematical checker contract.")
     if context.get("source_policy") != SOURCE_POLICY or context.get("pipeline_version") != PIPELINE_VERSION:
         raise DomainError("GENERATION_SOURCE_POLICY_CHANGED", "Review a new preflight using the current academic and background reference policy.")

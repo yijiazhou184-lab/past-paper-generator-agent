@@ -11,7 +11,7 @@ from app.core.tasks import submit_task
 from .config_compat import COMPARISON_ROLES, mixed_topic_inputs
 from .models import GenerationDraft, GenerationSnapshot, GenerationGrant
 from .snapshots import owned_course, require_confirmation, freeze_generation
-from .expressions import CHECKER_CONTRACT
+from app.capabilities.generation import checker_contract, compose_prompts
 from .source_policy import SOURCE_POLICY
 from .review_policy import REVIEW_POLICY, PIPELINE_VERSION
 from .originality_policy import POLICY as ORIGINALITY_POLICY
@@ -84,7 +84,7 @@ def build_generation_context(snapshot):
     data["history_cutoff"] = history[0]["created_at"] if history else frozen["history_cutoff"]
     data["history_status"] = "Latest 20 saved papers, frozen at preflight; local normalised question and conclusion comparison. Generator receives up to three relevant question excerpts; not teaching evidence."
     context = {"pipeline_version": PIPELINE_VERSION, "review_policy": copy.deepcopy(REVIEW_POLICY), "originality_policy": copy.deepcopy(ORIGINALITY_POLICY), "source_policy": copy.deepcopy(SOURCE_POLICY), "mode": snapshot.mode, "input": data,
-        "checker_contract": copy.deepcopy(CHECKER_CONTRACT),
+        "checker_contract": checker_contract(),
         "model": os.environ.get("OPENAI_MODEL", "gpt-6.1-sol"), "endpoint": "https://api.openai.com/v1/responses",
         "store": False, "max_calls": frozen["generation_limits"]["calls"], "task_seconds": 900,
         "call_seconds": 240, "max_parallel_calls": 2, "max_input_tokens": 60000, "max_output_tokens": 12000,
@@ -92,7 +92,7 @@ def build_generation_context(snapshot):
         "generation_output_tokens": 20000, "generation_call_seconds": 300,
         "repair_rounds": 1, "new_page_images": 0, "sdk_max_retries": 0,
         "count_endpoint": "https://api.openai.com/v1/responses/input_tokens",
-        "prompts": {name: (PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8") for name in PROMPTS}}
+        "prompts": compose_prompts({name: (PROMPT_DIR / f"{name}.md").read_text(encoding="utf-8") for name in PROMPTS})}
     from .content_schemas import schema_hashes
     context["schema_hashes"] = schema_hashes()
     context["context_hash"] = digest(context)

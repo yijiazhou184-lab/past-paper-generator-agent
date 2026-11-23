@@ -2,39 +2,9 @@
 from typing import Literal
 from pydantic import Field
 from .schemas import Strict, ResponseType
+from app.capabilities.symbolic.schemas import Expression, Domain, MathCheckSpec, SymbolicCheck
 
 CheckStatus = Literal["pass", "fail", "not_checked", "inconclusive", "not_applicable"]
-
-
-class Expression(Strict):
-    op: Literal["number", "variable", "add", "sub", "mul", "div", "pow", "sin", "cos", "exp", "log", "sqrt", "abs"]
-    value: str | None
-    args: list["Expression"] = Field(max_length=4)
-
-
-class Domain(Strict):
-    lower: str | None
-    upper: str | None
-    left_open: bool
-    right_open: bool
-
-
-class MathCheckSpec(Strict):
-    id: str = Field(min_length=1, max_length=80)
-    part_id: str
-    kind: Literal["derivative", "equivalence", "value", "limit", "stationary_points", "bounded_optimum", "lhopital"]
-    expression: Expression
-    expected: Expression | None
-    denominator: Expression | None
-    variable: Literal["x", "y", "t", "q"]
-    domain: Domain | None
-    at: str | None
-    direction: Literal["+", "-", "+-"]
-    points: list[str | Expression] = Field(max_length=20)
-    optimum: Literal["min", "max"] | None
-    # core: the part's final answer or a result the part explicitly asks for; auxiliary: supporting evidence.
-    role: Literal["core", "auxiliary"]
-    rationale: str = Field(min_length=1, max_length=2000)
 
 
 class TextBlock(Strict):
@@ -101,7 +71,7 @@ class Answer(Strict):
     acceptable_alternatives: list[str] = Field(max_length=20)
     units: str | None
     precision: str | None
-    checks: list[MathCheckSpec] = Field(max_length=20)
+    checks: list[SymbolicCheck] = Field(max_length=20)
 
 
 class BackgroundReference(Strict):
